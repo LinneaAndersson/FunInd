@@ -12,15 +12,17 @@ tip_file = "tip_file.smt2"
 
 main :: IO()
 main = do
-    (_,Just handle,_,_) <- createProcess(
-       proc "tip-ghc" ["Int.hs"] ){ cwd = Just "../../../../../../../../tools/examples"  } 
-    tip_string <- hGetContents handle 
-    writeFile tip_file tip_string
-    theory_either <- parseFile tip_file
-    case theory_either of 
-        Left x  -> do 
-                    print $ "Failed to create theory: " ++ x
-                            
-        Right theory -> print theory 
+    (_,proc,_,p_id) <-  createProcess( proc "tip-ghc" ["Int.hs"] )
+                { cwd = Just "../../../../../../../../tools/examples"  }
+    waitForProcess p_id
+    case proc of
+		Just handle -> do  
+			tip_string <- hGetContents handle 
+			writeFile tip_file tip_string
+			theory_either <- parseFile tip_file
+			case theory_either of 
+				Left x  -> print $ "Failed to create theory: " ++ x           
+				Right theory -> print theory 
+		Nothing -> print "could not find directory or file"
     return ()
 
