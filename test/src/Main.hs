@@ -13,7 +13,7 @@ tip_file = "tip_file.smt2"
 main :: IO()
 main = do
     (_,proc,_,p_id) <-  createProcess( proc "tip-ghc" ["Int.hs"] )
-                { cwd = Just "../../../../../../../../tools/examples"  }
+                { cwd = Just "../../../../../../../../tools/examples", std_out = CreatePipe  }
     waitForProcess p_id
     case proc of
 		Just handle -> do  
@@ -22,7 +22,7 @@ main = do
 			theory_either <- parseFile tip_file
 			case theory_either of 
 				Left x  -> print $ "Failed to create theory: " ++ x           
-				Right theory -> print theory 
+				Right theory -> print "theory created" 
 		Nothing -> print "could not find directory or file"
     return ()
 
