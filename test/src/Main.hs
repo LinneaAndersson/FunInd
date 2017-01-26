@@ -21,7 +21,7 @@ prop_file = out_path "prop.txt"
 
 example_path :: FilePath
 --example_path = "./examples"
-example_path"../../../../../../examples"
+example_path = "../../../../../../examples"
 
 out_path :: FilePath -> FilePath
 out_path = (++) "./out/"
@@ -78,7 +78,7 @@ readTheory fp = do
       Left x  -> fail $ "Failed to create theory: " ++ x
       Right theory -> return theory
 
-passes :: Theory Id -> Theory Id
+passes :: Theory Id -> [Theory Id]
 passes = freshPass (runPasses [SkolemiseConjecture])
 
 test :: IO()
