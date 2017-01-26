@@ -19,8 +19,8 @@ prop_file :: FilePath
 prop_file = out_path "prop.txt"
 
 example_path :: FilePath
-example_path = "./examples"
---example_path"../../../../../../examples"
+--example_path = "./examples"
+example_path"../../../../../../examples"
 
 out_path :: FilePath -> FilePath
 out_path = (++) "./out/"
