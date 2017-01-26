@@ -7,6 +7,7 @@ import GHC.IO.Handle
 import Tip.Parser
 import Tip.Types
 import Tip.Core (theoryGoals)
+import Tip.Passes
 import System.IO
 
 tip_file :: FilePath
@@ -41,10 +42,11 @@ main = do
             print "tip created!"
             tip_string <- hGetContents handle
             writeFile tip_file tip_string
+
             -- parsing TIP into a theory
             theory <- readTheory tip_file
             print $ "theory created!"
-            writeFile theory_file $ show theory
+            writeFile theory_file $ show $ theory
 
             -- start a external Process for tip-spec, generating conjectures
             -- for the parsed theory
@@ -63,7 +65,7 @@ main = do
                             ++ tip_file ++", "
                             ++ theory_file ++ ", "
                             ++ prop_file
-
+                    test
                 Nothing -> print "Failed to create properties"
         Nothing -> print "could not find directory or file"
     return ()
@@ -76,17 +78,20 @@ readTheory fp = do
       Left x  -> fail $ "Failed to create theory: " ++ x
       Right theory -> return theory
 
+passes :: Theory Id -> Theory Id
+passes = freshPass (runPasses [SkolemiseConjecture])
+
 test :: IO()
 test = do
   theory <- readTheory prop_file
   let (goals, assume) = theoryGoals theory
+  writeFile (out_path "goal1.smt2") $ show $ head goals
   return ()
 
 
-{-
 jukebox :: IO()
 jukebox = do
   (_,proc1,_,p_id) <-  createProcess( proc "jukebox" ["Int.hs"] )
               { cwd = Just example_path, std_out = CreatePipe  }
   waitForProcess p_id
--}
+  return ()
