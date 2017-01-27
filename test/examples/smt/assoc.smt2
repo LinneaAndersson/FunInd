@@ -8,6 +8,8 @@
       (case Z y)
       (case (S a) (S (p a y)))))
 (assert-not
-  :source Int.prop_div_mod
-  (forall ((x Nat) (y Nat)) (= (p x y) (p y x))))
+  :source Int.prop_a_1
+  (forall ((a Nat) (b Nat) (x Nat))
+    (=> (= (p a (p b x)) (p (p a b) x))
+      (= (p (S a) (p b x)) (p (p (S a) b) x)))))
 (check-sat)
