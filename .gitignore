@@ -18,7 +18,6 @@ cabal.sandbox.config
 *.eventlog
 .stack-work/
 cabal.project.local
-*.yaml
-
 Setup.hs
 LICENSE
+out/*
