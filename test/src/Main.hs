@@ -9,6 +9,9 @@ import Tip.Types
 import Tip.Core (theoryGoals)
 import Tip.Passes
 import System.IO
+import System.Environment
+import System.FilePath.Posix
+import Tip.Pretty.TFF
 
 tip_file :: FilePath
 tip_file = out_path "tip_file.smt2"
@@ -19,19 +22,21 @@ theory_file = out_path "theory_file.txt"
 prop_file :: FilePath
 prop_file = out_path "prop.txt"
 
-example_path :: FilePath
-example_path = "./examples"
 
 out_path :: FilePath -> FilePath
 out_path = (++) "./out/"
 
 main :: IO()
 main = do
-
+    
+    -- query for input file
+    (a:args) <- getArgs
+    let (path, file) = splitFileName a
+ 
     -- start a external Process for tip-ghc, translating a haskell file
     -- into smt2 (tip-format).
-    (_,proc1,_,p_id) <-  createProcess( proc "tip-ghc" ["Int.hs"] )
-                { cwd = Just example_path, std_out = CreatePipe  }
+    (_,proc1,_,p_id) <-  createProcess( proc "tip-ghc" [file] )
+                { cwd = Just path, std_out = CreatePipe  }
     waitForProcess p_id
 
     -- check whether tip-ghc finished correctly
@@ -83,14 +88,37 @@ passes = freshPass (runPasses [SkolemiseConjecture])
 test :: IO()
 test = do
   theory <- readTheory prop_file
-  let (goals, assume) = theoryGoals theory
-  writeFile (out_path "goal1.smt2") $ show $ head goals
+  let goal = selectConjecture 0 theory
+  --let goal = axiomatizeFuncdefs theory'
+  let goal' = head $ freshPass (runPasses      
+        [  TypeSkolemConjecture, Monomorphise False
+            , SimplifyGently, LambdaLift, AxiomatizeLambdas, Monomorphise False
+            , SimplifyGently, CollapseEqual, RemoveAliases
+            , SimplifyGently
+            , AxiomatizeFuncdefs2
+            , RemoveMatch -- in case they appear in conjectures
+            , SkolemiseConjecture
+            , NegateConjecture
+        ]) goal
+  let goal'' = ppTheory goal'
+  writeFile (out_path "goal1.smt2") $ show $ goal
+  writeFile (out_path "goal2.smt2") $ show $ goal'
+  writeFile (out_path "goal.smt2") $ show $ goal''
+  jukebox (out_path "goal1.smt2")
   return ()
 
 
-jukebox :: IO()
-jukebox = do
-  (_,proc1,_,p_id) <-  createProcess( proc "jukebox" ["Int.hs"] )
-              { cwd = Just example_path, std_out = CreatePipe  }
+jukebox :: FilePath -> IO()
+jukebox source = do
+  (_,proc1,_,p_id) <-  createProcess( proc jb ["fof",source] )
+              { cwd = Just ".", std_out = CreatePipe  }
   waitForProcess p_id
+  case proc1 of
+    Nothing -> fail $ "could not run jukebox: "
+    Just handle -> do
+        content <- hGetContents handle
+        print $ "jukbox done: " ++ content
   return ()
+    where 
+        jb = ".stack-work/install/x86_64-linux/lts-7.7/8.0.1/bin/jukebox"
+    
