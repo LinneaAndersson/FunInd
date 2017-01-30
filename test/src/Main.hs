@@ -6,12 +6,16 @@ import Data.Either
 import GHC.IO.Handle
 import Tip.Parser
 import Tip.Types
-import Tip.Core (theoryGoals)
+import Tip.Core (theoryGoals, forallView)
 import Tip.Passes
 import System.IO
 import System.Environment
 import System.FilePath.Posix
 import Tip.Pretty.TFF
+import Tip.Scope
+
+
+data Prover = E
 
 tip_file :: FilePath
 tip_file = out_path "tip_file.smt2"
@@ -82,21 +86,67 @@ passes = freshPass (runPasses
           , NegateConjecture
       ])
 -}
-theory_to_fof :: IO()
+theory_to_fof :: IO ()
 theory_to_fof = do
     theory <- readTheory prop_file
     let goal = selectConjecture 0 theory
     let goal' = head $ passes ({-head $ freshPass (induction [0])-} goal)
     let goal'' = ppTheory goal'
+
+
     writeFile (out_path "goal1.smt2") $ show goal
     writeFile (out_path "goal2.smt2") $ show goal'
     writeFile (out_path "goal.smt2") $ show goal''
+
+
+
     str <- jukebox (out_path "goal.smt2")
     writeFile (out_path "goal.fof") $ str
     str2 <- eprover (out_path "goal.fof")
     print str2
     return ()
 
+loop_conj :: Theory Id -> Int -> Int -> Bool -> IO (Theory Id, Bool)
+loop_conj theory curr num continue
+    | curr > num = return (theory, continue)
+    | otherwise  = do
+        mcase (prove E th)
+            (loop_conj (deleteConjecture num theory) curr (num-1) continue)
+            (mcase (loop_ind th nbrVar)
+                (loop_conj (provedConjecture num theory) curr (num-1) True) --proved
+                (loop_conj theory (curr + 1) num continue)) -- not proves
+                where
+                    nbrVar = length . fst . forallView $ fm_body $ head . fst $ theoryGoals theory
+                    th = selectConjecture curr theory
+
+loop_ind :: Theory Id -> Int -> IO Bool
+loop_ind theory 0   = return False
+loop_ind theory num = mcase (proveAll ind_theory)
+                        (return True)
+                        (loop_ind theory (num-1))
+                        where ind_theory = freshPass (induction [num-1]) theory
+
+
+proveAll :: [Theory Id] -> IO Bool
+proveAll []       = return True
+proveAll (th:ths) = mcase (prove E th)
+                        (proveAll ths)
+                        (return False)
+
+
+    --(conj, ass) <- theoryGoals th
+    --length conj
+
+
+mcase :: (Monad m) => m Bool -> m a -> m a -> m a
+mcase mbool t f = do
+    bool <- mbool
+    case bool of
+        True  -> t
+        False -> f
+
+prove :: Prover -> Theory Id -> IO Bool
+prove = undefined
 
 jukebox :: FilePath -> IO String
 jukebox source = run_process jb "." ["fof", source]
@@ -104,7 +154,7 @@ jukebox source = run_process jb "." ["fof", source]
 
 eprover :: FilePath -> IO String
 eprover source = run_process "eprover" "."
-    ["--tstp-in", "--auto", "--silent",  source]
+    ["--tstp-in", "--auto", "--silent", "--soft-cpu-limit=30", source]
 
 -- name -> cwd -> optional args -> output
 run_process :: String -> FilePath -> [String] -> IO String
