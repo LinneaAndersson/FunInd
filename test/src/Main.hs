@@ -1,5 +1,6 @@
 module Main where
 
+import Data.List
 import System.Process
 import Data.Maybe
 import Data.Either
@@ -54,8 +55,15 @@ main = do
             ++ tip_file ++", "
             ++ theory_file ++ ", "
             ++ prop_file
-    theory_to_fof
+
+    -- parsing tip qith quickspec to theory
+    theory_qs <- readTheory prop_file
+
+    -- Induction
+    loop_conj theory_qs 0 (numConj theory_qs) False
+    -- theory_to_fof
     return ()
+        where numConj th = length $ fst $ theoryGoals th
 
 readTheory :: FilePath -> IO (Theory Id)
 readTheory fp = do
@@ -108,15 +116,22 @@ theory_to_fof = do
 
 loop_conj :: Theory Id -> Int -> Int -> Bool -> IO (Theory Id, Bool)
 loop_conj theory curr num continue
-    | curr > num = return (theory, continue)
+    | curr >= num = return (theory, continue)
     | otherwise  = do
         mcase (prove E th)
-            (loop_conj (deleteConjecture num theory) curr (num-1) continue)
+            (do 
+                print $ ":)  -->  " ++ ( show $ fm_attrs ((fst ( theoryGoals theory ) )!!curr) ) 
+                loop_conj (deleteConjecture num theory) curr (num-1) continue)
             (mcase (loop_ind th nbrVar)
-                (loop_conj (provedConjecture num theory) curr (num-1) True) --proved
-                (loop_conj theory (curr + 1) num continue)) -- not proves
+                (do
+                    print $ ":D -->  " ++ ( show $ fm_attrs ((fst ( theoryGoals theory ) )!!curr) )
+                    loop_conj (provedConjecture num theory) curr (num-1) True) --proved
+                (do 
+                    print ":("
+                    loop_conj theory (curr + 1) num continue)) -- not proves
                 where
-                    nbrVar = length . fst . forallView $ fm_body $ head . fst $ theoryGoals theory
+                    vars =  fst . forallView $ fm_body $ head . fst $ theoryGoals theory 
+                    nbrVar = length vars
                     th = selectConjecture curr theory
 
 loop_ind :: Theory Id -> Int -> IO Bool
@@ -146,7 +161,17 @@ mcase mbool t f = do
         False -> f
 
 prove :: Prover -> Theory Id -> IO Bool
-prove = undefined
+prove p th = do
+    let goal' = head $ passes th
+    let goal'' = ppTheory goal'
+
+    writeFile (out_path "goal.smt2") $ show goal''
+
+    str <- jukebox (out_path "goal.smt2")
+    writeFile (out_path "goal.fof") $ str
+    str2 <- eprover (out_path "goal.fof")
+    return (isInfixOf "Proof found" str2)
+
 
 jukebox :: FilePath -> IO String
 jukebox source = run_process jb "." ["fof", source]
@@ -154,7 +179,7 @@ jukebox source = run_process jb "." ["fof", source]
 
 eprover :: FilePath -> IO String
 eprover source = run_process "eprover" "."
-    ["--tstp-in", "--auto", "--silent", "--soft-cpu-limit=30", source]
+    ["--tstp-in", "--auto", "--silent", "--soft-cpu-limit=5", source]
 
 -- name -> cwd -> optional args -> output
 run_process :: String -> FilePath -> [String] -> IO String
