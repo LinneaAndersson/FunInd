@@ -91,13 +91,20 @@ theory_to_fof = do
     writeFile (out_path "goal1.smt2") $ show goal
     writeFile (out_path "goal2.smt2") $ show goal'
     writeFile (out_path "goal.smt2") $ show goal''
-    jukebox (out_path "goal.smt2")
+    str <- jukebox (out_path "goal.smt2")
+    writeFile (out_path "goal.fof") $ str
+    str2 <- eprover (out_path "goal.fof")
+    print str2
     return ()
 
 
 jukebox :: FilePath -> IO String
-jukebox source = fmap ((++) "jukbox done: ") $ run_process jb "." ["fof", source]
+jukebox source = run_process jb "." ["fof", source]
         where jb = ".stack-work/install/x86_64-linux/lts-7.7/8.0.1/bin/jukebox"
+
+eprover :: FilePath -> IO String
+eprover source = run_process "eprover" "."
+    ["--tstp-in", "--auto", "--silent",  source]
 
 -- name -> cwd -> optional args -> output
 run_process :: String -> FilePath -> [String] -> IO String
