@@ -28,9 +28,8 @@ out_path = (++) "./out/"
 
 main :: IO()
 main = do
-    -- query for input file
-    (a:args) <- getArgs
-    let (path, file) = splitFileName a
+    -- query for input
+    (path, file) <- (splitFileName . head) <$> getArgs
 
     -- start a external Process for tip-ghc, translating a haskell file
     -- into smt2 (tip-format).
@@ -51,7 +50,7 @@ main = do
             ++ tip_file ++", "
             ++ theory_file ++ ", "
             ++ prop_file
-    test
+    theory_to_fof
     return ()
 
 readTheory :: FilePath -> IO (Theory Id)
@@ -83,18 +82,17 @@ passes = freshPass (runPasses
           , NegateConjecture
       ])
 -}
-test :: IO()
-test = do
-  theory <- readTheory prop_file
-  let goal = selectConjecture 0 theory
-  --let goal = axiomatizeFuncdefs theory'
-  let goal' = head $ passes ({-head $ freshPass (induction [0])-} goal)
-  let goal'' = ppTheory goal'
-  writeFile (out_path "goal1.smt2") $ show $ goal
-  writeFile (out_path "goal2.smt2") $ show $ goal'
-  writeFile (out_path "goal.smt2") $ show $ goal''
-  jukebox (out_path "goal.smt2")
-  return ()
+theory_to_fof :: IO()
+theory_to_fof = do
+    theory <- readTheory prop_file
+    let goal = selectConjecture 0 theory
+    let goal' = head $ passes ({-head $ freshPass (induction [0])-} goal)
+    let goal'' = ppTheory goal'
+    writeFile (out_path "goal1.smt2") $ show goal
+    writeFile (out_path "goal2.smt2") $ show goal'
+    writeFile (out_path "goal.smt2") $ show goal''
+    jukebox (out_path "goal.smt2")
+    return ()
 
 
 jukebox :: FilePath -> IO String
