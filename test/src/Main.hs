@@ -65,6 +65,7 @@ main = do
     -- parsing tip qith quickspec to theory
     theory_qs <- readTheory prop_file
 
+--    print $ fst $ theoryGoals theory_qs
     -- Induction
     loop_conj theory_qs 0 (numConj theory_qs) False
     -- theory_to_fof
@@ -123,24 +124,35 @@ theory_to_fof = do
 -}
 loop_conj :: Theory Id -> Int -> Int -> Bool -> IO (Theory Id, Bool)
 loop_conj theory curr num continue
-    | curr >= num = return (theory, continue)
+    | curr >= num = do  
+        print $ "curr   " ++ (show curr)
+        print $ "num   " ++ (show num) 
+        case continue of
+            False -> return (theory, continue)
+            True -> loop_conj theory 0 num False
     | otherwise  = do
+        print $ "current:" ++ (show curr)
+        print $ "num:" ++ (show num)
+         
+        let vars =  fst . forallView $ fm_body $ head . fst $ theoryGoals theory
+        let nbrVar = length vars
+        let th = selectConjecture curr theory
         mcase (prove E th)
             (do
                 print $ ":)  -->  " ++ ( show $ fm_attrs ((fst ( theoryGoals theory ) )!!curr) )
-                loop_conj (deleteConjecture num theory) curr (num-1) continue)
+                loop_conj (deleteConjecture curr theory) curr (num-1) continue)
             (mcase (loop_ind th nbrVar)
                 (do
                     print $ ":D -->  " ++ ( show $ fm_attrs ((fst ( theoryGoals theory ) )!!curr) )
-                    loop_conj (provedConjecture num theory) curr (num-1) True) --proved
+                    loop_conj (provedConjecture curr theory) curr (num-1) True) --proved
                 (do
                     print ":("
                     loop_conj theory (curr + 1) num continue)) -- not proves
-                where
+{-                where
                     vars =  fst . forallView $ fm_body $ head . fst $ theoryGoals theory
                     nbrVar = length vars
                     th = selectConjecture curr theory
-
+-}
 loop_ind :: Theory Id -> Int -> IO Bool
 loop_ind theory 0   = return False
 loop_ind theory num = mcase (proveAll ind_theory)
@@ -203,8 +215,9 @@ jukebox source = run_process jb "." ["fof", source]
 jukebox_hs :: String -> IO (Problem Form)
 jukebox_hs problem = do
     problemForm <- parseString problem
-    let p = parser ({-parseProblemBox =>>=-} toFofBox) -- =>>=prettyPrintProblemBox)
-    case (runPar p []) of
+    let pars =  toFofBox 
+    let p = parser pars
+    case (runPar p ["--quiet"]) of
         Right r -> do
             fun <- r
             fun problemForm
