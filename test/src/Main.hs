@@ -1,10 +1,14 @@
 module Main where
 
+import Jukebox.Form
+import Jukebox.Options
+import Jukebox.Toolbox
+import qualified Jukebox.Provers.E as Ep
 import Data.List
 import System.Process
 import Data.Maybe
 import Data.Either
-import GHC.IO.Handle
+--import GHC.IO.Handle
 import Tip.Parser
 import Tip.Types
 import Tip.Core (theoryGoals, forallView)
@@ -38,19 +42,19 @@ main = do
 
     -- start a external Process for tip-ghc, translating a haskell file
     -- into smt2 (tip-format).
-    tip_string <- run_process "tip-ghc" path [file]
+--    run_process "tip-ghc" path tip_file [file]
     print "tip created!"
-    writeFile tip_file tip_string
+    --writeFile tip_file tip_string
 
     -- parsing TIP into a theory
-    theory <- readTheory tip_file
+    --theory <- readTheory tip_file
     print $ "theory created!"
-    writeFile theory_file $ show $ theory
+  --  writeFile theory_file $ show $ theory
 
     -- created conjectures
-    prop_string <- run_process "tip-spec" "." [tip_file]
-    print "properties created!"
-    writeFile prop_file prop_string
+    --run_process "tip-spec" "." prop_file [tip_file]
+    --print "properties created!"
+    --writeFile prop_file prop_string
     print $ "done writing to: "
             ++ tip_file ++", "
             ++ theory_file ++ ", "
@@ -94,6 +98,7 @@ passes = freshPass (runPasses
           , NegateConjecture
       ])
 -}
+{-
 theory_to_fof :: IO ()
 theory_to_fof = do
     theory <- readTheory prop_file
@@ -113,7 +118,7 @@ theory_to_fof = do
     str2 <- eprover (out_path "goal.fof")
     print str2
     return ()
-
+-}
 loop_conj :: Theory Id -> Int -> Int -> Bool -> IO (Theory Id, Bool)
 loop_conj theory curr num continue
     | curr >= num = return (theory, continue)
@@ -167,26 +172,54 @@ prove p th = do
 
     writeFile (out_path "goal.smt2") $ show goal''
 
-    str <- jukebox (out_path "goal.smt2")
-    writeFile (out_path "goal.fof") $ str
-    str2 <- eprover (out_path "goal.fof")
-    return (isInfixOf "Proof found" str2)
+    prob <- jukebox_hs (out_path "goal.smt2")
+    ans <- Ep.runE (Ep.EFlags {Ep.eprover="eprover",Ep.timeout=Just 10,Ep.memory=Nothing}) prob
+    case ans of
+        Right err -> do print "Termer ??"
+                        return False
+        Left ans -> case ans of
+            Satisfiable -> return False
+            Unsatisfiable -> return True
+            NoAnswer reason -> do
+                print $ "Could not find the answer:  " ++ (show reason) 
+                return False
+    --print prob
+    --return False
+    --str <- jukebox (out_path "goal.smt2")
+    --writeFile (out_path "goal.fof") $ str
+    --str2 <- eprover (out_path "goal.fof")
+    --return (isInfixOf "Proof found" str2)
 
-
+{-
 jukebox :: FilePath -> IO String
 jukebox source = run_process jb "." ["fof", source]
         where jb = ".stack-work/install/x86_64-linux/lts-7.7/8.0.1/bin/jukebox"
+-}
 
+jukebox_hs :: FilePath -> IO (Problem Form)
+jukebox_hs file = do 
+    let p = parser (parseProblemBox =>>= toFofBox) -- =>>=prettyPrintProblemBox) 
+    case (runPar p []) of
+        Right r -> do 
+            fun <- r
+            fun file
+        Left err -> fail $ "Error: jukebox kunde inte köras"
+    
+{-
 eprover :: FilePath -> IO String
 eprover source = run_process "eprover" "."
     ["--tstp-in", "--auto", "--silent", "--soft-cpu-limit=5", source]
+-}
 
 -- name -> cwd -> optional args -> output
-run_process :: String -> FilePath -> [String] -> IO String
-run_process name path ops = do
+run_process :: String -> FilePath -> FilePath -> [String] -> IO ()
+run_process name path out_file ops = do
+    file_h <- openFile out_file WriteMode
     (_,proc,_,p_id) <- createProcess( proc name ops )
-        { cwd = Just path, std_out = CreatePipe  }
+        { cwd = Just path, std_out = UseHandle file_h  }
     waitForProcess p_id
-    case proc of
+    hClose file_h
+{-    case proc of
         Nothing     -> fail $ "Error: Could not run '" ++ name ++ "'"
-        Just handle -> hGetContents handle
+        Just handle -> return () 
+-}
