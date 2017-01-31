@@ -1,5 +1,6 @@
 module Main where
 
+import Data.List.Split
 import Jukebox.Form
 import Jukebox.Options
 import Jukebox.Toolbox
@@ -20,7 +21,7 @@ import System.Environment
 import System.FilePath.Posix
 import Tip.Pretty.TFF
 import Tip.Scope
-
+import Tip.Pretty
 
 data Prover = E
 
@@ -44,31 +45,26 @@ main = do
 
     -- start a external Process for tip-ghc, translating a haskell file
     -- into smt2 (tip-format).
---    run_process "tip-ghc" path tip_file [file]
+    tip_string <- run_process "tip-ghc" path [file]
     print "tip created!"
-    --writeFile tip_file tip_string
+    writeFile tip_file tip_string
 
     -- parsing TIP into a theory
-    --theory <- readTheory tip_file
+    theory <- readTheory tip_file
     print $ "theory created!"
-  --  writeFile theory_file $ show $ theory
+    writeFile theory_file $ show $ theory
 
     -- created conjectures
-    --run_process "tip-spec" "." prop_file [tip_file]
-    --print "properties created!"
-    --writeFile prop_file prop_string
-    print $ "done writing to: "
-            ++ tip_file ++", "
-            ++ theory_file ++ ", "
-            ++ prop_file
+    prop_string <- run_process "tip-spec" "." [tip_file]
+    print "properties created!"
+    writeFile prop_file prop_string
 
     -- parsing tip qith quickspec to theory
     theory_qs <- readTheory prop_file
 
---    print $ fst $ theoryGoals theory_qs
     -- Induction
     loop_conj theory_qs 0 (numConj theory_qs) False
-    -- theory_to_fof
+    
     return ()
         where numConj th = length $ fst $ theoryGoals th
 
@@ -80,6 +76,7 @@ readTheory fp = do
       Left x  -> fail $ "Failed to create theory: " ++ x
       Right theory -> return theory
 
+-- The passes needed to convert the theory into tff format (+ skolemiseconjecture) 
 passes :: Theory Id -> [Theory Id]
 passes = freshPass (runPasses
         [ SkolemiseConjecture, TypeSkolemConjecture
@@ -90,69 +87,46 @@ passes = freshPass (runPasses
           , SimplifyGently, LetLift, SimplifyGently, AxiomatizeFuncdefs2
           , SimplifyGently, AxiomatizeDatadecls
         ])
-{-
-      [  TypeSkolemConjecture, Monomorphise False
-          , SimplifyGently, LambdaLift, AxiomatizeLambdas, Monomorphise False
-          , SimplifyGently, CollapseEqual, RemoveAliases
-          , SimplifyGently
-          , AxiomatizeFuncdefs2
-          , RemoveMatch -- in case they appear in conjectures
-          , SkolemiseConjecture
-          , NegateConjecture
-      ])
--}
-{-
-theory_to_fof :: IO ()
-theory_to_fof = do
-    theory <- readTheory prop_file
-    let goal = selectConjecture 0 theory
-    let goal' = head $ passes ({-head $ freshPass (induction [0])-} goal)
-    let goal'' = ppTheory goal'
 
-
-    writeFile (out_path "goal1.smt2") $ show goal
-    writeFile (out_path "goal2.smt2") $ show goal'
-    writeFile (out_path "goal.smt2") $ show goal''
-
-
-
-    str <- jukebox (out_path "goal.smt2")
-    writeFile (out_path "goal.fof") $ str
-    str2 <- eprover (out_path "goal.fof")
-    print str2
-    return ()
--}
+-- Looping through all conjectures and try to prove them
+-- If provable with structural induction, they are put into the theory as proven lemmas
+-- If during one loop none is being proved, do not continue
 loop_conj :: Theory Id -> Int -> Int -> Bool -> IO (Theory Id, Bool)
 loop_conj theory curr num continue
     | curr >= num = do  
-        print $ "curr   " ++ (show curr)
-        print $ "num   " ++ (show num) 
         case continue of
             False -> return (theory, continue)
             True -> loop_conj theory 0 num False
     | otherwise  = do
-        print $ "current:" ++ (show curr)
-        print $ "num:" ++ (show num)
-         
-        let vars =  fst . forallView $ fm_body $ head . fst $ theoryGoals theory
-        let nbrVar = length vars
+        
         let th = selectConjecture curr theory
+        let vars =  fst . forallView $ fm_body $ head . fst $ theoryGoals th
+        let nbrVar = length vars
         mcase (prove E th)
             (do
-                print $ ":)  -->  " ++ ( show $ fm_attrs ((fst ( theoryGoals theory ) )!!curr) )
+                print $ ":)  -->   " ++ ( show $ printConj ( fm_body ((fst ( theoryGoals theory ) )!!curr) ))
                 loop_conj (deleteConjecture curr theory) curr (num-1) continue)
             (mcase (loop_ind th nbrVar)
                 (do
-                    print $ ":D -->  " ++ ( show $ fm_attrs ((fst ( theoryGoals theory ) )!!curr) )
+                    print $ ":D  -->   " ++ ( show $ printConj ( fm_body ((fst ( theoryGoals theory ) )!!curr) ))
                     loop_conj (provedConjecture curr theory) curr (num-1) True) --proved
                 (do
-                    print ":("
+                    print $ ":(  -->    " ++ ( show $ printConj ( fm_body ((fst ( theoryGoals theory ) )!!curr) ))
                     loop_conj theory (curr + 1) num continue)) -- not proves
-{-                where
-                    vars =  fst . forallView $ fm_body $ head . fst $ theoryGoals theory
-                    nbrVar = length vars
-                    th = selectConjecture curr theory
--}
+
+
+printConj :: (Ord a, PrettyVar a) => Expr a -> String
+printConj e =  concatMap repl splitStr
+    where 
+        exp = ppExpr 0 e
+        str = show exp
+        splitStr = last (splitOn "\n" str)
+        repl '\\' = []
+        repl '"' = [] 
+        repl c = [c]       
+
+
+-- Trying to prove a conjecture, looping over all variables in the conjecture
 loop_ind :: Theory Id -> Int -> IO Bool
 loop_ind theory 0   = return False
 loop_ind theory num = mcase (proveAll ind_theory)
@@ -160,18 +134,14 @@ loop_ind theory num = mcase (proveAll ind_theory)
                         (loop_ind theory (num-1))
                         where ind_theory = freshPass (induction [num-1]) theory
 
-
+-- Returns true if all conjectures are provable
 proveAll :: [Theory Id] -> IO Bool
 proveAll []       = return True
 proveAll (th:ths) = mcase (prove E th)
                         (proveAll ths)
                         (return False)
 
-
-    --(conj, ass) <- theoryGoals th
-    --length conj
-
-
+-- case of monadic bool
 mcase :: (Monad m) => m Bool -> m a -> m a -> m a
 mcase mbool t f = do
     bool <- mbool
@@ -179,6 +149,7 @@ mcase mbool t f = do
         True  -> t
         False -> f
 
+-- trying to prove one conjecture, returns true if provable
 prove :: Prover -> Theory Id -> IO Bool
 prove p th = do
     let goal' = head $ passes th
@@ -186,31 +157,18 @@ prove p th = do
 
     --writeFile (out_path "goal.smt2") $ show goal''
 
-    prob <- jukebox_hs $ show goal'' --(out_path "goal.smt2")
+    prob <- jukebox_hs $ show goal'' 
     writeFile (out_path "jb.fof") $ showProblem prob
-    --ans <- Ep.runE (Ep.EFlags {Ep.eprover="eprover",Ep.timeout=Just 10,Ep.memory=Nothing}) prob
     ep <- eprover $ out_path "jb.fof"
     case Ep.extractAnswer prob ep of
-        Right err -> do print "Termer ??"
+        Right err -> do print "Could not extract the answer from the prover"
                         return False
         Left ans -> case ans of
             Satisfiable -> return False
             Unsatisfiable -> return True
             NoAnswer reason -> do
-                print $ "Could not find the answer:  " ++ (show reason)
+                -- print $ "Could not find the answer:  " ++ (show reason)
                 return False
-    --print prob
-    --return False
-    --str <- jukebox (out_path "goal.smt2")
-    --writeFile (out_path "goal.fof") $ str
-    --str2 <- eprover (out_path "goal.fof")
-    --return (isInfixOf "Proof found" str2)
-
-{-
-jukebox :: FilePath -> IO String
-jukebox source = run_process jb "." ["fof", source]
-        where jb = ".stack-work/install/x86_64-linux/lts-7.7/8.0.1/bin/jukebox"
--}
 
 jukebox_hs :: String -> IO (Problem Form)
 jukebox_hs problem = do
@@ -225,23 +183,10 @@ jukebox_hs problem = do
 
 
 eprover :: FilePath -> IO String
-eprover source = run_process2 "eprover" "." ["--tstp-in", "--auto", "--silent", "--soft-cpu-limit=5", source]
+eprover source = run_process "eprover" "." ["--tstp-in", "--auto", "--silent", "--soft-cpu-limit=5", source]
 
--- name -> cwd -> optional args -> output
-run_process :: String -> FilePath -> FilePath -> [String] -> IO ()
-run_process name path out_file ops = do
-    file_h <- openFile out_file WriteMode
-    (_,proc,_,p_id) <- createProcess( proc name ops )
-        { cwd = Just path, std_out = UseHandle file_h  }
-    waitForProcess p_id
-    hClose file_h
-{-    case proc of
-        Nothing     -> fail $ "Error: Could not run '" ++ name ++ "'"
-        Just handle -> return ()
--}
-
-run_process2 :: String -> FilePath  -> [String] -> IO String
-run_process2 name path  ops = do
+run_process :: String -> FilePath  -> [String] -> IO String
+run_process name path  ops = do
     (_,proc,_,p_id) <- createProcess( proc name ops )
         { cwd = Just path, std_out = CreatePipe  }
     waitForProcess p_id
