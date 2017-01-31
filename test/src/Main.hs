@@ -3,6 +3,8 @@ module Main where
 import Jukebox.Form
 import Jukebox.Options
 import Jukebox.Toolbox
+import Jukebox.TPTP.Parse
+import Jukebox.TPTP.Print
 import qualified Jukebox.Provers.E as Ep
 import Data.List
 import System.Process
@@ -124,18 +126,18 @@ loop_conj theory curr num continue
     | curr >= num = return (theory, continue)
     | otherwise  = do
         mcase (prove E th)
-            (do 
-                print $ ":)  -->  " ++ ( show $ fm_attrs ((fst ( theoryGoals theory ) )!!curr) ) 
+            (do
+                print $ ":)  -->  " ++ ( show $ fm_attrs ((fst ( theoryGoals theory ) )!!curr) )
                 loop_conj (deleteConjecture num theory) curr (num-1) continue)
             (mcase (loop_ind th nbrVar)
                 (do
                     print $ ":D -->  " ++ ( show $ fm_attrs ((fst ( theoryGoals theory ) )!!curr) )
                     loop_conj (provedConjecture num theory) curr (num-1) True) --proved
-                (do 
+                (do
                     print ":("
                     loop_conj theory (curr + 1) num continue)) -- not proves
                 where
-                    vars =  fst . forallView $ fm_body $ head . fst $ theoryGoals theory 
+                    vars =  fst . forallView $ fm_body $ head . fst $ theoryGoals theory
                     nbrVar = length vars
                     th = selectConjecture curr theory
 
@@ -170,18 +172,20 @@ prove p th = do
     let goal' = head $ passes th
     let goal'' = ppTheory goal'
 
-    writeFile (out_path "goal.smt2") $ show goal''
+    --writeFile (out_path "goal.smt2") $ show goal''
 
-    prob <- jukebox_hs (out_path "goal.smt2")
-    ans <- Ep.runE (Ep.EFlags {Ep.eprover="eprover",Ep.timeout=Just 10,Ep.memory=Nothing}) prob
-    case ans of
+    prob <- jukebox_hs $ show goal'' --(out_path "goal.smt2")
+    writeFile (out_path "jb.fof") $ showProblem prob
+    --ans <- Ep.runE (Ep.EFlags {Ep.eprover="eprover",Ep.timeout=Just 10,Ep.memory=Nothing}) prob
+    ep <- eprover $ out_path "jb.fof"
+    case Ep.extractAnswer prob ep of
         Right err -> do print "Termer ??"
                         return False
         Left ans -> case ans of
             Satisfiable -> return False
             Unsatisfiable -> return True
             NoAnswer reason -> do
-                print $ "Could not find the answer:  " ++ (show reason) 
+                print $ "Could not find the answer:  " ++ (show reason)
                 return False
     --print prob
     --return False
@@ -196,20 +200,19 @@ jukebox source = run_process jb "." ["fof", source]
         where jb = ".stack-work/install/x86_64-linux/lts-7.7/8.0.1/bin/jukebox"
 -}
 
-jukebox_hs :: FilePath -> IO (Problem Form)
-jukebox_hs file = do 
-    let p = parser (parseProblemBox =>>= toFofBox) -- =>>=prettyPrintProblemBox) 
+jukebox_hs :: String -> IO (Problem Form)
+jukebox_hs problem = do
+    problemForm <- parseString problem
+    let p = parser ({-parseProblemBox =>>=-} toFofBox) -- =>>=prettyPrintProblemBox)
     case (runPar p []) of
-        Right r -> do 
+        Right r -> do
             fun <- r
-            fun file
+            fun problemForm
         Left err -> fail $ "Error: jukebox kunde inte köras"
-    
-{-
+
+
 eprover :: FilePath -> IO String
-eprover source = run_process "eprover" "."
-    ["--tstp-in", "--auto", "--silent", "--soft-cpu-limit=5", source]
--}
+eprover source = run_process2 "eprover" "." ["--tstp-in", "--auto", "--silent", "--soft-cpu-limit=5", source]
 
 -- name -> cwd -> optional args -> output
 run_process :: String -> FilePath -> FilePath -> [String] -> IO ()
@@ -221,5 +224,14 @@ run_process name path out_file ops = do
     hClose file_h
 {-    case proc of
         Nothing     -> fail $ "Error: Could not run '" ++ name ++ "'"
-        Just handle -> return () 
+        Just handle -> return ()
 -}
+
+run_process2 :: String -> FilePath  -> [String] -> IO String
+run_process2 name path  ops = do
+    (_,proc,_,p_id) <- createProcess( proc name ops )
+        { cwd = Just path, std_out = CreatePipe  }
+    waitForProcess p_id
+    case proc of
+        Nothing     -> fail $ "Error: Could not run '" ++ name ++ "'"
+        Just handle -> hGetContents handle
