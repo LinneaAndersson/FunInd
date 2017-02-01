@@ -22,6 +22,7 @@ import System.FilePath.Posix
 import Tip.Pretty.TFF
 import Tip.Scope
 import Tip.Pretty
+import Tip.Lint
 
 data Prover = E
 
@@ -81,13 +82,24 @@ readTheory fp = do
 -- The passes needed to convert the theory into tff format (+ skolemiseconjecture)
 passes :: Theory Id -> [Theory Id]
 passes = freshPass (runPasses
-        [ SkolemiseConjecture, TypeSkolemConjecture
+        [ SkolemiseConjecture
+          , TypeSkolemConjecture
           , Monomorphise False
-          , LambdaLift, AxiomatizeLambdas
-          , SimplifyGently, CollapseEqual, RemoveAliases
-          , SimplifyGently, Monomorphise False, IfToBoolOp, CommuteMatch
-          , SimplifyGently, LetLift, SimplifyGently, AxiomatizeFuncdefs2
-          , SimplifyGently, AxiomatizeDatadecls
+          , LambdaLift
+          , AxiomatizeLambdas
+          , SimplifyGently
+          , CollapseEqual
+          , RemoveAliases
+          , SimplifyGently
+          , Monomorphise False
+          , IfToBoolOp
+          , CommuteMatch
+          , SimplifyGently
+          , LetLift
+          , SimplifyGently
+          , AxiomatizeFuncdefs2
+          , SimplifyGently
+          , AxiomatizeDatadecls
         ])
 
 -- Looping through all conjectures and try to prove them
@@ -111,18 +123,21 @@ loop_conj theory curr num continue
             formula = showFormula (fst ( theoryGoals theory ) !! curr)
         in do
             print "------- Now considering: -------"
-            print formula
+            print $ "| " ++ formula
             mcase (prove E th) -- Test if solvable without induction
                 (do -- Proved without induction
                     print $ ":)  -->   " ++ formula
                     loop_conj (deleteConjecture curr theory) curr (num-1) continue)
-                (mcase (loop_ind th nbrVar) -- Attempt induction
-                    (do -- Proved using induction
-                        print $ ":D  -->   " ++ formula
-                        loop_conj (provedConjecture curr theory) curr (num-1) True)
-                    (do -- Unable to prove with current theory
-                        print $ ":(  -->    " ++ formula
-                        loop_conj theory (curr + 1) num continue))
+                (do
+                    print "| Try with induction"
+                    writeFile (out_path "goal2.smt2") $ show $ ppTheory th
+                    mcase (loop_ind th nbrVar) -- Attempt induction
+                        (do -- Proved using induction
+                            print $ ":D  -->   " ++ formula
+                            loop_conj (provedConjecture curr theory) curr (num-1) True)
+                        (do -- Unable to prove with current theory
+                            print $ ":(  -->    " ++ formula
+                            loop_conj theory (curr + 1) num continue))
 
 -- Stringify the body of a Formula
 -- TODO remove \"
@@ -139,7 +154,8 @@ showFormula fa =  concatMap repl splitStr
 -- Trying to prove a conjecture, looping over all variables in the conjecture
 loop_ind :: Theory Id -> Int -> IO Bool
 loop_ind theory 0   = return False  -- tested all variables, unable to prove
-loop_ind theory num =
+loop_ind theory num = do
+    print $ "Ind on: " ++ show (num - 1)
     mcase (proveAll ind_theory)     -- try induction on one variable
         (return True)               -- proves using induction on 'num'
         (loop_ind theory (num-1))   -- unable to prove, try next variable
@@ -166,9 +182,9 @@ prove p th =
     let goal' = head $ passes th -- prepare conjecture using various passes
         goal'' = ppTheory goal'
     in do
-    --writeFile (out_path "goal.smt2") $ show goal''
+        writeFile (out_path "goal.smt2") $ show $ goal''
+        writeFile (out_path "goal1.smt2") $ show $ ppTheory th
 
-         -- translate tff problem to fof
         prob <- jukebox_hs $ show goal''
         writeFile (out_path "jb.fof") $ showProblem prob
 
