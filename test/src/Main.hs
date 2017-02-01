@@ -107,17 +107,21 @@ loop_conj theory curr num continue
             vars =  fst . forallView $ fm_body $ head . fst $ theoryGoals th
             -- count variables, to be used in induction loop
             nbrVar = length vars
-        in
+
+            formula = showFormula (fst ( theoryGoals theory ) !! curr)
+        in do
+            print "------- Now considering: -------"
+            print formula
             mcase (prove E th) -- Test if solvable without induction
                 (do -- Proved without induction
-                    print $ ":)  -->   " ++  showFormula (fst ( theoryGoals theory ) !! curr)
+                    print $ ":)  -->   " ++ formula
                     loop_conj (deleteConjecture curr theory) curr (num-1) continue)
                 (mcase (loop_ind th nbrVar) -- Attempt induction
                     (do -- Proved using induction
-                        print $ ":D  -->   " ++  showFormula (fst ( theoryGoals theory ) !! curr)
+                        print $ ":D  -->   " ++ formula
                         loop_conj (provedConjecture curr theory) curr (num-1) True)
                     (do -- Unable to prove with current theory
-                        print $ ":(  -->    " ++  showFormula (fst ( theoryGoals theory ) !! curr)
+                        print $ ":(  -->    " ++ formula
                         loop_conj theory (curr + 1) num continue))
 
 -- Stringify the body of a Formula
