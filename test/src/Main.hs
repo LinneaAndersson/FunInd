@@ -82,10 +82,10 @@ readTheory fp = do
 passes :: Theory Id -> [Theory Id]
 passes = freshPass (runPasses
         [ SkolemiseConjecture, TypeSkolemConjecture
-          , Monomorphise False
+          , Monomorphise True
           , LambdaLift, AxiomatizeLambdas
           , SimplifyGently, CollapseEqual, RemoveAliases
-          , SimplifyGently, Monomorphise False, IfToBoolOp, CommuteMatch
+          , SimplifyGently, Monomorphise True, IfToBoolOp, CommuteMatch
           , SimplifyGently, LetLift, SimplifyGently, AxiomatizeFuncdefs2
           , SimplifyGently, AxiomatizeDatadecls
         ])

@@ -4,6 +4,7 @@ import Tip
 
 data Nat = Z | S Nat
 data A = Nat
+
 p :: Nat -> Nat -> Nat
 p Z b = b
 p (S a) b = S (p a b)

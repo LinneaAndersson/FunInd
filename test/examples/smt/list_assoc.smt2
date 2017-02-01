@@ -10,8 +10,6 @@
          (case (cons z xs) (cons z (++ xs y)))))))
 (assert-not
   :source Int.prop_a_1
-  (forall ((a (list Int)) (b (list Int)) (x (list Int)))
-    (=> (= (++ a (++ b x)) (++ (++ a b) x))
-      (forall ((y Int))
-        (= (++ (cons y a) (++ b x)) (++ (++ (cons y a) b) x))))))
+  (forall ((a (list Int)) (b (list Int)) (c (list Int)))
+    (= (++ a (++ b c)) (++ (++ a b) c))))
 (check-sat)
