@@ -51,8 +51,8 @@ main = do
 
     -- parsing TIP into a theory
     theory <- readTheory tip_file
-    print $ "theory created!"
-    writeFile theory_file $ show $ theory
+    print "theory created!"
+    writeFile theory_file $ show theory
 
     -- created conjectures
     prop_string <- run_process "tip-spec" "." [tip_file]
@@ -62,12 +62,14 @@ main = do
     -- parsing tip qith quickspec to theory
     theory_qs <- readTheory prop_file
 
-    -- Induction
+    -- Structural Induction
     loop_conj theory_qs 0 (numConj theory_qs) False
-    
-    return ()
-        where numConj th = length $ fst $ theoryGoals th
 
+    return ()
+        where -- count the number of conjectures in the theory
+            numConj th = length $ fst $ theoryGoals th
+
+-- read a theory from a file with given filepath
 readTheory :: FilePath -> IO (Theory Id)
 readTheory fp = do
   theory_either <- parseFile fp
@@ -76,7 +78,7 @@ readTheory fp = do
       Left x  -> fail $ "Failed to create theory: " ++ x
       Right theory -> return theory
 
--- The passes needed to convert the theory into tff format (+ skolemiseconjecture) 
+-- The passes needed to convert the theory into tff format (+ skolemiseconjecture)
 passes :: Theory Id -> [Theory Id]
 passes = freshPass (runPasses
         [ SkolemiseConjecture, TypeSkolemConjecture
@@ -93,46 +95,52 @@ passes = freshPass (runPasses
 -- If during one loop none is being proved, do not continue
 loop_conj :: Theory Id -> Int -> Int -> Bool -> IO (Theory Id, Bool)
 loop_conj theory curr num continue
-    | curr >= num = do  
-        case continue of
-            False -> return (theory, continue)
-            True -> loop_conj theory 0 num False
-    | otherwise  = do
-        
-        let th = selectConjecture curr theory
-        let vars =  fst . forallView $ fm_body $ head . fst $ theoryGoals th
-        let nbrVar = length vars
-        mcase (prove E th)
-            (do
-                print $ ":)  -->   " ++ ( show $ printConj ( fm_body ((fst ( theoryGoals theory ) )!!curr) ))
-                loop_conj (deleteConjecture curr theory) curr (num-1) continue)
-            (mcase (loop_ind th nbrVar)
-                (do
-                    print $ ":D  -->   " ++ ( show $ printConj ( fm_body ((fst ( theoryGoals theory ) )!!curr) ))
-                    loop_conj (provedConjecture curr theory) curr (num-1) True) --proved
-                (do
-                    print $ ":(  -->    " ++ ( show $ printConj ( fm_body ((fst ( theoryGoals theory ) )!!curr) ))
-                    loop_conj theory (curr + 1) num continue)) -- not proves
+    | curr >= num = -- tested all conjectures
+        if continue -- check whether to loop again
+            then loop_conj theory 0 num False   -- continue
+            else return (theory, continue)      -- done
+    | otherwise  = -- test next conjecture
+        let
+            -- pick a conjecture
+            th = selectConjecture curr theory
+            -- find all variables
+            vars =  fst . forallView $ fm_body $ head . fst $ theoryGoals th
+            -- count variables, to be used in induction loop
+            nbrVar = length vars
+        in
+            mcase (prove E th) -- Test if solvable without induction
+                (do -- Proved without induction
+                    print $ ":)  -->   " ++  showFormula (fst ( theoryGoals theory ) !! curr)
+                    loop_conj (deleteConjecture curr theory) curr (num-1) continue)
+                (mcase (loop_ind th nbrVar) -- Attempt induction
+                    (do -- Proved using induction
+                        print $ ":D  -->   " ++  showFormula (fst ( theoryGoals theory ) !! curr)
+                        loop_conj (provedConjecture curr theory) curr (num-1) True)
+                    (do -- Unable to prove with current theory
+                        print $ ":(  -->    " ++  showFormula (fst ( theoryGoals theory ) !! curr)
+                        loop_conj theory (curr + 1) num continue))
 
-
-printConj :: (Ord a, PrettyVar a) => Expr a -> String
-printConj e =  concatMap repl splitStr
-    where 
-        exp = ppExpr 0 e
-        str = show exp
+-- Stringify the body of a Formula
+-- TODO remove \"
+showFormula :: (Ord a, PrettyVar a) => Formula a -> String
+showFormula fa =  concatMap repl splitStr
+    where
+        str = show $ ppExpr 0 $ fm_body fa
         splitStr = last (splitOn "\n" str)
         repl '\\' = []
-        repl '"' = [] 
-        repl c = [c]       
+        repl '"' = []
+        repl c = [c]
 
 
 -- Trying to prove a conjecture, looping over all variables in the conjecture
 loop_ind :: Theory Id -> Int -> IO Bool
-loop_ind theory 0   = return False
-loop_ind theory num = mcase (proveAll ind_theory)
-                        (return True)
-                        (loop_ind theory (num-1))
-                        where ind_theory = freshPass (induction [num-1]) theory
+loop_ind theory 0   = return False  -- tested all variables, unable to prove
+loop_ind theory num =
+    mcase (proveAll ind_theory)     -- try induction on one variable
+        (return True)               -- proves using induction on 'num'
+        (loop_ind theory (num-1))   -- unable to prove, try next variable
+    where -- prepare theory for induction on variable 'num'
+        ind_theory = freshPass (induction [num-1]) theory
 
 -- Returns true if all conjectures are provable
 proveAll :: [Theory Id] -> IO Bool
@@ -141,50 +149,71 @@ proveAll (th:ths) = mcase (prove E th)
                         (proveAll ths)
                         (return False)
 
--- case of monadic bool
+-- case of for monadic bool
 mcase :: (Monad m) => m Bool -> m a -> m a -> m a
 mcase mbool t f = do
     bool <- mbool
-    case bool of
-        True  -> t
-        False -> f
+    if bool then t else f
 
 -- trying to prove one conjecture, returns true if provable
+-- TODO make 'Prover' dependent
 prove :: Prover -> Theory Id -> IO Bool
-prove p th = do
-    let goal' = head $ passes th
-    let goal'' = ppTheory goal'
-
+prove p th =
+    let goal' = head $ passes th -- prepare conjecture using various passes
+        goal'' = ppTheory goal'
+    in do
     --writeFile (out_path "goal.smt2") $ show goal''
 
-    prob <- jukebox_hs $ show goal'' 
-    writeFile (out_path "jb.fof") $ showProblem prob
-    ep <- eprover $ out_path "jb.fof"
-    case Ep.extractAnswer prob ep of
-        Right err -> do print "Could not extract the answer from the prover"
-                        return False
-        Left ans -> case ans of
-            Satisfiable -> return False
-            Unsatisfiable -> return True
-            NoAnswer reason -> do
-                -- print $ "Could not find the answer:  " ++ (show reason)
-                return False
+         -- translate tff problem to fof
+        prob <- jukebox_hs $ show goal''
+        writeFile (out_path "jb.fof") $ showProblem prob
 
+        -- run prover on the problem
+        ep <- eprover $ out_path "jb.fof"
+
+        -- check result
+        case Ep.extractAnswer prob ep of
+            -- a problem occured
+            Right terms -> do
+                            print "Could not extract the answer from the prover"
+                            return False
+            {-
+                Check the answer. The E prover attempts to prove negations, thus
+                a problem should NOT be 'Satisfiable'.
+            -}
+            Left ans -> case ans of
+                Satisfiable     -> return False
+                Unsatisfiable   -> return True
+                NoAnswer reason ->
+                    -- print $ "Could not find the answer:  " ++ (show reason)
+                    return False
+
+-- Calls Jukebox to turn a tff problem into fof
 jukebox_hs :: String -> IO (Problem Form)
-jukebox_hs problem = do
-    problemForm <- parseString problem
-    let pars =  toFofBox 
-    let p = parser pars
-    case (runPar p ["--quiet"]) of
-        Right r -> do
-            fun <- r
-            fun problemForm
-        Left err -> fail $ "Error: jukebox kunde inte köras"
+jukebox_hs problem =
+    let pars =  toFofBox    -- Box to turn tff to fof
+        p = parser pars     -- grab the parser
+    in do
+        -- parse the problem
+        problemForm <- parseString problem
+        -- run jukebox quietly
+        case runPar p ["--quiet"] of
+            Right mToFof -> do
+                toFof <- mToFof     -- extractin fof-function from monad
+                toFof problemForm   -- translate tff to fof
+
+            -- Somethin unexpected occured
+            -- TODO do omething with error
+            Left err -> fail "Error: jukebox kunde inte köras"
 
 
+-- run eprover on the file given by the filepath
+-- TODO generalise for options
 eprover :: FilePath -> IO String
 eprover source = run_process "eprover" "." ["--tstp-in", "--auto", "--silent", "--soft-cpu-limit=5", source]
 
+-- run a process with name, working dir path, and a list of arguments
+-- return any output generated by the command
 run_process :: String -> FilePath  -> [String] -> IO String
 run_process name path  ops = do
     (_,proc,_,p_id) <- createProcess( proc name ops )
