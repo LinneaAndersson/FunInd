@@ -1,8 +1,12 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Main where
 
+
+import Control.Monad.State
 import Data.List.Split
 import Jukebox.Form
-import Jukebox.Options
+import Jukebox.Options hiding (Flag)
 import Jukebox.Toolbox
 import Jukebox.TPTP.Parse
 import Jukebox.TPTP.Print
@@ -24,7 +28,22 @@ import Tip.Scope
 import Tip.Pretty
 import Tip.Lint
 
-data Prover = E
+type Flag = String
+
+data Prover = P {
+        name  :: FilePath,
+        flags :: [Flag]
+    }
+
+newtype Induction a = Ind (StateT Prover IO a)
+    deriving (Functor, Applicative, Monad, MonadIO)
+
+instance MonadState Prover IO => MonadState Prover (Induction a) where
+    get = lift get
+    put = lift . put
+    state = lift . state
+
+--instance
 
 tip_file :: FilePath
 tip_file = out_path "tip_file.smt2"
@@ -59,11 +78,16 @@ main = do
     theory_qs <- readTheory prop_file
 
     -- Structural Induction
-    loop_conj theory_qs 0 (numConj theory_qs) False
-
+    case induct theory_qs of
+        Ind a -> evalStateT a eprover
     return ()
         where -- count the number of conjectures in the theory
             numConj th = length $ fst $ theoryGoals th
+            eprover :: Prover
+            eprover = P {name = "eprover",
+                         flags = ["--tstp-in", "--auto",
+                                    "--silent", "--soft-cpu-limit=5"]}
+            induct theory = loop_conj theory 0 (numConj theory) False
 
 getInputFile :: IO FilePath
 getInputFile = do
@@ -116,7 +140,7 @@ passes = freshPass (runPasses
 -- Looping through all conjectures and try to prove them
 -- If provable with structural induction, they are put into the theory as proven lemmas
 -- If during one loop none is being proved, do not continue
-loop_conj :: Theory Id -> Int -> Int -> Bool -> IO (Theory Id, Bool)
+loop_conj :: Theory Id -> Int -> Int -> Bool -> Induction (Theory Id, Bool)
 loop_conj theory curr num continue
     | curr >= num = -- tested all conjectures
         if continue -- check whether to loop again
@@ -133,22 +157,22 @@ loop_conj theory curr num continue
 
             formula = showFormula . head . fst $ theoryGoals th
         in do
-            putStrLn ""
-            print "---------- Now considering: ----------"
-            print $ "|       | " ++ formula
-            mcase (prove E th) -- Test if solvable without induction
+            liftIO $  putStrLn ""
+            liftIO $  print "---------- Now considering: ----------"
+            liftIO $  print $ "|       | " ++ formula
+            mcase (prove th) -- Test if solvable without induction
                 (do -- Proved without induction
-                    print "|   :)  | Proved without induction."
+                    liftIO $ print "|   :)  | Proved without induction."
                     loop_conj (deleteConjecture curr theory) curr (num-1) continue)
                 (do
-                    print "|       | Try with induction"
-                    writeFile (out_path "goal2.smt2") $ show $ ppTheory th
+                    liftIO $ print "|       | Try with induction"
+                    liftIO $ writeFile (out_path "goal2.smt2") $ show $ ppTheory th
                     mcase (loop_ind th nbrVar) -- Attempt induction
                         (do -- Proved using induction
-                            print "|   :D  | Proved with induction!  "
+                            liftIO $ print "|   :D  | Proved with induction!  "
                             loop_conj (provedConjecture curr theory) curr (num-1) True)
                         (do -- Unable to prove with current theory
-                            print "|   :(  | Unable to prove with current theory... "
+                            liftIO $ print "|   :(  | Unable to prove with current theory... "
                             loop_conj theory (curr + 1) num continue))
 
 -- Stringify the body of a Formula
@@ -165,12 +189,12 @@ showFormula fa =  concatMap repl splitStr
 
 -- Trying to prove a conjecture, looping over all variables in the conjecture
 -- TODO Reverse variable order in the induction to ascending
-loop_ind :: Theory Id -> Int -> IO Bool
+loop_ind :: Theory Id -> Int -> Induction Bool
 loop_ind theory 0   = return False  -- tested all variables, unable to prove
 loop_ind theory num =
     mcase (proveAll ind_theory)     -- try induction on one variable
         (do
-            print $ "| var " ++ show (num - 1) ++ " | Succeses! "
+            liftIO $ print $ "| var " ++ show (num - 1) ++ " | Succeses! "
             return True)               -- proves using induction on 'num'
         (--do
             --print $ "| var " ++ show (num - 1) ++ " | Failure, try next. "
@@ -179,9 +203,9 @@ loop_ind theory num =
         ind_theory = freshPass (induction [num-1]) theory
 
 -- Returns true if all conjectures are provable
-proveAll :: [Theory Id] -> IO Bool
+proveAll :: [Theory Id] -> Induction Bool
 proveAll []       = return True
-proveAll (th:ths) = mcase (prove E th)
+proveAll (th:ths) = mcase (prove th)
                         (proveAll ths)
                         (return False)
 
@@ -193,25 +217,25 @@ mcase mbool t f = do
 
 -- trying to prove one conjecture, returns true if provable
 -- TODO make 'Prover' dependent
-prove :: Prover -> Theory Id -> IO Bool
-prove p th =
+prove :: Theory Id -> Induction Bool
+prove th =
     let goal' = head $ passes th -- prepare conjecture using various passes
         goal'' = ppTheory goal'
     in do
         -- writeFile (out_path "goal.smt2") $ show $ goal''
         -- writeFile (out_path "goal1.smt2") $ show $ ppTheory th
 
-        prob <- jukebox_hs $ show goal''
-        writeFile (out_path "jb.fof") $ showProblem prob
+        prob <- liftIO $ jukebox_hs $ show goal''
+        liftIO $ writeFile (out_path "jb.fof") $ showProblem prob
 
         -- run prover on the problem
-        ep <- eprover $ out_path "jb.fof"
+        ep <- runProver $ out_path "jb.fof"
 
         -- check result
         case Ep.extractAnswer prob ep of
             -- a problem occured
             Right terms -> do
-                            print "Could not extract the answer from the prover"
+                            liftIO $ print "Could not extract the answer from the prover"
                             return False
             {-
                 Check the answer. The E prover attempts to prove negations, thus
@@ -245,13 +269,15 @@ jukebox_hs problem =
 
 -- run eprover on the file given by the filepath
 -- TODO generalise for options
-eprover :: FilePath -> IO String
-eprover source = run_process "eprover" "." ["--tstp-in", "--auto", "--silent", "--soft-cpu-limit=5", source]
+runProver :: FilePath -> Induction String
+runProver source = liftIO =<< pure run_process <*> (name <$> get) <*> (pure ".") <*> fs
+    where fs = (++ [source]) <$> (flags <$> get) :: Induction [Flag]
+
 
 -- run a process with name, working dir path, and a list of arguments
 -- return any output generated by the command
 run_process :: String -> FilePath  -> [String] -> IO String
-run_process name path  ops = do
+run_process name path ops = do
     (_,proc,_,p_id) <- createProcess( proc name ops )
         { cwd = Just path, std_out = CreatePipe  }
     waitForProcess p_id
