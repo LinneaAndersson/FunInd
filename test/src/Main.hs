@@ -41,21 +41,11 @@ out_path = (++) "./out/"
 
 main :: IO()
 main = do
-    -- query for input
-    (path, file) <- (splitFileName . head) <$> getArgs
 
-    preQS <- case snd $ splitExtension file of
-                ".smt2" -> return $ joinPath [path, file]
-                ".hs"   -> do
-                    -- start a external Process for tip-ghc, translating a haskell file
-                    -- into smt2 (tip-format).
-                    tip_string <- run_process "tip-ghc" path [file]
-                    print "tip created!"
-                    writeFile tip_file tip_string
-                    return tip_file
-                _        -> fail $ "Incompatible file extension"
+    preQS <- getInputFile
 
     -- parsing TIP into a theory
+    -- TODO actually do something with the theory
     theory <- readTheory preQS
     print "theory created!"
     writeFile theory_file $ show theory
@@ -74,6 +64,22 @@ main = do
     return ()
         where -- count the number of conjectures in the theory
             numConj th = length $ fst $ theoryGoals th
+
+getInputFile :: IO FilePath
+getInputFile = do
+    -- query arguments for input file
+    (path, file) <- (splitFileName . head) <$> getArgs
+    case snd $ splitExtension file of
+            ".smt2" -> return $ joinPath [path, file]
+            ".hs"   -> do
+                -- start a external Process for tip-ghc, translating a haskell file
+                -- into smt2 (tip-format).
+                tip_string <- run_process "tip-ghc" path [file]
+                print "tip created!"
+                writeFile tip_file tip_string
+                return tip_file
+            _        -> fail $ "Incompatible file extension"
+
 
 -- read a theory from a file with given filepath
 readTheory :: FilePath -> IO (Theory Id)
