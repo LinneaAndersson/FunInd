@@ -131,24 +131,24 @@ loop_conj theory curr num continue
             -- count variables, to be used in induction loop
             nbrVar = length vars
 
-            formula = showFormula (fst ( theoryGoals theory ) !! curr)
+            formula = showFormula . head . fst $ theoryGoals th
         in do
             putStrLn ""
             print "---------- Now considering: ----------"
-            print $ "|      | " ++ formula
+            print $ "|       | " ++ formula
             mcase (prove E th) -- Test if solvable without induction
                 (do -- Proved without induction
-                    print "|  :)  | Proved without induction."
+                    print "|   :)  | Proved without induction."
                     loop_conj (deleteConjecture curr theory) curr (num-1) continue)
                 (do
-                    print "|      | Try with induction"
+                    print "|       | Try with induction"
                     writeFile (out_path "goal2.smt2") $ show $ ppTheory th
                     mcase (loop_ind th nbrVar) -- Attempt induction
                         (do -- Proved using induction
-                            print "|  :D  | Proved with induction!  "
+                            print "|   :D  | Proved with induction!  "
                             loop_conj (provedConjecture curr theory) curr (num-1) True)
                         (do -- Unable to prove with current theory
-                            print "|  :(  | Unable to prove with current theory... "
+                            print "|   :(  | Unable to prove with current theory... "
                             loop_conj theory (curr + 1) num continue))
 
 -- Stringify the body of a Formula
@@ -164,6 +164,7 @@ showFormula fa =  concatMap repl splitStr
 
 
 -- Trying to prove a conjecture, looping over all variables in the conjecture
+-- TODO Reverse variable order in the induction to ascending
 loop_ind :: Theory Id -> Int -> IO Bool
 loop_ind theory 0   = return False  -- tested all variables, unable to prove
 loop_ind theory num =
