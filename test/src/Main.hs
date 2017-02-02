@@ -78,7 +78,7 @@ getInputFile = do
                 print "tip created!"
                 writeFile tip_file tip_string
                 return tip_file
-            _        -> fail $ "Incompatible file extension"
+            _        -> fail "Incompatible file extension"
 
 
 -- read a theory from a file with given filepath
@@ -138,17 +138,17 @@ loop_conj theory curr num continue
             print $ "|      | " ++ formula
             mcase (prove E th) -- Test if solvable without induction
                 (do -- Proved without induction
-                    print $ "|  :)  | Proved without induction."
+                    print "|  :)  | Proved without induction."
                     loop_conj (deleteConjecture curr theory) curr (num-1) continue)
                 (do
                     print "|      | Try with induction"
                     writeFile (out_path "goal2.smt2") $ show $ ppTheory th
                     mcase (loop_ind th nbrVar) -- Attempt induction
                         (do -- Proved using induction
-                            print $ "|  :D  | Proved with induction!  "
+                            print "|  :D  | Proved with induction!  "
                             loop_conj (provedConjecture curr theory) curr (num-1) True)
                         (do -- Unable to prove with current theory
-                            print $ "|  :(  | Unable to prove with current theory... "
+                            print "|  :(  | Unable to prove with current theory... "
                             loop_conj theory (curr + 1) num continue))
 
 -- Stringify the body of a Formula
@@ -166,12 +166,12 @@ showFormula fa =  concatMap repl splitStr
 -- Trying to prove a conjecture, looping over all variables in the conjecture
 loop_ind :: Theory Id -> Int -> IO Bool
 loop_ind theory 0   = return False  -- tested all variables, unable to prove
-loop_ind theory num = do
+loop_ind theory num =
     mcase (proveAll ind_theory)     -- try induction on one variable
         (do
             print $ "| var " ++ show (num - 1) ++ " | Succeses! "
             return True)               -- proves using induction on 'num'
-        (do
+        (--do
             --print $ "| var " ++ show (num - 1) ++ " | Failure, try next. "
             loop_ind theory (num-1))   -- unable to prove, try next variable
     where -- prepare theory for induction on variable 'num'
