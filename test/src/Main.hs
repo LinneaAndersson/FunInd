@@ -44,19 +44,24 @@ main = do
     -- query for input
     (path, file) <- (splitFileName . head) <$> getArgs
 
-    -- start a external Process for tip-ghc, translating a haskell file
-    -- into smt2 (tip-format).
-    tip_string <- run_process "tip-ghc" path [file]
-    print "tip created!"
-    writeFile tip_file tip_string
+    preQS <- case snd $ splitExtension file of
+                ".smt2" -> return $ joinPath [path, file]
+                ".hs"   -> do
+                    -- start a external Process for tip-ghc, translating a haskell file
+                    -- into smt2 (tip-format).
+                    tip_string <- run_process "tip-ghc" path [file]
+                    print "tip created!"
+                    writeFile tip_file tip_string
+                    return tip_file
+                _        -> fail $ "Incompatible file extension"
 
     -- parsing TIP into a theory
-    theory <- readTheory tip_file
+    theory <- readTheory preQS
     print "theory created!"
     writeFile theory_file $ show theory
 
     -- created conjectures
-    prop_string <- run_process "tip-spec" "." [tip_file]
+    prop_string <- run_process "tip-spec" "." [preQS]
     print "properties created!"
     writeFile prop_file prop_string
 
@@ -122,21 +127,22 @@ loop_conj theory curr num continue
 
             formula = showFormula (fst ( theoryGoals theory ) !! curr)
         in do
-            print "------- Now considering: -------"
-            print $ "| " ++ formula
+            putStrLn ""
+            print "---------- Now considering: ----------"
+            print $ "|      | " ++ formula
             mcase (prove E th) -- Test if solvable without induction
                 (do -- Proved without induction
-                    print $ ":)  -->   " ++ formula
+                    print $ "|  :)  | Proved without induction."
                     loop_conj (deleteConjecture curr theory) curr (num-1) continue)
                 (do
-                    print "| Try with induction"
+                    print "|      | Try with induction"
                     writeFile (out_path "goal2.smt2") $ show $ ppTheory th
                     mcase (loop_ind th nbrVar) -- Attempt induction
                         (do -- Proved using induction
-                            print $ ":D  -->   " ++ formula
+                            print $ "|  :D  | Proved with induction!  "
                             loop_conj (provedConjecture curr theory) curr (num-1) True)
                         (do -- Unable to prove with current theory
-                            print $ ":(  -->    " ++ formula
+                            print $ "|  :(  | Unable to prove with current theory... "
                             loop_conj theory (curr + 1) num continue))
 
 -- Stringify the body of a Formula
@@ -155,10 +161,13 @@ showFormula fa =  concatMap repl splitStr
 loop_ind :: Theory Id -> Int -> IO Bool
 loop_ind theory 0   = return False  -- tested all variables, unable to prove
 loop_ind theory num = do
-    print $ "Ind on: " ++ show (num - 1)
     mcase (proveAll ind_theory)     -- try induction on one variable
-        (return True)               -- proves using induction on 'num'
-        (loop_ind theory (num-1))   -- unable to prove, try next variable
+        (do
+            print $ "| var " ++ show (num - 1) ++ " | Succeses! "
+            return True)               -- proves using induction on 'num'
+        (do
+            --print $ "| var " ++ show (num - 1) ++ " | Failure, try next. "
+            loop_ind theory (num-1))   -- unable to prove, try next variable
     where -- prepare theory for induction on variable 'num'
         ind_theory = freshPass (induction [num-1]) theory
 
@@ -182,8 +191,8 @@ prove p th =
     let goal' = head $ passes th -- prepare conjecture using various passes
         goal'' = ppTheory goal'
     in do
-        writeFile (out_path "goal.smt2") $ show $ goal''
-        writeFile (out_path "goal1.smt2") $ show $ ppTheory th
+        -- writeFile (out_path "goal.smt2") $ show $ goal''
+        -- writeFile (out_path "goal1.smt2") $ show $ ppTheory th
 
         prob <- jukebox_hs $ show goal''
         writeFile (out_path "jb.fof") $ showProblem prob
