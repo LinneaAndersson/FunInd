@@ -213,13 +213,14 @@ prove th =
     in do
         -- writeFile (out_path "goal.smt2") $ show $ goal''
         -- writeFile (out_path "goal1.smt2") $ show $ ppTheory th
-
+        liftIO $ print "ello1"
         prob <- liftIO =<< (prepare <$> get) <*> (pure [show goal''])
         liftIO $ writeFile (out_path "prob.fof") $ prob
 
+        liftIO $ print "ello2"
         -- run prover on the problem
         ep <- runProver $ out_path "prob.fof"
-
+        liftIO $ print "ello3"
         -- check result
         liftIO =<< (parseOut <$> get) <*> (pure [prob, ep])
 
