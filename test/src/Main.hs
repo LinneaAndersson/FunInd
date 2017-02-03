@@ -7,14 +7,7 @@ module Main where
 
 import Control.Monad.State
 import Data.List.Split
-import Jukebox.Form
-import Jukebox.Options hiding (Flag)
-import Jukebox.Toolbox
-import Jukebox.TPTP.Parse
-import Jukebox.TPTP.Print
-import qualified Jukebox.Provers.E as Ep
 import Data.List
-import System.Process
 import Data.Maybe
 import Data.Either
 --import GHC.IO.Handle
@@ -31,6 +24,7 @@ import Tip.Pretty
 import Tip.Lint
 
 import Prover
+import Process
 
 
 -- Monad-transformer for induction
@@ -220,14 +214,14 @@ prove th =
         -- writeFile (out_path "goal.smt2") $ show $ goal''
         -- writeFile (out_path "goal1.smt2") $ show $ ppTheory th
 
-        prob <- prepare <$> 
-        liftIO $ writeFile (out_path "jb.fof") $ showProblem prob
+        prob <- liftIO =<< (prepare <$> get) <*> (pure [show goal''])
+        liftIO $ writeFile (out_path "prob.fof") $ prob
 
         -- run prover on the problem
-        ep <- runProver $ out_path "jb.fof"
+        ep <- runProver $ out_path "prob.fof"
 
         -- check result
-        -- TODO process output
+        liftIO =<< (parseOut <$> get) <*> (pure [prob, ep])
 
 -- run the choosen prover on the file given by the filepath
 runProver :: FilePath -> Induction String
