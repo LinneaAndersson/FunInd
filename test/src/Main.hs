@@ -1,4 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Main where
 
@@ -35,15 +37,14 @@ data Prover = P {
         flags :: [Flag]
     }
 
-newtype Induction a = Ind (StateT Prover IO a)
+newtype InductionT s m a = Ind (StateT s m a)
     deriving (Functor, Applicative, Monad, MonadIO)
 
-instance MonadState Prover IO => MonadState Prover (Induction a) where
-    get = lift get
-    put = lift . put
-    state = lift . state
+--instance MonadState s m => MonadState s (InductionT s m)
 
---instance
+type Induction = InductionT Prover IO
+
+instance MonadState Prover (InductionT Prover IO)
 
 tip_file :: FilePath
 tip_file = out_path "tip_file.smt2"
