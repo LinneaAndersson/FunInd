@@ -29,13 +29,10 @@ import Process
 
 -- Monad-transformer for induction
 newtype InductionT s m a = Ind (StateT s m a)
-    deriving (Functor, Applicative, Monad, MonadIO)
-
---instance MonadState s m => MonadState s (InductionT s m)
+    deriving (Functor, Applicative, Monad, MonadIO, MonadState s)
 
 -- Prover/IO instance
 type Induction = InductionT Prover IO
-instance MonadState Prover (InductionT Prover IO)
 
 tip_file :: FilePath
 tip_file = out_path "tip_file.smt2"
@@ -213,15 +210,17 @@ prove th =
     in do
         -- writeFile (out_path "goal.smt2") $ show $ goal''
         -- writeFile (out_path "goal1.smt2") $ show $ ppTheory th
-        liftIO $ print "ello1"
+
+        -- retrieve the preparation function from the Prover
+        -- and apply it to the goal
         prob <- liftIO =<< (prepare <$> get) <*> (pure [show goal''])
         liftIO $ writeFile (out_path "prob.fof") $ prob
 
-        liftIO $ print "ello2"
         -- run prover on the problem
         ep <- runProver $ out_path "prob.fof"
-        liftIO $ print "ello3"
-        -- check result
+
+        -- check the output from the Prover by using
+        -- the Provers parse function
         liftIO =<< (parseOut <$> get) <*> (pure [prob, ep])
 
 -- run the choosen prover on the file given by the filepath
