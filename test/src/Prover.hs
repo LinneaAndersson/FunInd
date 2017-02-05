@@ -1,23 +1,35 @@
 module Prover where
 
+import Process
+import qualified Jukebox.Provers.E as Ep
+--import Jukebox.TPTP.Parse
+import Jukebox.Form
+import Jukebox.TPTP.Parse
+
+
 type Flag = String
 
 data Prover = P {
         name  :: FilePath,
         flags :: [Flag],
-        prepare :: IO String
+        prepare :: [String] -> IO String,
         parseOut :: [String] -> IO Bool
     }
+
+instance Show Prover where
+    show p = "Prover: " ++ name p ++ ", flags: " ++ (unwords $ flags p)
 
 eprover :: Prover
 eprover = P {name = "eprover",
              flags = ["--tstp-in", "--auto",
                         "--silent", "--soft-cpu-limit=5"],
-             prepare = undefined,
+             prepare = jukebox_hs . head,
              parseOut = pout}
     where
-        pout [prob, ep] =
-            case Ep.extractAnswer prob ep of
+        pout :: [String] -> IO Bool
+        pout [prob, ep] = do
+            prob' <- parseString prob
+            case Ep.extractAnswer prob' ep of
                     -- a problem occured
                     Right terms -> do
                                     print "Could not extract the answer from the prover"
