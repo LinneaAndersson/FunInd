@@ -15,3 +15,7 @@ less p (i:is)
 
 prop_in :: [Integer] -> Integer -> Prop
 prop_in is p = forAll (\xs ->  xs === less p is ==> forAll (\x -> isIn x xs ==> isIn x is))
+
+prop_less :: [Integer] -> Integer -> Prop
+prop_less is p = forAll (\xs ->  xs === less p is ==> forAll (\x -> isIn x xs ==> x < p))
+
