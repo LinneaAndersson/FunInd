@@ -1,5 +1,6 @@
 #!/bin/bash
 
+
 cd examples/hs
 
 mkdir ../smt
@@ -16,8 +17,11 @@ cd ../smt
 for i in *.smt2; do
     echo "  file: $i" 
     file=$(echo $i | cut -f 1 -d '.')
-    str=$(cat "$i" | tip --skolemise-conjecture --tff)
-    echo $str > ../tff/$file.tff
+    #str=$(
+    cat "$i" | tip --skolemise-conjecture --tff > ../tff/$file.tff
+    #)
+
+#    echo $str > ../tff/$file.tff
 done
 
 echo "tff to fof translation"
@@ -26,8 +30,10 @@ cd ../tff
 for i in *.tff; do
     echo "  file: $i" 
     file=$(echo $i | cut -f 1 -d '.')
-    str=$(cat "$i" | .stack-work/install/x86_64-linux/lts-7.7/8.0.1/bin/jukebox fof /dev/stdin 2>/dev/null)
-    echo $str > ../fof/$file.fof
+    #str=$(
+    cat "$i" | ../../.stack-work/install/x86_64-linux/lts-7.7/8.0.1/bin/jukebox fof /dev/stdin 2>/dev/null > ../fof/$file.fof
+    #)
+    #echo $str > ../fof/$file.fof
 done
 
 

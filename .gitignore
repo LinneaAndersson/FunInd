@@ -21,3 +21,6 @@ cabal.project.local
 Setup.hs
 LICENSE
 out/*
+examples/smt/*
+examples/tff/*
+examples/fof/*
