@@ -21,3 +21,4 @@ cabal.project.local
 Setup.hs
 LICENSE
 out/*
+out
