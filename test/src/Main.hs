@@ -23,7 +23,7 @@ import Tip.Scope
 import Tip.Pretty
 import Tip.Lint
 
-import Prover
+import Prover hiding (getAxioms)
 import Process
 
 
@@ -32,7 +32,14 @@ newtype InductionT s m a = Ind (StateT s m a)
     deriving (Functor, Applicative, Monad, MonadIO, MonadState s)
 
 -- Prover/IO instance
-type Induction = InductionT Prover IO
+type Induction = InductionT (Prover,[String]) IO
+
+getProver :: Induction Prover
+getProver = fst <$> get
+
+getAxioms :: Induction [String]
+getAxioms = snd <$> get
+
 
 tip_file :: FilePath
 tip_file = out_path "tip_file.smt2"
@@ -68,7 +75,7 @@ main = do
 
     -- Structural Induction
     case induct theory_qs of
-        Ind a -> evalStateT a eprover
+        Ind a -> evalStateT a (eprover, [])
     return ()
         where -- count the number of conjectures in the theory
             numConj th = length $ fst $ theoryGoals th
@@ -146,8 +153,10 @@ loop_conj theory curr num continue
                         putStrLn ""
                         print "---------- Now considering: ----------"
                         print $ "|       | " ++ formula
+            modify (\(p, _) -> (p, []))
             mcase (prove th) -- Test if solvable without induction
                 (do -- Proved without induction
+                    liftIO . putStrLn . unlines . nub  =<< getAxioms
                     liftIO $ print "|   :)  | Proved without induction."
                     loop_conj (deleteConjecture curr theory) curr (num-1) continue)
                 (do
@@ -155,7 +164,8 @@ loop_conj theory curr num continue
                                 writeFile (out_path "goal2.smt2") $ show $ ppTheory th
                     mcase (loop_ind th nbrVar) -- Attempt induction
                         (do -- Proved using induction
-                            liftIO $ print "|   :D  | Proved with induction!  "
+                            liftIO . putStrLn . unlines . nub  =<< getAxioms
+                            liftIO $ putStrLn "|   :D  | Proved with induction!  "
                             loop_conj (provedConjecture curr theory) curr (num-1) True)
                         (do -- Unable to prove with current theory
                             liftIO $ print "|   :(  | Unable to prove with current theory... "
@@ -213,7 +223,7 @@ prove th =
 
         -- retrieve the preparation function from the Prover
         -- and apply it to the goal
-        prob <- liftIO =<< (prepare <$> get) <*> (pure [show goal''])
+        prob <- liftIO =<< (prepare <$> getProver) <*> (pure [show goal''])
         liftIO $ writeFile (out_path "prob.fof") $ prob
 
         -- run prover on the problem
@@ -221,9 +231,13 @@ prove th =
 
         -- check the output from the Prover by using
         -- the Provers parse function
-        liftIO =<< (parseOut <$> get) <*> (pure [prob, ep])
+        (b, ax) <- liftIO =<< (parseOut <$> getProver) <*> (pure [prob, ep])
+        when (b) $ modify (\(p, xs) -> (p, xs ++ ax))
+        return b
+
+
 
 -- run the choosen prover on the file given by the filepath
 runProver :: FilePath -> Induction String
-runProver source = liftIO =<< run_process <$> (name <$> get) <*> (pure ".") <*> fs
-    where fs = (++ [source]) <$> (flags <$> get) :: Induction [Flag]
+runProver source = liftIO =<< run_process <$> (name <$> getProver) <*> (pure ".") <*> fs
+    where fs = (++ [source]) <$> (flags <$> getProver) :: Induction [Flag]
