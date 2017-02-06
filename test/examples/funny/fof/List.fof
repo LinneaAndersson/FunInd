@@ -1,0 +1,131 @@
+
+
+% -------------------------------------------------------------------------------
+% List 
+
+% -------------------------------------------------------------------------------
+% type definitions
+
+fof(nil, axiom,
+  is_list(nil)
+).
+
+fof(cons, axiom,
+  ![XS,X] : is_list(cons(X,XS))
+).
+
+fof(nilNotCons, axiom,
+    ![XS, X]: ~nil=cons(X, XS)
+).
+
+fof(list, axiom,
+    ![XS]: (XS=nil | XS=cons(head(XS), tail(XS)))
+).
+
+fof(head, axiom,
+  ![XS] : 'is_$int'(head(XS))
+).
+
+fof(tail, axiom,
+  ![XS] : is_list(tail(XS))
+).
+
+fof(headF, axiom,
+    ![XS, X]: (head(cons(X, XS))=X)
+).
+
+fof(tailF, axiom,
+    ![X, XS]: (tail(cons(X, XS))=XS)
+).
+
+
+% ------------------------------------------------------------------------------
+% function definitions
+
+fof(concat, axiom,
+  ![XS,YS] : is_list(z(XS,YS))
+).
+
+fof(concatNil, axiom, 
+    ![YS]: z(nil, YS)=YS
+).
+
+fof(concatCons, axiom,
+    ![YS, Z, XS]: z(cons(Z, XS), YS)=cons(Z, z(XS, YS))
+).
+
+fof(rev,axiom,
+    ![XS,YS] : is_list(rev(XS,YS))
+).
+
+fof(revNil, axiom,
+    ![YS]: rev(nil, YS)=YS
+).
+
+fof(revCons, axiom,
+    ![YS, Z, XS]: rev(cons(Z, XS),YS)=rev(XS,cons(Z, YS))
+).
+
+
+
+% ------------------------------------------------------------------------------
+% definition of p - for clarity
+
+% here is the "funnified" version of it:
+
+fof(def_p, axiom,
+  ![XS,YS] : (p(XS,YS) <=> (![ZS] : z(XS,z(ZS,YS)) = z(z(XS,ZS),YS)))
+).
+
+fof(def_p1, axiom,
+  ![XS] : (p1(XS) <=> (![YS] : rev(rev(XS,nil),nil) = XS))
+).
+
+fof(ax_help, axiom,
+  ![XS,YS] : rev(rev(XS,YS),nil) = rev(YS,XS)
+).
+
+
+
+
+
+% in a real application, we can do without this definition, and just inline p(X,Y), but here we don't do so for clarity reasons
+
+% ------------------------------------------------------------------------------
+% Variables 
+
+               %fof(types6, axiom, is_list(a)).
+               %fof(types7, axiom, is_list(b)).
+%               fof(types8, axiom, is_list(c)).
+               %fof(types9, axiom, ?[X]: 'is_$int'(X)).
+               %fof(types10, axiom, ?[X]: is_list(X)).
+
+% ------------------------------------------------------------------------------
+% funny induction
+
+% we are proving p
+
+% hypothesis:
+
+% ------------- Associativity
+%fof(hypo1, hypothesis,
+%  a = cons(head(a),tail(a)) => p(tail(a),b)
+%).
+
+%-------------- RevRev
+fof(hypo1, hypothesis,
+  a = cons(head(a),tail(a)) => p1(tail(a))
+).
+
+% conjecture:
+
+% ------------- Associativity
+%fof(goal, conjecture,
+%  p(a,b)
+%).
+
+%-------------- RevRev
+fof(goal, conjecture,
+    p1(a)
+).
+

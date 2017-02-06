@@ -44,3 +44,7 @@ eprover = P {name = "eprover",
                         NoAnswer reason ->
                             -- print $ "Could not find the answer:  " ++ (show reason)
                             return False
+
+
+output :: String -> [String] 
+output ep = undefined
