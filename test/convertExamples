@@ -2,6 +2,7 @@
 
 cd examples/hs
 
+mkdir ../smt
 echo "hs to smt2 translation"
 for i in *.hs; do
     echo "  file: $i" 
@@ -10,6 +11,7 @@ for i in *.hs; do
 done
 
 echo "smt2 to tff translation"
+mkdir ../tff
 cd ../smt
 for i in *.smt2; do
     echo "  file: $i" 
@@ -19,6 +21,7 @@ for i in *.smt2; do
 done
 
 echo "tff to fof translation"
+mkdir ../fof
 cd ../tff
 for i in *.tff; do
     echo "  file: $i" 
