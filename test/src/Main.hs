@@ -139,7 +139,7 @@ loop_conj theory curr num continue
             modify (\(p, _) -> (p, []))
             mcase (prove th) -- Test if solvable without induction
                 (do -- Proved without induction
-                    liftIO . putStrLn . unlines . nub  =<< getAxioms
+                    printAxioms
                     liftIO $ print "|   :)  | Proved without induction."
                     loop_conj (deleteConjecture curr theory) curr (num-1) continue)
                 (do
@@ -147,7 +147,7 @@ loop_conj theory curr num continue
                                 writeFile (out_path "goal2.smt2") $ show $ ppTheory th
                     mcase (loop_ind th nbrVar) -- Attempt induction
                         (do -- Proved using induction
-                            liftIO . putStrLn . unlines . nub  =<< getAxioms
+                            printAxioms
                             liftIO $ putStrLn "|   :D  | Proved with induction!  "
                             loop_conj (provedConjecture curr theory) curr (num-1) True)
                         (do -- Unable to prove with current theory

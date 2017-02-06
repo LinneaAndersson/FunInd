@@ -5,7 +5,9 @@
 module Induction where
 
 import Control.Monad.State
+import Data.List
 import Prover hiding (getAxioms)
+import Text.Regex
 
 
 -- Monad-transformer for induction
@@ -21,3 +23,12 @@ getProver = fst <$> get
 getAxioms :: Induction [String]
 getAxioms = snd <$> get
 
+printAxioms :: Induction ()
+printAxioms = liftIO . putStrLn . unlines . nub =<< axioms  
+  where
+    axioms = return . map makeHandsome =<< getAxioms
+
+
+makeHandsome :: String -> String
+makeHandsome s = sp !! (length sp - 2)
+    where sp = splitRegex (mkRegex ":") s
