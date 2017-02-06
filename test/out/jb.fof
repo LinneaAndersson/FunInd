@@ -1,0 +1,17 @@
+fof(axiom, axiom, ![X]: (X=z | X=s(proj1S(X)))).
+fof(axiom, axiom, ![X]: proj1S(s(X))=X).
+fof(axiom, axiom, ![X]: z!=s(X)).
+fof(axiom, axiom, ![Y]: p(z, Y)=Y).
+fof(axiom, axiom, ![Y, A]: p(s(A), Y)=s(p(A, Y))).
+fof(goal, conjecture,
+    (z!=p(x, p(x, y)) & z!=p(x, y)) | (z=p(x, p(x, y)) & z=p(x, y))).
+fof(axiom, axiom, ![B, C, C2]: p(B, p(C2, C))=p(p(B, C2), C)).
+fof(axiom, axiom, ![X]: p(X, z)=X).
+fof(axiom, axiom, ![X, Y]: p(s(X), Y)=p(X, s(Y))).
+fof(axiom, axiom, ![Y, Y2]: p(s(Y), Y2)=p(Y2, s(Y))).
+fof(axiom, axiom,
+    ![Y, Y2]: ((Y2!=p(Y, Y2) | Y=z) & (Y2=p(Y, Y2) | Y!=z))).
+fof(axiom, axiom,
+    ![X, Y, Z]: ((p(Y, X)!=p(Z, X) | Y=Z) & (p(Y, X)=p(Z, X) | Y!=Z))).
+fof(axiom, axiom,
+    ![Y, Z]: ((p(Z, Z)!=p(Y, Y) | Z=Y) & (p(Z, Z)=p(Y, Y) | Z!=Y))).
