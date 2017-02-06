@@ -1,9 +1,5 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
 
 module Main where
-
 
 import Control.Monad.State
 import Data.List.Split
@@ -22,23 +18,10 @@ import Tip.Pretty.TFF
 import Tip.Scope
 import Tip.Pretty
 import Tip.Lint
+import Induction
 
 import Prover hiding (getAxioms)
 import Process
-
-
--- Monad-transformer for induction
-newtype InductionT s m a = Ind (StateT s m a)
-    deriving (Functor, Applicative, Monad, MonadIO, MonadState s)
-
--- Prover/IO instance
-type Induction = InductionT (Prover,[String]) IO
-
-getProver :: Induction Prover
-getProver = fst <$> get
-
-getAxioms :: Induction [String]
-getAxioms = snd <$> get
 
 
 tip_file :: FilePath
