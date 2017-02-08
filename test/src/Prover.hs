@@ -1,11 +1,12 @@
 module Prover where
 
-import Process
+import Data.List
 import qualified Jukebox.Provers.E as Ep
 --import Jukebox.TPTP.Parse
 import Jukebox.Form
 import Jukebox.TPTP.Parse
-import Data.List
+import Process
+import Text.Regex
 
 type Flag = String
 
@@ -21,7 +22,7 @@ instance Show Prover where
 
 eprover :: Prover
 eprover = P {name = "eproof",
-             flags = ["--tstp-in", "--auto",
+             flags = ["--tstp-in", "--auto", "--full-deriv",
                         "--soft-cpu-limit=5"],
              prepare = jukebox_hs . head,
              parseOut = pout}
@@ -29,6 +30,7 @@ eprover = P {name = "eproof",
         pout :: [String] -> IO (Bool,[String])
         pout [prob, ep] = do
             prob' <- parseString prob
+            --putStrLn ep
             case Ep.extractAnswer prob' ep of
                     -- a problem occured
                     Right terms -> do
@@ -55,7 +57,8 @@ output ep = getAxioms $ lines ep
 getAxioms :: [String] -> [String]
 getAxioms [] = []
 getAxioms (x:xs) 
-    | isInfixOf "axiom" x = x : (getAxioms xs)
+    | isInfixOf "lemma" x = filter ((/=' ')) (sDone (sp x)) : (getAxioms xs)
     | otherwise = getAxioms xs 
-                
-
+    where 
+        sp s = (splitRegex (mkRegex ",") s) 
+        sDone s = init (s !! (length s - 1))

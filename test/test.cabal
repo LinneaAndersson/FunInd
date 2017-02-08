@@ -17,5 +17,5 @@ executable test
   hs-source-dirs:      src
   main-is:             Main.hs
   default-language:    Haskell2010
-  build-depends:       base >= 4 && < 5, tip-lib,tip-types,process, filepath, jukebox, strict, split, mtl, regex-compat
-  other-modules:       Prover, Process, Induction
+  build-depends:       base >= 4 && < 5, tip-lib,tip-types,process, filepath, jukebox, strict, split, mtl, regex-compat, pretty
+  other-modules:       Prover, Process, Induction, Tip.Mod
