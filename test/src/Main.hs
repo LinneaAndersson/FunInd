@@ -7,6 +7,8 @@ import Data.List
 import Data.Maybe
 import Data.Either
 --import GHC.IO.Handle
+import Utils
+import Tip.Formula
 import Tip.Parser
 import Tip.Types
 import Tip.Core (theoryGoals, forallView)
@@ -21,30 +23,17 @@ import Tip.Mod
 import Tip.Pretty.TFF
 import Tip.Scope
 import Tip.Pretty
-import Tip.Pretty.Haskell as HS
 import Tip.Lint
 import Induction
+import Constants
+
 
 import Prover hiding (getAxioms)
 import Process
 
-
-tip_file :: FilePath
-tip_file = out_path "tip_file.smt2"
-
-theory_file :: FilePath
-theory_file = out_path "theory_file.txt"
-
-prop_file :: FilePath
-prop_file = out_path "prop.txt"
-
-
-out_path :: FilePath -> FilePath
-out_path = (++) "./out/"
-
 main :: IO()
 main = do
-    
+
     preQS <- getInputFile
 
     -- created conjectures
@@ -56,14 +45,16 @@ main = do
 
     putStrLn ""
     putStrLn "---------- Now considering: ----------"
+    
     -- Structural Induction
     case induct $ renameLemmas theory_qs of
-        Ind a -> do 
-                    ((th_done,_),(_,_,ls)) <- runStateT a (eprover, [],[])
-                    printResult ls th_done 
+        Induct a -> do 
+                    ((th_done,_), state) <- runStateT a initState
+                    printResult (lemmas state) th_done 
         where -- count the number of conjectures in the theory
             numConj th = length $ fst $ theoryGoals th
             induct theory = loop_conj theory 0 (numConj theory) False
+            initState = IndState eprover [] Nothing []
 
 getInputFile :: IO FilePath
 getInputFile = do
@@ -80,37 +71,6 @@ getInputFile = do
             _        -> fail "Incompatible file extension"
 
 
--- read a theory from a file with given filepath
-readTheory :: FilePath -> IO (Theory Id)
-readTheory fp = do
-  theory_either <- parseFile fp
-  -- check whether the parsing succeded
-  case theory_either of
-      Left x  -> fail $ "Failed to create theory: " ++ x
-      Right theory -> return theory
-
--- The passes needed to convert the theory into tff format (+ skolemiseconjecture)
-passes :: Theory Id -> [Theory Id]
-passes = freshPass (runPasses
-        [ SkolemiseConjecture
-          , TypeSkolemConjecture
-          , Monomorphise False
-          , LambdaLift
-          , AxiomatizeLambdas
-          , SimplifyGently
-          , CollapseEqual
-          , RemoveAliases
-          , SimplifyGently
-          , Monomorphise False
-          , IfToBoolOp
-          , CommuteMatch
-          , SimplifyGently
-          , LetLift
-          , SimplifyGently
-          , AxiomatizeFuncdefs2
-          , SimplifyGently
-          , AxiomatizeDatadecls
-        ])
 
 -- Looping through all conjectures and try to prove them
 -- If provable with structural induction, they are put into the theory as proven lemmas
@@ -135,26 +95,17 @@ loop_conj theory curr num continue
             formulaPrint = showFormula formula
         in do
             liftIO $ putStrLn $ "|       | " ++ formulaPrint 
-            modify (\(p, _, ys) -> (p, [], ys))
+            modify (\s -> s{axioms = []})
             mcase (prove th) -- Test if solvable without induction
                 (do -- Proved without induction
-                    addLemma f_name False
+                    addLemma f_name
                     loop_conj (provedConjecture curr theory) curr (num-1) continue)
                 (mcase (loop_ind th 0 nbrVar) -- Attempt induction
                         (do -- Proved using induction
-                            addLemma f_name True
+                            addLemma f_name
                             loop_conj (provedConjecture curr theory) curr (num-1) True)
                         (loop_conj theory (curr + 1) num continue)) -- Unable to prove with current theory 
 
--- Stringify the body of a Formula
-showFormula :: (Ord a, PrettyVar a) => Formula a -> String
-showFormula fa =  concatMap repl splitStr
-    where
-        str = show $ ppExpr 0 $ fm_body fa
-        splitStr = last (splitOn "\n" str)
-        repl '\\' = []
-        repl '"' = []
-        repl c = [c]
 
 
 -- Trying to prove a conjecture, looping over all variables in the conjecture
@@ -163,7 +114,9 @@ loop_ind theory num tot
     | num >= tot = return False -- tested all variables, unable to prove
     | otherwise =              
         mcase (proveAll ind_theory)     -- try induction on one variable
-            (return True)               -- proves using induction on 'num'
+            (do
+                modify (\s -> s{ind = Just num}) -- add variable used
+                return True)                -- proves using induction on 'num'
             (loop_ind theory (num+1) tot)   -- unable to prove, try next variable
     where -- prepare theory for induction on variable 'num'
         ind_theory = freshPass (induction [num]) theory
@@ -175,11 +128,6 @@ proveAll (th:ths) = mcase (prove th)
                         (proveAll ths)
                         (return False)
 
--- case of for monadic bool
-mcase :: (Monad m) => m Bool -> m a -> m a -> m a
-mcase mbool t f = do
-    bool <- mbool
-    if bool then t else f
 
 -- trying to prove one conjecture, returns true if provable
 prove :: Theory Id -> Induction Bool
@@ -200,57 +148,13 @@ prove th =
         -- check the output from the Prover by using
         -- the Provers parse function
         (b, ax) <- liftIO =<< (parseOut <$> getProver) <*> (pure [prob, ep])
-        when (b) $ modify (\(p, xs, ys) -> (p, xs ++ ax, ys))
+        when (b) $ modify (\s -> s{axioms = (axioms s) ++ ax})
         return b
 
 
 
--- run the choosen prover on the file given by the filepath
-runProver :: FilePath -> Induction String
-runProver source = liftIO =<< run_process <$> (name <$> getProver) <*> (pure ".") <*> fs
-    where fs = (++ [source]) <$> (flags <$> getProver) :: Induction [Flag]
 
 
-printResult :: [Lemma] -> Theory Id -> IO ()
-printResult ls th = 
-    do 
-        let (notInd, ind) = partition (not . snd . snd) $ reverse ls
-        putStrLn "\n-------------------------------------------------"
-        putStrLn "Summary:"
-        putStrLn ""
-        putStrLn "Proved without induction"
-        mapM_ putLemma notInd
-        putStrLn ""
-        putStrLn "Proved with induction"
-        mapM_ putLemma ind
-    where putLemma f@(name, (aux, _)) = do
-            let thy_f = thy_asserts th
-            let formula = lookupFormula name thy_f
-            let str = subRegex (mkRegex "Tip\\.") (getFormula $ formula) ""
-            let splitStr = dropWhile ((/=) '=') str
-            let up = getUserProperty formula
-            putStrLn $ (if isNothing up then name else fromJust up ) ++  " " ++ splitStr
-            case aux of
-                [] -> return ()
-                ax -> mapM_ (\a -> putStrLn $ " | " ++ a) $ nub $ filter ((/=) name) ax
-
-
-lookupFormula :: String -> [Formula Id] -> Maybe (Formula Id)
-lookupFormula s [] = Nothing
-lookupFormula s (f:fs) 
-    | join (lookup "name" (fm_attrs f)) == Just s = Just f
-    | otherwise = lookupFormula s fs
-
-getFormula :: Maybe (Formula Id) -> String
-getFormula Nothing = "Formula not found"
-getFormula (Just f) = show $ pp . trTheory HS.Plain $ Theory [] [] [] [] [f] 
-
-getUserProperty :: Maybe (Formula Id) -> Maybe String
-getUserProperty Nothing = Nothing
-getUserProperty (Just f) = join $ lookup "source" (fm_attrs f) 
-
-getAssertion :: Formula Id -> Maybe String
-getAssertion f = join $ lookup "name" (fm_attrs f)
 
 
 

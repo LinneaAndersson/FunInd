@@ -62,3 +62,4 @@ getAxioms (x:xs)
     where 
         sp s = (splitRegex (mkRegex ",") s) 
         sDone s = init (s !! (length s - 1))
+
