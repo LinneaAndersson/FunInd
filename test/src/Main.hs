@@ -7,6 +7,7 @@ import Data.List
 import Data.Maybe
 import Data.Either
 --import GHC.IO.Handle
+import Parser.Params
 import Utils
 import Tip.Formula
 import Tip.Parser
@@ -34,7 +35,8 @@ import Process
 main :: IO()
 main = do
 
-    preQS <- getInputFile
+    params <- parseParams
+    preQS <- checkInputFile (inputFile params)
 
     -- created conjectures
     prop_string <- run_process "tip-spec" "." [preQS]
@@ -43,32 +45,28 @@ main = do
     -- parsing tip qith quickspec to theory
     theory_qs <- readTheory prop_file
 
-    putStrLn ""
-    putStrLn "---------- Now considering: ----------"
+    --printStr ""
+    --printStr "---------- Now considering: ----------"
     
     -- Structural Induction
-    case induct $ renameLemmas theory_qs of
-        Induct a -> do 
-                    ((th_done,_), state) <- runStateT a initState
-                    printResult (lemmas state) th_done 
+    case (induct (renameLemmas theory_qs) >>= (\(th, b) -> printResult th)) of
+        Induct a -> runStateT a $ initState params
+    return ()
         where -- count the number of conjectures in the theory
             numConj th = length $ fst $ theoryGoals th
             induct theory = loop_conj theory 0 (numConj theory) False
-            initState = IndState eprover [] Nothing []
+            initState par = IndState par eprover [] Nothing []
 
-getInputFile :: IO FilePath
-getInputFile = do
-    -- query arguments for input file
-    (path, file) <- (splitFileName . head) <$> getArgs
-    case snd $ splitExtension file of
-            ".smt2" -> return $ joinPath [path, file]
-            ".hs"   -> do
+checkInputFile :: InputFile -> IO FilePath
+checkInputFile (HS f)      = do
                 -- start a external Process for tip-ghc, translating a haskell file
                 -- into smt2 (tip-format).
+                let (path, file) = splitFileName f
                 tip_string <- run_process "tip-ghc" path [file]
                 writeFile tip_file tip_string
                 return tip_file
-            _        -> fail "Incompatible file extension"
+checkInputFile (SMT f)      = return f
+checkInputFile Unrecognized = fail "Incompatible file extension"
 
 
 
@@ -94,8 +92,8 @@ loop_conj theory curr num continue
             f_name = fromMaybe "no name"  $ join $ lookup "name" (fm_attrs formula) 
             formulaPrint = showFormula formula
         in do
-            liftIO $ putStrLn $ "|       | " ++ formulaPrint 
-            modify (\s -> s{axioms = []})
+            printStr 3 $ "|       | " ++ formulaPrint 
+            modify (\s -> s{axioms = [], ind=Nothing})
             mcase (prove th) -- Test if solvable without induction
                 (do -- Proved without induction
                     addLemma f_name

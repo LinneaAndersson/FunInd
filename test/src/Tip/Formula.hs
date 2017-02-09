@@ -4,6 +4,7 @@ import Control.Monad
 import Data.Maybe
 import Data.List
 import Data.List.Split
+import Text.Regex
 import Tip.Haskell.Translate
 import Tip.Types
 import Tip.Pretty
@@ -19,7 +20,8 @@ lookupFormula s (f:fs)
 
 getFormula :: Maybe (Formula Id) -> String
 getFormula Nothing = "Formula not found"
-getFormula (Just f) = show $ pp . trTheory HS.Plain $ Theory [] [] [] [] [f] 
+getFormula (Just f) = drop 1 $ dropWhile ((/=) '=')  $ subRegex (mkRegex "Tip\\.") formula ""
+    where formula = show $ pp . trTheory HS.Plain $ Theory [] [] [] [] [f] 
 
 getUserProperty :: Maybe (Formula Id) -> Maybe String
 getUserProperty Nothing = Nothing

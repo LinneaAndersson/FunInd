@@ -14,6 +14,8 @@ import Tip.Types
 import Tip.Parser
 import Tip.Passes
 import Process
+import Parser.Params
+import Utils
 
 -- The passes needed to convert the theory into tff format (+ skolemiseconjecture)
 passes :: Theory Id -> [Theory Id]
@@ -43,7 +45,8 @@ newtype InductionT s m a = Induct (StateT s m a)
     deriving (Functor, Applicative, Monad, MonadIO, MonadState s)
 
 data IndState = IndState
-  {  prover :: Prover 
+  {  params :: Params
+  ,  prover :: Prover 
   ,  lemmas :: [Lemma]
   ,  ind    :: Maybe Int
   ,  axioms :: [String]
@@ -88,32 +91,38 @@ runProver source = liftIO =<< run_process <$> (name <$> getProver) <*> (pure "."
     where fs = (++ [source]) <$> (flags <$> getProver) :: Induction [Flag]
 
 
-printResult :: [Lemma] -> Theory Id -> IO ()
-printResult ls th = 
+printResult :: Theory Id -> Induction ()
+printResult th = 
     do 
+        ls <- getLemmas
         let (ind, notInd) = partition isInductive $ reverse ls
-        putStrLn "\n-------------------------------------------------"
-        putStrLn "Summary:"
-        putStrLn ""
-        putStrLn "Proved without induction"
+        printStr 0 "\n-------------------------------------------------"
+        printStr 0 . show =<< (outputLevel . params <$> get)
+        printStr 1 "Summary:"
+        printStr 1 ""
+        printStr 1 "Proved without induction"
         mapM_ putLemma notInd
-        putStrLn ""
-        putStrLn "Proved with induction"
+        printStr 1 ""
+        printStr 1 "Proved with induction"
         mapM_ putLemma ind
+        -- printStr 0 $ show $ mapM_ name ls
     where putLemma l = do
-            let thy_f = thy_asserts th
-            let name = lemmaName l 
-            let formula = lookupFormula name thy_f
-            let str = subRegex (mkRegex "Tip\\.") (getFormula $ formula) ""
-            let splitStr = dropWhile ((/=) '=') str
-            let up = getUserProperty formula
-            putStrLn $ (if isNothing up then name else fromJust up ) ++  " " ++ splitStr
+            let thy_f       = thy_asserts th
+            let nameL        = lemmaName l 
+            let formula     = lookupFormula nameL thy_f
+            let up          = getUserProperty formula
+            let oLevel      = (if isNothing up then 2 else 1 )
+            printStr oLevel $ (if isNothing up then nameL else fromJust up ) ++  " " ++ (getFormula formula)
             case indVar l of
                 Nothing -> return ()
-                Just i  -> putStrLn $ "--- Proved using variable: " ++ (show i) 
+                Just i  -> printStr oLevel $ "--- Proved using variable: " ++ (show i) 
             case hLemmas l of
                 [] -> return ()
-                ax -> mapM_ (\a -> putStrLn $ " | " ++ a) $ nub $ filter ((/=) name) ax
+                ax -> mapM_ (\a -> printStr oLevel (" | " ++ (if oLevel==1 then getFormula (lookupFormula a thy_f)  else a))) $ nub $ filter ((/=) nameL) ax
 
 isInductive :: Lemma -> Bool
 isInductive = isJust . indVar
+
+printStr :: Int -> String -> Induction ()
+printStr i s = mcase ((i <=) <$> (outputLevel . params <$> get)) (liftIO $ putStrLn s) (return ())
+   
