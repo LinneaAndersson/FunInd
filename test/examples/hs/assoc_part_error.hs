@@ -10,4 +10,4 @@ p Z b = b
 p (S a) b = S (p a b)
 
 prop_a_1 :: Nat -> Nat -> Prop
-prop_a_1 b c = forAll (\a ->  p a (p b c) === p (p a b) c ==> forAll (\a' -> a'=== S a ==>  p a' (p b c) === p (p a' b) c ))
+prop_a_1 a b =  a === p a b ==> b === Z

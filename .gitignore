@@ -22,3 +22,6 @@ Setup.hs
 LICENSE
 out/*
 out
+examples/smt/*
+examples/tff/*
+examples/fof/*
