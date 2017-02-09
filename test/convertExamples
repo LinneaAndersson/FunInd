@@ -1,0 +1,39 @@
+#!/bin/bash
+
+
+cd examples/hs
+
+mkdir ../smt
+echo "hs to smt2 translation"
+for i in *.hs; do
+    echo "  file: $i" 
+    file=$(echo $i | cut -f 1 -d '.')
+    tip-ghc $i > ../smt/$file.smt2
+done
+
+echo "smt2 to tff translation"
+mkdir ../tff
+cd ../smt
+for i in *.smt2; do
+    echo "  file: $i" 
+    file=$(echo $i | cut -f 1 -d '.')
+    #str=$(
+    cat "$i" | tip --skolemise-conjecture --tff > ../tff/$file.tff
+    #)
+
+#    echo $str > ../tff/$file.tff
+done
+
+echo "tff to fof translation"
+mkdir ../fof
+cd ../tff
+for i in *.tff; do
+    echo "  file: $i" 
+    file=$(echo $i | cut -f 1 -d '.')
+    #str=$(
+    cat "$i" | ../../.stack-work/install/x86_64-linux/lts-7.7/8.0.1/bin/jukebox fof /dev/stdin 2>/dev/null > ../fof/$file.fof
+    #)
+    #echo $str > ../fof/$file.fof
+done
+
+

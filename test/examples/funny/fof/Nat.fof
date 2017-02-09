@@ -1,0 +1,56 @@
+%Natural numbers
+
+fof(nat, axiom,
+  ![X] : (X = zero | X = succ(pred(X)))
+).
+
+fof(nat_exclusive, axiom,
+  ![X] : zero != succ(X)
+).
+
+fof(nat_succ_inverse, axiom,
+  ![X] : pred(succ(X)) = X
+).
+
+% ------------------------------------------------------------------------------
+% addition
+
+fof(add_zero, axiom,
+  ![Y] : add(zero,Y) = Y
+).
+
+fof(add_succ, axiom,
+  ![X,Y] : add(succ(X),Y) = succ(add(X,Y))
+).
+
+% ------------------------------------------------------------------------------
+% definition of p - for clarity
+
+% the original property: add(succ(X1),Y) = add(X1,succ(Y))
+
+% here is the "funnified" version of it:
+
+fof(def_p, axiom,
+  ![X,Y] : (p(X,Y) <=>(![X1] : add(X,add(X1,Y)) = add(add(X,X1),Y)))
+).
+
+% in a real application, we can do without this definition, and just inline p(X,Y), but here we don't do so for clarity reasons
+
+% ------------------------------------------------------------------------------
+% funny induction
+
+% we are proving something about add(a,b)
+
+% hypothesis:
+
+fof(hypo1, hypothesis,
+  a = succ(pred(a)) => p(pred(a),b)
+).
+
+% conjecture:
+
+fof(goal, conjecture,
+  p(a,b)
+).
+
+% ------------------------------------------------------------------------------
