@@ -19,9 +19,9 @@ data InputFile = HS FilePath | SMT FilePath | Unrecognized
 parseOutputLevel :: Parser OutputLevel
 parseOutputLevel =
         flag'    0      (long "quiet"       <> short 'q'    <> help "Only print whether user properties were proven or not")
-    <|> flag'    3      (long "full-output" <> short 'f'    <> help "Print full progress of the program as well as summary")
+    <|> flag'    3      (long "full-output" <> short 'f'    <> help "Print full progress of the program as well a summary")
     <|> flag'    2      (long "summary"     <> short 's'    <> help "Print a summary of all proven properties")
-    <|> flag     1 1    (long "user"                        <> help "Print summary of proven user specified properties")
+    <|> flag     1 1    (long "user"                        <> help "Print summary of proven user specified properties (default)")
 
 -- parse inputfile's path
 parseInputFile :: Parser InputFile
@@ -38,5 +38,6 @@ parseParams = execParser $ info
                     (Params    <$>     parseInputFile
                                <*>     parseOutputLevel))
                 (fullDesc <>
-                 progDesc "Proving properties of recursively defined functions" <>
+                 progDesc "Prov properties of recursively defined functions" <>
+                 -- TODO we really need a better name... :)
                  header "test - Inductive theorem prover")
