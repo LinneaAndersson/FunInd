@@ -19,14 +19,16 @@ data Prover = P {
         name     :: FilePath,
         -- flags given to prover when calling it
         flags    :: [Flag],
-        -- function to prepare
+        -- function to prepare the theory
         prepare  :: Theory Id -> IO String,
+        -- parse the output from the prover
         parseOut :: [String] -> IO (Bool, [String])
     }
 
 instance Show Prover where
     show p = "Prover: " ++ name p ++ ", flags: " ++ unwords (flags p)
 
+-- A prover instance of the first-order-logic prover E
 eprover :: Prover
 eprover = P {name = "eproof",
              flags = ["--tstp-in", "--auto", "--full-deriv",
@@ -36,34 +38,37 @@ eprover = P {name = "eproof",
     where
         pout :: [String] -> IO (Bool,[String])
         pout [prob, ep] = do
+            -- parse into Problem Form
             prob' <- parseString prob
-            --putStrLn ep
+            -- parse the answer
             case Ep.extractAnswer prob' ep of
                     -- a problem occured
+                    -- TODO what is terms?
                     Right terms -> do
                                     print "Could not extract the answer from the prover"
                                     return (False,[])
                     {-
                         Check the answer. The E prover attempts to prove negations, thus
-                        a problem should NOT be 'Satisfiable'.
+                        a problem should NOT be 'Satisfiable', if it is provable.
                     -}
                     Left ans    ->
                         case ans of
                             Satisfiable     -> return (False,[])
                             Unsatisfiable   -> return (True,output ep)
-                            NoAnswer reason ->
-                                -- print $ "Could not find the answer:  " ++ (show reason)
-                                return (False,[show reason])
+                            NoAnswer reason -> return (False,[show reason])
 
 
 output :: String -> [String]
 output = getAxioms . lines
 
+-- find auxiliary lemmas used in the proof
 getAxioms :: [String] -> [String]
 getAxioms [] = []
 getAxioms (x:xs)
     | "lemma" `isInfixOf` x = filter (/=' ') (sDone (sp x)) : getAxioms xs
     | otherwise             = getAxioms xs
-    where
+    where -- split on ','
         sp = splitRegex (mkRegex ",")
+        -- name of any aux lemma is last in split
+        -- init since last char is ')'
         sDone s = init (s !! (length s - 1))
