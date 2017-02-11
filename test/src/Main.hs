@@ -41,6 +41,7 @@ main = do
     preQS <- checkInputFile (inputFile params)
 
     -- created conjectures
+    -- TODO verbosity
     prop_string <- run_process "tip-spec" "." [preQS]
     writeFile prop_file prop_string
 
