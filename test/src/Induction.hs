@@ -1,21 +1,21 @@
+{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 
 module Induction where
 
-import Control.Monad.State
-import Data.List
-import Data.Maybe
-import Prover hiding (getAxioms)
-import Text.Regex
-import Tip.Formula
-import Tip.Types
-import Tip.Parser
-import Tip.Passes
-import Process
-import Parser.Params
-import Utils
+import           Control.Monad.State
+import           Data.List
+import           Data.Maybe
+import           Parser.Params
+import           Process
+import           Prover              hiding (getAxioms)
+import           Text.Regex
+import           Tip.Formula
+import           Tip.Parser
+import           Tip.Passes
+import           Tip.Types
+import           Utils
 
 -- The passes needed to convert the theory into tff format (+ skolemiseconjecture)
 passes :: Theory Id -> [Theory Id]
@@ -46,7 +46,7 @@ newtype InductionT s m a = Induct (StateT s m a)
 
 data IndState = IndState
   {  params :: Params
-  ,  prover :: Prover 
+  ,  prover :: Prover
   ,  lemmas :: [Lemma]
   ,  ind    :: Maybe Int
   ,  axioms :: [String]
@@ -55,12 +55,10 @@ data IndState = IndState
 -- Prover/IO instance
 type Induction = InductionT IndState IO
 
---type Lemma =  (String, ([String], Bool))
-
-data Lemma = Lemma 
+data Lemma = Lemma
     { lemmaName :: String
-    , hLemmas :: [String]
-    , indVar :: Maybe Int
+    , hLemmas   :: [String]
+    , indVar    :: Maybe Int
     }
 
 getProver :: Induction Prover
@@ -71,33 +69,39 @@ getAxioms = axioms <$> get
 
 getHelpLemmas :: String -> Induction [String]
 getHelpLemmas name = lemmas =<< getLemmas
-  where 
-    lemmas ls = case (find ((==) name . lemmaName) ls) of
+  where
+    lemmas ls = case find ((==) name . lemmaName) ls of
                     Nothing -> fail "Lemma not found"
-                    Just l -> return $ hLemmas l        
+                    Just l  -> return $ hLemmas l
 
 getVar :: Induction (Maybe Int)
 getVar = ind <$> get
-           
+
 getLemmas :: Induction [Lemma]
 getLemmas = lemmas <$> get
 
 addLemma :: String -> Induction ()
-addLemma name= modify (\s ->  s{lemmas = ((Lemma name (axioms s) (ind s)):lemmas s)})
+addLemma name = modify (\s ->  s{lemmas = Lemma name (axioms s) (ind s):lemmas s})
 
 -- run the choosen prover on the file given by the filepath
 runProver :: FilePath -> Induction String
-runProver source = liftIO =<< run_process <$> (name <$> getProver) <*> (pure ".") <*> fs
-    where fs = (++ [source]) <$> (flags <$> getProver) :: Induction [Flag]
+runProver source = liftIO
+                    =<< run_process
+                        <$> (name <$> getProver)
+                        <*> pure "."
+                        <*> fs
+    where fs = (++ [source]) <$> (flags <$> getProver)
 
 
 printResult :: Theory Id -> Induction ()
-printResult th = 
-    do 
+printResult th =
+    do  -- fetch and partition proved lemmas by if they were proved with or
+        -- without induction
         ls <- getLemmas
         let (ind, notInd) = partition isInductive $ reverse ls
+
         printStr 0 "\n-------------------------------------------------"
-        printStr 0 . show =<< (outputLevel . params <$> get)
+        --printStr 0 . show =<< (outputLevel . params <$> get)
         printStr 1 "Summary:"
         printStr 1 ""
         printStr 1 "Proved without induction"
@@ -106,23 +110,38 @@ printResult th =
         printStr 1 "Proved with induction"
         mapM_ putLemma ind
         -- printStr 0 $ show $ mapM_ name ls
-    where putLemma l = do
-            let thy_f       = thy_asserts th
-            let nameL        = lemmaName l 
-            let formula     = lookupFormula nameL thy_f
-            let up          = getUserProperty formula
-            let oLevel      = (if isNothing up then 2 else 1 )
-            printStr oLevel $ (if isNothing up then nameL else fromJust up ) ++  " " ++ (getFormula formula)
+    where putLemma l =
+            let -- all formula's in the theory
+                thy_f       = thy_asserts th
+                -- name of proven lemma
+                nameL       = lemmaName l
+                -- formula (body) of lemma
+                formula     = lookupFormula nameL thy_f
+                -- whether it is a user defined property
+                userProp    = getUserProperty formula
+                -- the level of verbosity
+                outLevel    = (if isNothing userProp then 2 else 1 )
+            in do
+            printStr outLevel
+                    $ fromMaybe nameL userProp
+                        ++  " " ++ getFormula formula
+            -- If proved with induction, show which variable was used
             case indVar l of
                 Nothing -> return ()
-                Just i  -> printStr oLevel $ "--- Proved using variable: " ++ (show i) 
-            case hLemmas l of
-                [] -> return ()
-                ax -> mapM_ (\a -> printStr oLevel (" | " ++ (if oLevel==1 then getFormula (lookupFormula a thy_f)  else a))) $ nub $ filter ((/=) nameL) ax
+                Just i  -> printStr outLevel
+                                    $ "--- Proved using variable: " ++ show i
+            -- Print all auxiliary lemmas used in the proof
+            mapM_ (\a -> printStr outLevel
+                (" | " ++ (if outLevel==1
+                            then getFormula (lookupFormula a thy_f)
+                            else a))) $
+                nub $ filter (nameL /=) (hLemmas l)
 
+-- check if a lemma was proved using induction
 isInductive :: Lemma -> Bool
 isInductive = isJust . indVar
 
+-- print if given int is less then the verbosity level
 printStr :: Int -> String -> Induction ()
-printStr i s = mcase ((i <=) <$> (outputLevel . params <$> get)) (liftIO $ putStrLn s) (return ())
-   
+printStr i s = mwhen ((i <=) <$> (outputLevel . params <$> get))
+                (liftIO $ putStrLn s)

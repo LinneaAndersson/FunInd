@@ -1,7 +1,5 @@
 module Constants where
 
-
-
 tip_file :: FilePath
 tip_file = out_path "tip_file.smt2"
 

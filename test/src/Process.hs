@@ -1,14 +1,14 @@
 module Process where
 
-import Jukebox.Form
-import Jukebox.Options
-import Jukebox.Toolbox
-import Jukebox.TPTP.Parse
-import Jukebox.TPTP.Print
-import System.Process
-import System.IO
-import Tip.Parser
-import Tip.Types
+import           Jukebox.Form
+import           Jukebox.Options
+import           Jukebox.Toolbox
+import           Jukebox.TPTP.Parse
+import           Jukebox.TPTP.Print
+import           System.IO
+import           System.Process
+import           Tip.Parser
+import           Tip.Types
 
 
 -- read a theory from a file with given filepath
@@ -17,7 +17,7 @@ readTheory fp = do
   theory_either <- parseFile fp
   -- check whether the parsing succeded
   case theory_either of
-      Left x  -> fail $ "Failed to create theory: " ++ x
+      Left x       -> fail $ "Failed to create theory: " ++ x
       Right theory -> return theory
 
 -- run a process with name, working dir path, and a list of arguments
@@ -33,18 +33,17 @@ run_process name path ops = do
 
 -- Calls Jukebox to turn a tff problem into fof
 jukebox_hs :: String -> IO String
-jukebox_hs problem =
-    let pars =  toFofBox    -- Box to turn tff to fof
-        p = parser pars     -- grab the parser
-    in do
-        -- parse the problem
-        problemForm <- parseString problem
-        -- run jukebox quietly
-        case runPar p ["--quiet"] of
-            Right mToFof -> do
-                toFof <- mToFof     -- extractin fof-function from monad
-                showProblem <$> toFof problemForm   -- translate tff to fof
+jukebox_hs problem = do
+    -- Box to turn tff to fof
+    let pars = parser toFofBox
+    -- parse the problem
+    problemForm <- parseString problem
+    -- run jukebox quietly
+    case runPar pars ["--quiet"] of
+        Right mToFof    -> do
+            toFof <- mToFof     -- extractin fof-function from monad
+            showProblem <$> toFof problemForm   -- translate tff to fof
 
-            -- Somethin unexpected occured
-            -- TODO do something with error
-            Left err -> fail "Error: jukebox kunde inte köras"
+        -- Somethin unexpected occured
+        -- TODO do something with error
+        Left err        -> fail "Error: jukebox kunde inte köras"

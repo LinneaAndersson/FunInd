@@ -6,6 +6,12 @@ mcase mbool t f = do
     bool <- mbool
     if bool then t else f
 
+mwhen :: (Monad m) => m Bool -> m () -> m ()
+mwhen b = (flip $ mcase b) (return ())
+
+munless :: (Monad m) => m Bool -> m () -> m ()
+munless b = mcase b (return ())
+
 splitLine :: Char -> String -> [String]
 splitLine _ [] = []
-splitLine c xs = (takeWhile (c /= ) xs) : (splitLine c $ dropWhile (c /= ) xs)
+splitLine c xs = takeWhile (c /= ) xs : splitLine c (dropWhile (c /= ) xs)
