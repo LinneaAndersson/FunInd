@@ -8,6 +8,7 @@ import           Data.List
 import           Data.Maybe
 import           Text.PrettyPrint
 import           Tip.Parser
+import           Tip.Passes
 import           Tip.Pretty
 import           Tip.Pretty.TFF
 import           Tip.Rename
@@ -39,3 +40,25 @@ renameLemmas th = th{thy_asserts = new_asserts th}
                 f{fm_attrs = ("name", Just $ "lemma" ++ show i) : fm_attrs f}
             | otherwise = f
         new_asserts = zipWith (curry addName) [0 ..] . thy_asserts
+
+-- The passes needed to convert the theory into tff format (+ skolemiseconjecture)
+tff :: [StandardPass]-> Theory Id -> [Theory Id]
+tff p = freshPass (runPasses $ p ++
+        [ TypeSkolemConjecture
+          , Monomorphise False
+          , LambdaLift
+          , AxiomatizeLambdas
+          , SimplifyGently
+          , CollapseEqual
+          , RemoveAliases
+          , SimplifyGently
+          , Monomorphise False
+          , IfToBoolOp
+          , CommuteMatch
+          , SimplifyGently
+          , LetLift
+          , SimplifyGently
+          , AxiomatizeFuncdefs2
+          , SimplifyGently
+          , AxiomatizeDatadecls
+        ])

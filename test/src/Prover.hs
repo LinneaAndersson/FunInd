@@ -7,13 +7,20 @@ import           Jukebox.Form
 import           Jukebox.TPTP.Parse
 import           Process
 import           Text.Regex
+import           Tip.Mod
+import           Tip.Parser
+import           Tip.Passes
+import           Tip.Types
 
 type Flag = String
-
+-- represenatation of a prover
 data Prover = P {
+        -- path to execteable
         name     :: FilePath,
+        -- flags given to prover when calling it
         flags    :: [Flag],
-        prepare  :: [String] -> IO String,
+        -- function to prepare
+        prepare  :: Theory Id -> IO String,
         parseOut :: [String] -> IO (Bool, [String])
     }
 
@@ -24,7 +31,7 @@ eprover :: Prover
 eprover = P {name = "eproof",
              flags = ["--tstp-in", "--auto", "--full-deriv",
                         "--soft-cpu-limit=5"],
-             prepare = jukebox_hs . head,
+             prepare = jukebox_hs . show . ppTheory' . head . tff [SkolemiseConjecture],
              parseOut = pout}
     where
         pout :: [String] -> IO (Bool,[String])

@@ -17,29 +17,6 @@ import           Tip.Passes
 import           Tip.Types
 import           Utils
 
--- The passes needed to convert the theory into tff format (+ skolemiseconjecture)
-passes :: Theory Id -> [Theory Id]
-passes = freshPass (runPasses
-        [ SkolemiseConjecture
-          , TypeSkolemConjecture
-          , Monomorphise False
-          , LambdaLift
-          , AxiomatizeLambdas
-          , SimplifyGently
-          , CollapseEqual
-          , RemoveAliases
-          , SimplifyGently
-          , Monomorphise False
-          , IfToBoolOp
-          , CommuteMatch
-          , SimplifyGently
-          , LetLift
-          , SimplifyGently
-          , AxiomatizeFuncdefs2
-          , SimplifyGently
-          , AxiomatizeDatadecls
-        ])
-
 -- Monad-transformer for induction
 newtype InductionT s m a = Induct (StateT s m a)
     deriving (Functor, Applicative, Monad, MonadIO, MonadState s)
@@ -129,7 +106,7 @@ printResult th =
             case indVar l of
                 Nothing -> return ()
                 Just i  -> printStr outLevel
-                                    $ "--- Proved using variable: " ++ show i
+                                    $ "--- Proved using induction on variable: " ++ show i
             -- Print all auxiliary lemmas used in the proof
             mapM_ (\a -> printStr outLevel
                 (" | " ++ (if outLevel==1

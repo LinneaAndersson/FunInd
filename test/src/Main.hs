@@ -80,6 +80,7 @@ checkInputFile Unrecognized = fail "Incompatible file extension"
 -- Looping through all conjectures and try to prove them
 -- If provable with structural induction, they are put into the theory as proven lemmas
 -- If during one loop none is being proved, do not continue
+-- TODO change timeout on continue
 loop_conj :: Theory Id -> Int -> Int -> Bool -> Induction (Theory Id, Bool)
 loop_conj theory curr num continue
     | curr >= num = -- tested all conjectures
@@ -145,15 +146,15 @@ proveAll (th:ths) = mcase (prove th)
 -- TODO passes should be prover dependent!!!
 -- TODO Do something proper about multi-theories
 prove :: Theory Id -> Induction Bool
-prove th =
-    let goal' = head $ passes th -- prepare conjecture using various passes
+prove th = do
+    {-let goal' = head $ passes th -- prepare conjecture using various passes
         goal''  = ppTheory' goal' -- turn conjecture into printable format
-    in do
+    in do -}
         --liftIO $ writeFile (out_path "goal.smt2") $ show $ goal''
 
         -- retrieve the preparation function from the Prover
         -- and apply it to the goal
-        prob <- liftIO =<< (prepare <$> getProver) <*> pure [show goal'']
+        prob <- liftIO =<< (prepare <$> getProver) <*> pure th
         liftIO $ writeFile (out_path "problem") prob
 
         -- run prover on the problem
