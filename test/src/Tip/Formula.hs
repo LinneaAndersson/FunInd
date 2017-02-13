@@ -5,6 +5,7 @@ import           Data.List
 import           Data.List.Split
 import           Data.Maybe
 import           Text.Regex
+import           Tip.Core              (forallView)
 import           Tip.Haskell.Translate
 import           Tip.Parser
 import           Tip.Pretty
@@ -19,17 +20,19 @@ lookupFormula s (f:fs)
     | join (lookup "name" (fm_attrs f)) == Just s   = Just f
     | otherwise                                     = lookupFormula s fs
 
+-- Returns the i:th variable if input is just Formula
+getFormulaVar :: Formula Id -> Int -> String
+getFormulaVar f i = varStr $ lcl_name $ (fst (forallView $ fm_body f)) !! i
+
 -- TODO rename function?
 -- remove formula from Maytbe AND format it
-getFormula :: Maybe (Formula Id) -> String
-getFormula Nothing  = "Formula not found"
-getFormula (Just f) = drop 1 $ dropWhile ('=' /=)  $ subRegex (mkRegex "Tip\\.") formula ""
+getFormula :: Formula Id -> String
+getFormula f = drop 1 $ dropWhile ('=' /=)  $ subRegex (mkRegex "Tip\\.") formula ""
     where formula = show . pp . trTheory HS.Plain $ Theory [] [] [] [] [f]
 
 -- If the formula is user defined, return its name
-getUserProperty :: Maybe (Formula Id) -> Maybe String
-getUserProperty Nothing  = Nothing
-getUserProperty (Just f) = join $ lookup "source" (fm_attrs f)
+getUserProperty :: Formula Id -> Maybe String
+getUserProperty f = join $ lookup "source" (fm_attrs f)
 
 -- lookup the name of a formula
 getAssertion :: Formula Id -> Maybe String

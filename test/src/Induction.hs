@@ -87,32 +87,39 @@ printResult th =
         printStr 1 "Proved with induction"
         mapM_ putLemma ind
         -- printStr 0 $ show $ mapM_ name ls
-    where putLemma l =
+    where putLemma l = 
             let -- all formula's in the theory
                 thy_f       = thy_asserts th
                 -- name of proven lemma
                 nameL       = lemmaName l
                 -- formula (body) of lemma
-                formula     = lookupFormula nameL thy_f
-                -- whether it is a user defined property
-                userProp    = getUserProperty formula
-                -- the level of verbosity
-                outLevel    = (if isNothing userProp then 2 else 1 )
+                jFormula     = lookupFormula nameL thy_f
             in do
-            printStr outLevel
-                    $ fromMaybe nameL userProp
-                        ++  " " ++ getFormula formula
-            -- If proved with induction, show which variable was used
-            case indVar l of
-                Nothing -> return ()
-                Just i  -> printStr outLevel
-                                    $ "--- Proved using induction on variable: " ++ show i
-            -- Print all auxiliary lemmas used in the proof
-            mapM_ (\a -> printStr outLevel
-                (" | " ++ (if outLevel==1
-                            then getFormula (lookupFormula a thy_f)
-                            else a))) $
-                nub $ filter (nameL /=) (hLemmas l)
+            if isNothing jFormula then fail "error: Could not find formula" else
+                let
+                    formula     = fromJust jFormula
+                    -- whether it is a user defined property
+                    userProp    = getUserProperty formula
+                    -- the level of verbosity
+                    outLevel    = (if isNothing userProp then 2 else 1 )
+                    
+                in do
+                printStr outLevel
+                        $ fromMaybe nameL userProp
+                            ++  " " ++ getFormula formula
+                -- If proved with induction, show which variable was used
+                case indVar l of
+                    Nothing -> return ()
+                    Just i  -> printStr outLevel
+                                        $ "--- Proved using induction on variable: " ++ (show $ getFormulaVar formula i)
+                -- Print all auxiliary lemmas used in the proof
+                mapM_ (\a -> printStr outLevel
+                    (" | " ++ (if outLevel==1
+                                then do
+                                    let hFormula = (lookupFormula a thy_f)
+                                    if isNothing hFormula then fail "error: Could not find formula" else getFormula (fromJust hFormula)
+                                else a))) $
+                    nub $ filter (nameL /=) (hLemmas l)
 
 -- check if a lemma was proved using induction
 isInductive :: Lemma -> Bool
