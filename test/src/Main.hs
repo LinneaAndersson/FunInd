@@ -24,6 +24,7 @@ import           Tip.Pretty
 import           Tip.Pretty.TFF
 import           Tip.Scope
 import           Tip.Types
+import           Tip.Passes.Funny
 
 import           Constants
 import           Induction
@@ -33,7 +34,7 @@ import           Utils
 
 main :: IO()
 main = do
-
+    
     -- parse input parameters: inout file and verbosity flags
     params <- parseParams
 
@@ -102,6 +103,7 @@ loop_conj theory curr num continue
             -- turn formula into printable form
             formulaPrint = showFormula formula
         in do
+            liftIO . putStrLn . show . map (ppExpr 0) $ findApps (thy_funcs th) (fm_body $ head . fst $ theoryGoals th) 
             printStr 3 $ "|       | " ++ formulaPrint
             -- clean temporary state
             modify (\s -> s{axioms = [], ind=Nothing})

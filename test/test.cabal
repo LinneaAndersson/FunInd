@@ -18,4 +18,4 @@ executable test
   main-is:             Main.hs
   default-language:    Haskell2010
   build-depends:       base >= 4 && < 5, tip-lib,tip-types,process, filepath, jukebox, strict, split, mtl, regex-compat, pretty, optparse-applicative
-  other-modules:       Prover, Process, Induction, Tip.Mod, Utils, Constants, Tip.Formula, Parser.Params
+  other-modules:       Prover, Process, Induction, Tip.Mod, Utils, Constants, Tip.Formula, Parser.Params, Tip.Passes.Funny
