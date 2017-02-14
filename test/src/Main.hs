@@ -52,7 +52,7 @@ main = do
     --printStr ""
     --printStr "---------- Now considering: ----------"
 
-    -- Structural Induction
+    -- Structural Induction TODO:: ADD (freshPass (monomorphise False) theory_qs)
     case induct (renameLemmas theory_qs) >>= printResult . fst of
         Induct a -> runStateT a $ initState params
     return ()
@@ -103,7 +103,11 @@ loop_conj theory curr num continue
             -- turn formula into printable form
             formulaPrint = showFormula formula
         in do
-            liftIO . putStrLn . show . map (ppExpr 0) $ findApps (thy_funcs th) (fm_body $ head . fst $ theoryGoals th) 
+            liftIO $ putStrLn "------------------------------"
+            liftIO $ putStrLn formulaPrint 
+            --liftIO $ printApps (thy_funcs th) $ fm_body formula
+            liftIO $ putStrLn  $ show . map (ppExpr 0) $ test th $ fm_body formula 
+            --liftIO . putStrLn . show $ map (map snd) . freshIds th . findApps (thy_funcs th) . fm_body . head . fst $ theoryGoals th 
             printStr 3 $ "|       | " ++ formulaPrint
             -- clean temporary state
             modify (\s -> s{axioms = [], ind=Nothing})
