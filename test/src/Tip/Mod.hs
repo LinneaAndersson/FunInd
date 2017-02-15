@@ -3,6 +3,8 @@
 {-# LANGUAGE ViewPatterns      #-}
 module Tip.Mod where
 
+import           Tip.Core
+import           Data.Generics.Geniplate     
 import           Control.Monad
 import           Data.List
 import           Data.Maybe
@@ -65,3 +67,11 @@ tff p = freshPass (runPasses $ p ++
           , SimplifyGently
           , AxiomatizeDatadecls
         ])
+
+globals' :: Expr Id -> [Expr Id]
+globals' e = [gbl  | gbl@(Gbl g :@: t) <- universeBi e]
+
+locals' :: Expr Id -> [Expr Id]
+locals' = map Lcl . locals
+
+

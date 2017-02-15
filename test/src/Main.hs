@@ -21,7 +21,7 @@ import           Tip.Mod
 import           Tip.Parser
 import           Tip.Passes
 import           Tip.Pretty
-import           Tip.Pretty.TFF
+import           Tip.Pretty.SMT
 import           Tip.Scope
 import           Tip.Types
 import           Tip.Passes.Funny
@@ -104,9 +104,10 @@ loop_conj theory curr num continue
             formulaPrint = showFormula formula
         in do
             liftIO $ putStrLn "------------------------------"
-            liftIO $ putStrLn formulaPrint 
+            liftIO $ putStrLn formulaPrint
+            liftIO $ putStrLn . show . ppExpr . func_body . head . thy_funcs $ th
             --liftIO $ printApps (thy_funcs th) $ fm_body formula
-            liftIO $ mapM_ (putStrLn . show . ppExpr 0) $ test th $ fm_body formula 
+            --liftIO $ mapM_ (putStrLn . show . ppExpr 0) $ test th $ fm_body formula 
             --liftIO . putStrLn . show $ map (map snd) . freshIds th . findApps (thy_funcs th) . fm_body . head . fst $ theoryGoals th 
             printStr 3 $ "|       | " ++ formulaPrint
             -- clean temporary state

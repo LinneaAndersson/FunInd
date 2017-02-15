@@ -18,3 +18,5 @@ munless b = mcase b (return ())
 splitLine :: Char -> String -> [String]
 splitLine _ [] = []
 splitLine c xs = takeWhile (c /= ) xs : splitLine c (dropWhile (c /= ) xs)
+
+
