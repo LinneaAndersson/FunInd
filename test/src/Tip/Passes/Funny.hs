@@ -10,26 +10,6 @@ import Control.Monad
 import Data.Either
 
 
-{-lookupFunApp :: Formula Id -> IO ()
-lookupFunApp f = putStrLn $ show $ findApp (fm_body f) 1 
--}
-
-printApps ::  [Function Id] -> Expr Id -> IO ()
-printApps fs as = case head $ findApps' as of 
-        (Gbl a :@: ts) -> do 
-                putStrLn $ show $ gbl_args a
-                putStrLn $ show $ gbl_type a
-        _ -> return () 
-    where
-        findApps' expr@(Gbl a :@: ts) 
-            | isFunc (gbl_name a) fs    = expr:concatMap findApps' ts
-            | otherwise                 =  concatMap findApps' ts
-        findApps' (_ :@: ts) = concatMap findApps' ts 
-        findApps' (Quant _ _ _ e) = findApps' e  
-        findApps' (Lcl _) = []
-        findApps'  _ = []
-
-
 findApps :: [Function Id] -> Expr Id -> [Expr Id]
 findApps fs = findApps' 
     where
@@ -51,33 +31,58 @@ isFunc i = or . map ((==) i . func_name)
         apps = findApps (thy_funcs th) e
         fIds = freshIds th apps-}
 
+--Returns The "sub"-properties of the property
 test :: Theory Id -> Expr Id -> [Expr Id]
 test th e = freshFrom es th
-    where
-        fIds = freshIds $ 
-                findApps (thy_funcs th) e :: Fresh [[(Expr Id, Id)]]
-        subst = map (map (\ei -> (fst ei , createLocal ei))) <$> fIds
-        prop = do
-                lcls <- map (snd . unzip) <$> subst
-                sequence $ map createProp lcls
-        rQuant = removeQuant e
-        faBody = map (\list -> (addReq list) ==> rQuant) <$> subst
-        eq = zipWith (===) <$> prop <*> faBody
-        es = map (\(p,i) -> addForall p i) <$> (zip <$> eq <*> fIds)
+    where 
+        es = do
+            fIds <- freshIds $ findApps (thy_funcs th) e
+            sequence $ map (createPropExpr e) fIds
 
-addReq :: [(Expr Id, Local Id)] -> Expr Id
-addReq el = fA
+
+-- Create one application property 
+createPropExpr :: Expr Id -> [(Expr Id, Id)] -> Fresh (Expr Id)
+createPropExpr e ids =
+    do
+        let subst = map (\ei -> (fst ei, createLocal ei)) ids
+        
+        -- Create prop definition
+        prop <- createProp . snd . unzip $ subst 
+
+        -- Update substitution/locals list, create req
+        let (locals1, exprs) = partition (isLocal . fst) subst
+        let newLocals1 =  addReq' locals1 $ map fst exprs
+        let locals2 = newLocals1 ++ (map (\ (Lcl l) -> l) $ getLocals prop)
+
+        -- Update quantifiers and refresh variables in body
+        let rQuant = removeQuant e
+        let uRefs = updateRef subst rQuant
+        let newLocals2 = [ le | 
+                (Lcl le)<-getLocals uRefs, not (le `elem` locals2) ]
+        let body = mkQuant Forall newLocals2 uRefs
+
+        -- Let substituitions imply body
+        req <- addReq subst newLocals1
+        let reqImpBody = req ==> body
+
+        -- Let property equal body
+        let pEqB = prop === reqImpBody
+        -- Add last forall  
+
+        return $ mkQuant Forall (map snd subst) pEqB
+
+addReq :: [(Expr Id, Local Id)] -> [Local Id] -> Fresh (Expr Id)
+addReq el newL = return fA
     where 
         (locals, exps) = partition (isLocal . fst) el
-        newL = (addReq' locals exps)
         newEs = map (\(e,i) -> (updateRef locals e,i)) exps
         eqExpr = map (\(a,b)-> Lcl b === a) newEs 
         andExpr = ands eqExpr
         fA = mkQuant Forall newL andExpr  
 
-addReq' :: [(Expr Id, Local Id)] -> [(Expr Id, Local Id)] -> [Local Id]
+addReq' :: [(Expr Id, Local Id)] -> [Expr Id] -> [Local Id]
 addReq' _  []         = []
-addReq' ls ((e,l):es) = (map snd diff) ++ (addReq' (diff ++ ls) es)
+addReq' ls (e:es) = (map snd diff) ++ (addReq' (diff ++ ls) es)
     where 
         eLoc = [ (e', le)  | e'@(Lcl le)<-getLocals e]
         diff = [ (e,i) | (e,i) <- eLoc, not (e `elem` (map fst ls))]  
@@ -87,9 +92,15 @@ updateRef ls local@(Lcl _)  =
     case lookup local ls of
         Nothing -> local
         Just l' -> Lcl l' 
-updateRef ls (a :@: ts)    = a :@: (map (updateRef ls) ts)
-updateRef ls (Match e cs)  = Match (updateRef ls e) (map (\c -> 
+updateRef ls gbl@(a :@: ts)    = 
+    case lookup gbl ls of
+        Nothing -> a :@: (map (updateRef ls) ts)
+        Just l' -> Lcl l' 
+updateRef ls m@(Match e cs)  = 
+    case lookup m ls of
+        Nothing -> Match (updateRef ls e) (map (\c -> 
                                 c{case_rhs = updateRef ls (case_rhs c)} ) cs)
+        Just l' -> Lcl l' 
 updateRef ls a             = a
 
 getLocals :: Expr Id -> [Expr Id]

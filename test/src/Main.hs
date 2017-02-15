@@ -106,7 +106,7 @@ loop_conj theory curr num continue
             liftIO $ putStrLn "------------------------------"
             liftIO $ putStrLn formulaPrint 
             --liftIO $ printApps (thy_funcs th) $ fm_body formula
-            liftIO $ putStrLn  $ show . map (ppExpr 0) $ test th $ fm_body formula 
+            liftIO $ mapM_ (putStrLn . show . ppExpr 0) $ test th $ fm_body formula 
             --liftIO . putStrLn . show $ map (map snd) . freshIds th . findApps (thy_funcs th) . fm_body . head . fst $ theoryGoals th 
             printStr 3 $ "|       | " ++ formulaPrint
             -- clean temporary state
