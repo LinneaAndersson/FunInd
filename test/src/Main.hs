@@ -14,15 +14,17 @@ import           System.IO
 import           Text.Regex
 import           Tip.Core              (forallView, theoryGoals)
 import           Tip.Formula
+import Tip.Funny.Property (propBody,propFunc,propName,propLocals)
 import           Tip.Haskell.Rename
-import           Tip.Haskell.Translate
+--import           Tip.Haskell.Translate
 import           Tip.Lint
 import           Tip.Mod
 import           Tip.Parser
 import           Tip.Passes
 import           Tip.Pretty
-import           Tip.Pretty.SMT
+import           Tip.Pretty.TFF
 import           Tip.Scope
+import Tip.Rename
 import           Tip.Types
 import           Tip.Passes.Funny
 
@@ -91,23 +93,33 @@ loop_conj theory curr num continue
     | otherwise  = -- test next conjecture
         let
             -- pick a conjecture
-            th      = selectConjecture curr theory
+            th0      = selectConjecture curr theory
             -- find all variables
-            vars    =  fst . forallView $ fm_body $ head . fst $ theoryGoals th
+            vars    =  fst . forallView $ fm_body $ head . fst $ theoryGoals th0
             -- count variables, to be used in induction loop
             nbrVar  = length vars
             -- the formula matching the current conjecture
-            formula = head . fst $ theoryGoals th
+            formula = head . fst $ theoryGoals th0
             -- lookup up unique name of formual
             f_name  = fromMaybe "no name"  $ join $ lookup "name" (fm_attrs formula)
             -- turn formula into printable form
             formulaPrint = showFormula formula
         in do
             liftIO $ putStrLn "------------------------------"
-            liftIO $ putStrLn formulaPrint
-            liftIO $ putStrLn . show . ppExpr . func_body . head . thy_funcs $ th
-            --liftIO $ printApps (thy_funcs th) $ fm_body formula
-            --liftIO $ mapM_ (putStrLn . show . ppExpr 0) $ test th $ fm_body formula 
+            liftIO $ putStrLn $ show $ ppTheory' th0
+            liftIO $ putStrLn "------------------------------"
+            --liftIO $ putStrLn . show . ppExpr . func_body . head . thy_funcs $ th
+            let prop = head $ test th0 $ fm_body formula
+            let ps = Formula Assert [] [] $ propBody prop
+            let varDefs = map (\l -> Signature (lcl_name l) [] (PolyType [] [] (lcl_type l))) (propLocals prop) 
+            let sigs = Signature (gbl_name (propName prop)) [] (gbl_type (propName prop))
+            let exprs = map (Formula Assert [] []) $ test1 th0 prop
+            let th = th0{thy_asserts = ps : exprs ++ (thy_asserts th0), thy_sigs = sigs : varDefs ++ (thy_sigs th0) } 
+            liftIO $ putStrLn $ show $ ppTheory' th
+            liftIO $ putStrLn "-----------------------------------------"
+            lintMany "run lint" [th] 
+            -- liftIO $ mapM_ (putStrLn . show . ppExpr 0) $  
+            --liftIO $ mapM_ (putStrLn . show . ppExpr . body) $ test th $ fm_body formula 
             --liftIO . putStrLn . show $ map (map snd) . freshIds th . findApps (thy_funcs th) . fm_body . head . fst $ theoryGoals th 
             printStr 3 $ "|       | " ++ formulaPrint
             -- clean temporary state

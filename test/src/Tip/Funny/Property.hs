@@ -6,12 +6,27 @@ import Tip.Core hiding (freshArgs)
 import Tip.Fresh
 import Tip.Types
 import Tip.Parser
+import Tip.Pretty
 import Control.Monad
 import Tip.Funny.Utils
 
+data (PrettyVar a, Name a) => Property a = Prop 
+    { propName :: Global a
+    , propBody :: Expr a
+    , propFunc :: Function a
+    , propLocals :: [Local a]
+    }
+    deriving Show
+
+createProperty :: (PrettyVar a, Name a) => Expr a -> [(Expr a, a)] -> Function a -> Fresh (Property a)
+createProperty e ids func = do
+    (name, body) <- createPropExpr e ids
+    lcls <- mapM freshLocal $ polytype_args (gbl_type name) 
+    return $ Prop name body func lcls    
+    
 
 -- Create one application property 
-createPropExpr :: Expr Id -> [(Expr Id, Id)] -> Fresh (Expr Id)
+createPropExpr :: (PrettyVar a, Name a) => Expr a -> [(Expr a, a)] -> Fresh (Global a,Expr a)
 createPropExpr e ids =
     do
         let subst = map (\ei -> (fst ei, createLocal ei)) ids
@@ -29,7 +44,7 @@ createPropExpr e ids =
         uRefs <- updateRef subst rQuant
         let newLocals2 = [ le | 
                 (Lcl le) <- locals' uRefs, not (le `elem` locals2) ]
-        let body = mkQuant Forall newLocals2 uRefs
+        let body = uRefs--mkQuant Forall newLocals2 uRefs
 
         -- Let substituitions imply body
         req <- addReq subst newLocals1
@@ -39,11 +54,14 @@ createPropExpr e ids =
         let pEqB = prop === reqImpBody
         -- Add last forall  
 
-        return $ mkQuant Forall (map snd subst) pEqB
+        -- get global from property        
+        let (Gbl g :@: _) = prop        
+        
+        return (g, mkQuant Forall ((map snd subst)++newLocals1++newLocals2) pEqB)
 
 
 
-addReq :: [(Expr Id, Local Id)] -> [Local Id] -> Fresh (Expr Id)
+addReq :: (PrettyVar a, Name a) =>[(Expr a, Local a)] -> [Local a] -> Fresh (Expr a)
 addReq el newL = 
     do
         let (locals, exps) = partition (isLocal . fst) el
@@ -53,10 +71,10 @@ addReq el newL =
                 return (upRefs,i)) exps
         let eqExpr = map (\(a,b)-> Lcl b === a) newEs 
         let andExpr = ands eqExpr
-        let fA = mkQuant Forall newL andExpr
+        let fA = andExpr --mkQuant Forall newL andExpr
         return fA  
 
-addReq' :: [(Expr Id, Local Id)] -> [Expr Id] -> Fresh ([Local Id])
+addReq' :: (PrettyVar a, Name a) =>[(Expr a, Local a)] -> [Expr a] -> Fresh ([Local a])
 addReq' _  []         = return $ []
 addReq' ls (e:es) = 
     do req <- (addReq' (diff ++ ls) es)
@@ -68,7 +86,7 @@ addReq' ls (e:es) =
 
 
 
-createProp :: [Local Id] -> Fresh (Expr Id)
+createProp :: (PrettyVar a, Name a) =>[Local a] -> Fresh (Expr a)
 createProp ls = (\name -> Gbl (Global name pType []) :@: lcls) <$> gName
     where
         t = BuiltinType Boolean
@@ -80,15 +98,15 @@ createProp ls = (\name -> Gbl (Global name pType []) :@: lcls) <$> gName
 
 
 -- convert first Expr to a funny property over second Expr 
-freshIds :: [Expr Id] -> Fresh [[(Expr Id, Id)]]-- [Expr Id]
+freshIds :: (PrettyVar a, Name a) =>[Expr a] -> Fresh [[(Expr a, a)]]-- [Expr a]
 freshIds apps = sequence $ map (p . unzip) (map freshIds apps)
     where  
         freshIds app = freshArgs app --renameVar app
         p (as, bs) = (zip as) <$> (sequence bs)        
 
-freshArgs :: Expr Id -> [(Expr Id, Fresh Id)]
+freshArgs :: (PrettyVar a, Name a) =>Expr a -> [(Expr a, Fresh a)]
 freshArgs expr@(Gbl a :@: ts) = map rName ts
     where 
-        rName :: Expr Id -> (Expr Id, Fresh Id)
+        rName :: (PrettyVar a, Name a) =>Expr a -> (Expr a, Fresh a)
         rName (Lcl a) = (Lcl a, refresh (lcl_name a))
         rName e = (e, freshNamed "x")

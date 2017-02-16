@@ -6,10 +6,11 @@ import Tip.Core hiding (freshArgs)
 import Tip.Fresh
 import Tip.Types
 import Tip.Parser
+import Tip.Pretty
 import Control.Monad
 
 
-updateRef :: [(Expr Id, Local Id)] -> Expr Id -> Fresh (Expr Id) 
+updateRef :: (PrettyVar a, Name a) => [(Expr a, Local a)] -> Expr a -> Fresh (Expr a) 
 updateRef ls local@(Lcl _)  = return $
     case lookup local ls of
         Nothing -> local
@@ -35,21 +36,22 @@ updateRef ls a             = fail "Expression not supported "
 
 
 
-isLocal :: Expr Id -> Bool
+isLocal :: (PrettyVar a, Name a) => Expr a -> Bool
 isLocal (Lcl _) = True
 isLocal _       = False
 
-createLocal :: (Expr Id, Id) -> Local Id
+createLocal :: (PrettyVar a, Name a) => (Expr a, a) -> Local a
 createLocal (e, i) = Local i (exprType e) 
        
 -- Removes all quantifier in the beginning of the expression
-removeQuant :: Expr Id -> Expr Id
+removeQuant :: (PrettyVar a, Name a) => Expr a -> Expr a
 removeQuant (Quant _ _ _ e) = removeQuant e
 removeQuant a = a
 
-findApps :: [Function Id] -> Expr Id -> Fresh ([Expr Id])
-findApps fs e = return $ filter (\(Gbl g :@: _ ) -> isFunc (gbl_name g) fs) (globals' e)
+findApps :: (PrettyVar a, Name a) => [Function a] -> Expr a -> Fresh ([(Expr a, a)])
+findApps fs e = return . funId $ filter (\(Gbl g :@: _ ) -> isFunc (gbl_name g) fs) (globals' e)
+    where 
+        funId = map (\gbl@(Gbl g :@: ls) -> (gbl, gbl_name g))
 
-
-isFunc :: Id -> [Function Id] -> Bool
+isFunc :: (PrettyVar a, Name a) => a -> [Function a] -> Bool
 isFunc i = or . map ((==) i . func_name)

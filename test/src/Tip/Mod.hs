@@ -4,11 +4,12 @@
 module Tip.Mod where
 
 import           Tip.Core
-import           Data.Generics.Geniplate     
+import           qualified Data.Generics.Geniplate  as G   
 import           Control.Monad
 import           Data.List
 import           Data.Maybe
 import           Text.PrettyPrint
+import           Tip.Fresh
 import           Tip.Parser
 import           Tip.Passes
 import           Tip.Pretty
@@ -26,7 +27,7 @@ ppFormula' form =
             body = ppExpr 0 (tffify (fm_body form))
 
 -- pretty print a theory in tff format
-ppTheory' :: (Ord a,PrettyVar a) => Theory a -> Doc
+ppTheory' :: (Ord a, PrettyVar a) => Theory a -> Doc
 ppTheory' (renameAvoiding [] (filter validTFFChar) . tffvarify -> Theory{..})
   = vcat
      (map ppSort thy_sorts ++
@@ -34,7 +35,7 @@ ppTheory' (renameAvoiding [] (filter validTFFChar) . tffvarify -> Theory{..})
       map ppFormula' thy_asserts)
 
 -- rename all speculated-lemmas and source properties with lemm1, lemma2, etc.
-renameLemmas :: Theory a -> Theory a
+renameLemmas :: (PrettyVar a, Name a) => Theory a -> Theory a
 renameLemmas th = th{thy_asserts = new_asserts th}
     where
         -- check if formula is a source property
@@ -47,7 +48,7 @@ renameLemmas th = th{thy_asserts = new_asserts th}
         new_asserts = zipWith (curry addName) [0 ..] . thy_asserts
 
 -- The passes needed to convert the theory into tff format
-tff :: [StandardPass]-> Theory Id -> [Theory Id]
+tff :: (PrettyVar a, Name a) => [StandardPass]-> Theory a -> [Theory a]
 tff p = freshPass (runPasses $ p ++
         [ TypeSkolemConjecture
           , Monomorphise False
@@ -68,10 +69,13 @@ tff p = freshPass (runPasses $ p ++
           , AxiomatizeDatadecls
         ])
 
-globals' :: Expr Id -> [Expr Id]
-globals' e = [gbl  | gbl@(Gbl g :@: t) <- universeBi e]
+globals' :: (PrettyVar a, Name a) => Expr a -> [Expr a]
+globals' e = [gbl  | gbl@(Gbl g :@: t) <- universe e]
 
-locals' :: Expr Id -> [Expr Id]
+locals' :: (PrettyVar a, Name a) =>  Expr a -> [Expr a]
 locals' = map Lcl . locals
+
+universe :: G.UniverseBi a a => a -> [a]
+universe = G.universe
 
 
