@@ -112,15 +112,15 @@ loop_conj theory curr num continue
             let     bt = betterTest th0 $ fm_body formula
             let     prop = fst . head $ bt
             let     ps = Formula Assert [] [] $ propBody prop
-            let     varDefs = map (\l -> Signature (lcl_name l) [] (PolyType [] [] (lcl_type l))) (propLocals prop)
+            let     varDefs = [] -- map (\l -> Signature (lcl_name l) [] (PolyType [] [] (lcl_type l))) (propLocals prop)
             let     sigs = Signature (gbl_name (propName prop)) [] (gbl_type (propName prop))
-            let     exprs = map (Formula Assert [] (map lcl_name $ propLocals prop) ) $ snd . head $ bt
+            let     exprs = map (Formula Assert [] {-(map lcl_name $ propLocals prop)-} [] ) $ snd . head $ bt
             let     th = th0{thy_asserts = ps : exprs ++ (thy_asserts th0), thy_sigs = sigs : varDefs ++ (thy_sigs th0) }
             liftIO $ do
                       putStrLn $ show $ ppTheory' th
                       putStrLn "-----------------------------------------"
                       --putStrLn $ "-------free------- " ++ (show $ map (free . fm_body) exprs )
-            -- liftIO $ mapM_ (putStrLn . show . ppExpr 0) $
+            --liftIO $ mapM_ (putStrLn . show . ppExpr 0) $
             --liftIO $ mapM_ (putStrLn . show . ppExpr . body) $ test th $ fm_body formula
             --liftIO . putStrLn . show $ map (map snd) . freshIds th . findApps (thy_funcs th) . fm_body . head . fst $ theoryGoals th
             printStr 3 $ "|       | " ++ formulaPrint
