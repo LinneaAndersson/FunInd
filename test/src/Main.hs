@@ -12,7 +12,7 @@ import           System.Environment
 import           System.FilePath.Posix
 import           System.IO
 import           Text.Regex
-import           Tip.Core              (forallView, theoryGoals)
+import           Tip.Core              (forallView, theoryGoals, free)
 import           Tip.Formula
 import Tip.Funny.Property (propBody,propFunc,propName,propLocals)
 import           Tip.Haskell.Rename
@@ -36,7 +36,7 @@ import           Utils
 
 main :: IO()
 main = do
-    
+
     -- parse input parameters: inout file and verbosity flags
     params <- parseParams
 
@@ -109,18 +109,20 @@ loop_conj theory curr num continue
             liftIO $ putStrLn $ show $ ppTheory' th0
             liftIO $ putStrLn "------------------------------"
             --liftIO $ putStrLn . show . ppExpr . func_body . head . thy_funcs $ th
-            let prop = head $ test th0 $ fm_body formula
-            let ps = Formula Assert [] [] $ propBody prop
-            let varDefs = map (\l -> Signature (lcl_name l) [] (PolyType [] [] (lcl_type l))) (propLocals prop) 
-            let sigs = Signature (gbl_name (propName prop)) [] (gbl_type (propName prop))
-            let exprs = map (Formula Assert [] []) $ test1 th0 prop
-            let th = th0{thy_asserts = ps : exprs ++ (thy_asserts th0), thy_sigs = sigs : varDefs ++ (thy_sigs th0) } 
-            liftIO $ putStrLn $ show $ ppTheory' th
-            liftIO $ putStrLn "-----------------------------------------"
-            lintMany "run lint" [th] 
-            -- liftIO $ mapM_ (putStrLn . show . ppExpr 0) $  
-            --liftIO $ mapM_ (putStrLn . show . ppExpr . body) $ test th $ fm_body formula 
-            --liftIO . putStrLn . show $ map (map snd) . freshIds th . findApps (thy_funcs th) . fm_body . head . fst $ theoryGoals th 
+            let     bt = betterTest th0 $ fm_body formula
+            let     prop = fst . head $ bt
+            let     ps = Formula Assert [] [] $ propBody prop
+            let     varDefs = map (\l -> Signature (lcl_name l) [] (PolyType [] [] (lcl_type l))) (propLocals prop)
+            let     sigs = Signature (gbl_name (propName prop)) [] (gbl_type (propName prop))
+            let     exprs = map (Formula Assert [] (map lcl_name $ propLocals prop) ) $ snd . head $ bt
+            let     th = th0{thy_asserts = ps : exprs ++ (thy_asserts th0), thy_sigs = sigs : varDefs ++ (thy_sigs th0) }
+            liftIO $ do
+                      putStrLn $ show $ ppTheory' th
+                      putStrLn "-----------------------------------------"
+                      --putStrLn $ "-------free------- " ++ (show $ map (free . fm_body) exprs )
+            -- liftIO $ mapM_ (putStrLn . show . ppExpr 0) $
+            --liftIO $ mapM_ (putStrLn . show . ppExpr . body) $ test th $ fm_body formula
+            --liftIO . putStrLn . show $ map (map snd) . freshIds th . findApps (thy_funcs th) . fm_body . head . fst $ theoryGoals th
             printStr 3 $ "|       | " ++ formulaPrint
             -- clean temporary state
             modify (\s -> s{axioms = [], ind=Nothing})
