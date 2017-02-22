@@ -1,0 +1,80 @@
+
+
+% -------------------------------------------------------------------------------
+% List 
+
+% -------------------------------------------------------------------------------
+% type definitions
+
+fof(nil, axiom,
+  is_list(nil)
+).
+
+fof(cons, axiom,
+  ![XS,X] : is_list(cons(X,XS))
+).
+
+fof(nilNotCons, axiom,
+    ![XS, X]: ~nil=cons(X, XS)
+).
+
+
+% ------------------------------------------------------------------------------
+% function definitions
+
+fof(concat, axiom,
+  ![XS,YS] : is_list(z(XS,YS))
+).
+
+fof(concatNil, axiom, 
+    ![YS]: z(nil, YS)=YS
+).
+
+fof(concatCons, axiom,
+    ![YS, Z, XS]: z(cons(Z, XS), YS)=cons(Z, z(XS, YS))
+).
+
+% ------------------------------------------------------------------------------
+% definition of p - for clarity
+
+% here is the "funnified" version of it:
+
+
+% test moving forall into eq
+%fof(def_p, axiom,
+%  ![Z, Y]:
+%    (prop(Z, Y) <=> (![X] : ((X=z(Z, Y) & X=z(Y, Z)) | (~X=z(Z, Y) & ~X=z(Y, Z)) )))
+%).
+
+
+
+% in a real application, we can do without this definition, and just inline p(X,Y), but here we don't do so for clarity reasons
+
+
+%----------------------------------------------------------------------------------
+% Help Lemmas
+
+%fof(lemma0, axiom,
+%  ![A, B, C]:
+%    z(A, z(B, C)) = z(z(A, B), C)).
+%fof(lemma1, axiom, ![X]: z(X, nil) = X).
+
+
+% ------------------------------------------------------------------------------
+% funny induction
+
+% hypothesis:
+
+fof(hypo1, hypothesis,
+  ![A, Bs, X]: (a = cons(A, Bs) => ((X=z(Bs, b) & X=z(b, Bs)) | (~X=z(Bs, b) & ~X=z(b, Bs)))
+)).
+
+%fof(nilT, axiom, a=nil).
+
+
+% conjecture:
+
+fof(goal, conjecture,
+  ![X] : ((X=z(a, b) & X=z(b, a)) | (~X=z(a, b) & ~X=z(b, a)))
+).
+

@@ -78,4 +78,8 @@ locals' = map Lcl . locals
 universe :: G.UniverseBi a a => a -> [a]
 universe = G.universe
 
-
+freshGlobal :: (PrettyVar a, Name a) => PolyType a -> [Type a] -> Fresh (Global a)
+freshGlobal pt t = 
+    do 
+        id <- freshNamed "g"
+        return $ Global id pt t

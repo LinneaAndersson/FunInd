@@ -14,7 +14,8 @@ import           System.IO
 import           Text.Regex
 import           Tip.Core              (forallView, theoryGoals, free)
 import           Tip.Formula
-import Tip.Funny.Property (propBody,propFunc,propName,propLocals)
+import           Tip.Funny.Utils       (findApps)
+import Tip.Funny.Property (propBody,propFunc,propName,propGlobals)
 import           Tip.Haskell.Rename
 --import           Tip.Haskell.Translate
 import           Tip.Lint
@@ -97,7 +98,7 @@ loop_conj theory curr num continue
             -- find all variables
             vars    =  fst . forallView $ fm_body $ head . fst $ theoryGoals th0
             -- count variables, to be used in induction loop
-            nbrVar  = length vars
+            nbrVar  = length $ findApps (thy_funcs th0) (fm_body $ head . fst $ theoryGoals th0)  -- length vars
             -- the formula matching the current conjecture
             formula = head . fst $ theoryGoals th0
             -- lookup up unique name of formual
@@ -105,40 +106,29 @@ loop_conj theory curr num continue
             -- turn formula into printable form
             formulaPrint = showFormula formula
         in do
-            liftIO $ putStrLn "------------------------------"
-            liftIO $ putStrLn $ show $ ppTheory' th0
-            liftIO $ putStrLn "------------------------------"
-            --liftIO $ putStrLn . show . ppExpr . func_body . head . thy_funcs $ th
-            let     bt = betterTest th0 $ fm_body formula
-            let     prop = fst . head $ bt
-            let     ps = Formula Assert [] [] $ propBody prop
-            let     varDefs = [] -- map (\l -> Signature (lcl_name l) [] (PolyType [] [] (lcl_type l))) (propLocals prop)
-            let     sigs = Signature (gbl_name (propName prop)) [] (gbl_type (propName prop))
-            let     exprs = map (Formula Assert [] {-(map lcl_name $ propLocals prop)-} [] ) $ snd . head $ bt
-            let     th = th0{thy_asserts = ps : exprs ++ (thy_asserts th0), thy_sigs = sigs : varDefs ++ (thy_sigs th0) }
-            liftIO $ do
-                      putStrLn $ show $ ppTheory' th
-                      putStrLn "-----------------------------------------"
-                      --putStrLn $ "-------free------- " ++ (show $ map (free . fm_body) exprs )
-            --liftIO $ mapM_ (putStrLn . show . ppExpr 0) $
-            --liftIO $ mapM_ (putStrLn . show . ppExpr . body) $ test th $ fm_body formula
-            --liftIO . putStrLn . show $ map (map snd) . freshIds th . findApps (thy_funcs th) . fm_body . head . fst $ theoryGoals th
-            printStr 3 $ "|       | " ++ formulaPrint
+            --liftIO $ putStrLn "------------------------------"
+            --liftIO $ putStrLn $ show $ ppTheory' th0
+            --liftIO $ putStrLn "------------------------------"
+            let th = th0            
             -- clean temporary state
             modify (\s -> s{axioms = [], ind=Nothing})
             mcase (prove th) -- Test if solvable without induction
                 (do -- Proved without induction
+                    printStr 3 $ "| " ++ f_name  ++  "  -- P | " ++ formulaPrint
                     addLemma f_name -- add formula to proved lemmas
                     -- go to next conjecture
                     loop_conj (provedConjecture curr theory) curr (num-1) continue)
                 (mcase (loop_ind th 0 nbrVar) -- Attempt induction
                         (do -- Proved using induction
+                            printStr 3 $ "| " ++ f_name  ++  "  -- I | " ++ formulaPrint
                             addLemma f_name -- add formula to proved lemmas
                             -- -- go to next conjecture
                             loop_conj (provedConjecture curr theory) curr (num-1) True)
                         -- Unable to prove with current theory
                         -- try next conjecture
-                        (loop_conj theory (curr + 1) num continue))
+                        (do 
+                            printStr 3 $ "| " ++ f_name  ++  "  -- U | " ++ formulaPrint            
+                            loop_conj theory (curr + 1) num continue))
 
 
 
@@ -146,14 +136,22 @@ loop_conj theory curr num continue
 loop_ind :: Theory Id -> Int -> Int -> Induction Bool
 loop_ind theory num tot
     | num >= tot = return False -- tested all variables, unable to prove
-    | otherwise  =
+    | otherwise  = do
+
+        prob <- liftIO =<< (prepare <$> getProver) <*> pure (last ind_theory)
+        liftIO $ writeFile (out_path ("problem" ++ (show num))) prob
+
+        liftIO $ do
+                      putStrLn $ show $ map ppTheory' ind_theory
+                      putStrLn "-----------------------------------------"
+
         mcase (proveAll ind_theory)     -- try induction on one variable
             (do -- proves using induction on 'num'
                 modify (\s -> s{ind = Just num}) -- add variable used
                 return True)
             (loop_ind theory (num+1) tot)   -- unable to prove, try next variable
     where -- prepare theory for induction on variable 'num'
-        ind_theory = freshPass (induction [num]) theory
+        ind_theory = freshPass (applicativeInduction [num]) theory
 
 -- Returns true if all conjectures are provable
 proveAll :: [Theory Id] -> Induction Bool

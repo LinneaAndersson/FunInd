@@ -1,0 +1,64 @@
+fof(types1, axiom, is_list(nil)).
+fof(types2, axiom, ![X, X2]: is_list(cons(X2, X))).
+fof(types3, axiom, is_list2(nil2)).
+fof(types4, axiom, ![X, X2]: is_list2(cons2(X2, X))).
+fof(types5, axiom, ![X, X2, X3]: is_tree(node(X3, X2, X))).
+fof(types6, axiom, is_tree(nil3)).
+fof(types7, axiom, ![X]: is_list2(flatten1(X))).
+fof(types8, axiom, ![X, X2]: is_list2(x(X2, X))).
+fof(types9, axiom, ![X]: is_list2(flatten0(X))).
+fof(types10, axiom, ![X]: is_tree(head(X))).
+fof(types11, axiom, ![X]: is_list(tail(X))).
+fof(types12, axiom, ![X]: is_sk(head2(X))).
+fof(types13, axiom, ![X]: is_list2(tail2(X))).
+fof(types14, axiom, ![X]: is_tree(proj1Node(X))).
+fof(types15, axiom, ![X]: is_sk(proj2Node(X))).
+fof(types16, axiom, ![X]: is_tree(proj3Node(X))).
+fof(types17, axiom, is_tree(p)).
+fof(types18, axiom, ?[X]: is_list(X)).
+fof(types19, axiom, ?[X]: is_tree(X)).
+fof(types20, axiom, ?[X]: is_list2(X)).
+fof(types21, axiom, ?[X]: is_sk(X)).
+fof(axiom, axiom,
+    ![X]: (~is_list(X) | X=nil | X=cons(head(X), tail(X)))).
+fof(axiom, axiom, ![X, X2]: (head(cons(X, X2))=X | ~is_tree(X))).
+fof(axiom, axiom, ![X, X2]: (tail(cons(X, X2))=X2 | ~is_list(X2))).
+fof(axiom, axiom, ![X, X2]: ~nil=cons(X, X2)).
+fof(axiom, axiom,
+    ![X]: (~is_list2(X) | X=nil2 | X=cons2(head2(X), tail2(X)))).
+fof(axiom, axiom, ![X, X2]: (head2(cons2(X, X2))=X | ~is_sk(X))).
+fof(axiom, axiom,
+    ![X, X2]: (tail2(cons2(X, X2))=X2 | ~is_list2(X2))).
+fof(axiom, axiom, ![X, X2]: ~nil2=cons2(X, X2)).
+fof(axiom, axiom,
+    ![X]:
+      (~is_tree(X)
+         | X=node(proj1Node(X), proj2Node(X), proj3Node(X))
+         | X=nil3)).
+fof(axiom, axiom,
+    ![X, X2, X3]: (proj1Node(node(X, X2, X3))=X | ~is_tree(X))).
+fof(axiom, axiom,
+    ![X, X2, X3]: (proj2Node(node(X, X2, X3))=X2 | ~is_sk(X2))).
+fof(axiom, axiom,
+    ![X, X2, X3]: (proj3Node(node(X, X2, X3))=X3 | ~is_tree(X3))).
+fof(axiom, axiom, ![X, X2, X3]: ~node(X, X2, X3)=nil3).
+fof(axiom, axiom, flatten1(nil)=nil2).
+fof(axiom, axiom,
+    ![X2, X3, Ps, Q, X4, X5]:
+      flatten1(cons(node(node(X3, X4, X5), X2, Q),
+                    Ps))=flatten1(cons(node(X3, X4, X5),
+                                       cons(node(nil3, X2, Q), Ps)))).
+fof(axiom, axiom,
+    ![X2, Ps, Q]:
+      flatten1(cons(node(nil3, X2, Q), Ps))=cons2(X2,
+                                                  flatten1(cons(Q, Ps)))).
+fof(axiom, axiom, ![Ps]: flatten1(cons(nil3, Ps))=flatten1(Ps)).
+fof(axiom, axiom, ![Y]: (x(nil2, Y)=Y | ~is_list2(Y))).
+fof(axiom, axiom,
+    ![Y, Z, Xs]: x(cons2(Z, Xs), Y)=cons2(Z, x(Xs, Y))).
+fof(axiom, axiom,
+    ![Q, Y, P]:
+      flatten0(node(P, Y, Q))=x(flatten0(P),
+                                x(cons2(Y, nil2), flatten0(Q)))).
+fof(axiom, axiom, flatten0(nil3)=nil2).
+fof(goal, conjecture, flatten1(cons(p, nil))=flatten0(p)).

@@ -14,15 +14,16 @@ data (PrettyVar a, Name a) => Property a = Prop
     { propName :: Global a
     , propBody :: Expr a
     , propFunc :: Function a
-    , propLocals :: [Local a]
+    , propGlobals :: [Global a]
     }
     deriving Show
 
 createProperty :: (PrettyVar a, Name a) => Expr a -> [(Expr a, a)] -> Function a -> Fresh (Property a)
 createProperty e ids func = do
     (name, body) <- createPropExpr e ids
-    lcls <- mapM freshLocal $ polytype_args (gbl_type name) 
-    return $ Prop name body func lcls    
+    gbls <- mapM (\pt -> freshGlobal (PolyType [] [] pt) [])   (polytype_args (gbl_type name)) 
+    --lcls <- mapM freshLocal $ polytype_args (gbl_type name) 
+    return $ Prop name body func gbls  
     
 
 -- Create one application property 
