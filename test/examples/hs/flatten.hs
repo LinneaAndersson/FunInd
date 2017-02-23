@@ -13,6 +13,10 @@ concat' :: List -> List -> List
 concat' Nul ys           = ys
 concat' (Cons x xs) ys   = Cons x (concat' xs ys) 
 
+concatMap' :: TreeList -> List
+concatMap' TNul               = Nul
+concatMap' (TreeCons t ts)    = concat' (flatten0 t) (concatMap' ts) 
+
 flatten0 :: Tree -> List
 flatten0 Nil          = Nul
 flatten0 (Node p x q) =concat' (concat' (flatten0 p) (Cons x Nul)) (flatten0 q)
@@ -37,8 +41,8 @@ flatten3 (Node Nil x q)          = Cons x $ flatten3 q
 prop_Flatten1 p =
   flatten1 (TreeCons p TNul) === flatten0 p
 
---prop_Flatten1List ps =
-  --flatten1 ps === concatMap flatten0 ps
+prop_Flatten1List ps =
+  flatten1 ps === concatMap' ps
 
 prop_Flatten2 :: Tree -> Prop
 prop_Flatten2 p =

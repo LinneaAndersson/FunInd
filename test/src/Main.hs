@@ -15,7 +15,7 @@ import           Text.Regex
 import           Tip.Core              (forallView, theoryGoals, free)
 import           Tip.Formula
 import           Tip.Funny.Utils       (findApps)
-import Tip.Funny.Property (propBody,propFunc,propName,propGlobals)
+import Tip.Funny.Property (propBody,propFunc,propGlobals)
 import           Tip.Haskell.Rename
 --import           Tip.Haskell.Translate
 import           Tip.Lint
@@ -121,6 +121,7 @@ loop_conj theory curr num continue
                 (mcase (loop_ind th 0 nbrVar) -- Attempt induction
                         (do -- Proved using induction
                             printStr 3 $ "| " ++ f_name  ++  "  -- I | " ++ formulaPrint
+                            --fail $ "printout"
                             addLemma f_name -- add formula to proved lemmas
                             -- -- go to next conjecture
                             loop_conj (provedConjecture curr theory) curr (num-1) True)
@@ -142,7 +143,7 @@ loop_ind theory num tot
         liftIO $ writeFile (out_path ("problem" ++ (show num))) prob
 
         liftIO $ do
-                      putStrLn $ show $ map ppTheory' ind_theory
+                      --putStrLn $ show $ map ppTheory' ind_theory
                       putStrLn "-----------------------------------------"
 
         mcase (proveAll ind_theory)     -- try induction on one variable

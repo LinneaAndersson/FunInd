@@ -11,7 +11,8 @@ import Control.Monad
 import Tip.Funny.Utils
 
 data (PrettyVar a, Name a) => Property a = Prop 
-    { propName :: Global a
+    { propInp  :: [Local a]
+    , propQnts :: [Local a]
     , propBody :: Expr a
     , propFunc :: Function a
     , propGlobals :: [Global a]
@@ -20,14 +21,14 @@ data (PrettyVar a, Name a) => Property a = Prop
 
 createProperty :: (PrettyVar a, Name a) => Expr a -> [(Expr a, a)] -> Function a -> Fresh (Property a)
 createProperty e ids func = do
-    (name, body) <- createPropExpr e ids
-    gbls <- mapM (\pt -> freshGlobal (PolyType [] [] pt) [])   (polytype_args (gbl_type name)) 
+    (input, qnts, body) <- createPropExpr e ids
+    gbls <- mapM (\pt -> freshGlobal (PolyType [] [] (lcl_type pt)) []) input 
     --lcls <- mapM freshLocal $ polytype_args (gbl_type name) 
-    return $ Prop name body func gbls  
+    return $ Prop input qnts body func gbls  
     
 
 -- Create one application property 
-createPropExpr :: (PrettyVar a, Name a) => Expr a -> [(Expr a, a)] -> Fresh (Global a,Expr a)
+createPropExpr :: (PrettyVar a, Name a) => Expr a -> [(Expr a, a)] -> Fresh ([Local a], [Local a], Expr a)
 createPropExpr e ids =
     do
         let subst = map (\ei -> (fst ei, createLocal ei)) ids
@@ -52,13 +53,13 @@ createPropExpr e ids =
         let reqImpBody = req ==> body
 
         -- Let property equal body
-        let pEqB = prop === reqImpBody
+        let pEqB = reqImpBody
         -- Add last forall  
 
         -- get global from property        
-        let (Gbl g :@: _) = prop        
+        --let (Gbl _ :@: ts) = prop        
         
-        return (g, mkQuant Forall ((map snd subst)++newLocals1++newLocals2) pEqB)
+        return ((map snd subst),newLocals1++newLocals2, pEqB)
 
 
 

@@ -41,10 +41,16 @@ applicativeInduction (l:ls) theory = do
     let         newTheory = deleteConjecture 0 theory
     propExpr    <- test newTheory expr >>= \p -> zip p <$> mapM createApps p
     let         prop = fst $ propExpr !! l
-    let         ps = Formula Assert [] [] $ propBody prop
+    prop' <- updateRef' (zip (map Lcl (propInp prop)) (map (\p' -> Gbl p' :@: []) (propGlobals prop))) (propBody prop)
+    let p' = mkQuant Forall (propQnts prop) prop'
+    --let         ps = Formula Assert [("psssssss",Nothing)] [] $ p'
     let         varDefs = map (\g -> Signature (gbl_name g) [] (gbl_type g)) (propGlobals prop)
-    let         sigs = Signature (gbl_name (propName prop)) [] (gbl_type (propName prop))     
-    let         goals = Formula Prove [] [] (Gbl (propName prop) :@: (map (\g -> Gbl g :@: [])) (propGlobals prop))
-    let         nTheory = newTheory{thy_asserts = ps : (thy_asserts newTheory) ++ [goals], thy_sigs = sigs : varDefs ++ (thy_sigs newTheory)}
+    --let         sigs = Signature (gbl_name (propName prop)) [] (gbl_type (propName prop))     
+    -- exchange to global constants
+    let prop'' = mkQuant Forall (propQnts prop) prop' 
+    let goals = Formula Prove [("goal", Nothing)] [] prop''
+    --let         goals = Formula Prove [] [] ((propBody prop) :@: (map (\g -> Gbl g :@: [])) (propGlobals prop))
+
+    let         nTheory = newTheory{thy_asserts = (thy_asserts newTheory) ++ [goals], thy_sigs =  varDefs ++ (thy_sigs newTheory)}
     return $ map (\ props -> nTheory{thy_asserts = (exprs props) ++ thy_asserts nTheory}) (snd (propExpr !! l))
-        where exprs ps = map (Formula Assert [] [] ) $ ps
+        where exprs ps = map (Formula Assert [("ttttt",Nothing)] [] ) $ ps

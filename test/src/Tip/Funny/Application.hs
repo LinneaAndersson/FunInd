@@ -1,5 +1,5 @@
 module Tip.Funny.Application where
-
+import Data.List
 import Tip.Types
 import Tip.Parser
 import Tip.Fresh
@@ -39,7 +39,9 @@ patternExpr p g (Case (ConPat gbl args) e) =
         let rhsArgs = [ t | 
                 (Gbl g :@: t) <- universe e, gbl_name g == func_name (propFunc p) ]
         -- Create properties with correct arguments
-        let props = [ Gbl (propName p) :@: a | a <- rhsArgs]
+        --let props = [ Gbl (propName p) :@: a | a <- rhsArgs]
+        props <- sequence [updateRef' (zip (map Lcl (propInp p)) rhs_args) (propBody p) | rhs_args <- rhsArgs ]
+        let propArgs = map free props
         -- add pat_args to forall
-        return $ mkQuant Exists args expr : map  (mkQuant Forall args . (==>) expr) props
+        return $ mkQuant Exists args expr : zipWith  (\pr ar -> mkQuant Forall (nub $ args++(propQnts p) ++ ar) . (==>) expr $ pr) props propArgs
 callExpr _ _ _ = fail "Unsupported pattern "

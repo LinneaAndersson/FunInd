@@ -111,7 +111,7 @@ printResult th =
                 case indVar l of
                     Nothing -> return ()
                     Just i  -> printStr outLevel
-                                        $ "--- Proved using induction on variable: " ++ (show $ getFormulaVar formula i)
+                                        $ "--- Proved with index: " ++ (show i) -- ++ (show $ getFormulaVar formula i)
                 -- Print all auxiliary lemmas used in the proof
                 mapM_ (\a -> printStr outLevel
                     (" | " ++ (if outLevel==1
