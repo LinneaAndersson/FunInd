@@ -11,29 +11,37 @@ import           Tip.Mod
 import           Tip.Parser
 import           Tip.Passes
 import           Tip.Types
+import           Tip.Pretty
+import           Tip.Fresh
+
+import           Constants
 
 type Flag = String
 -- represenatation of a prover
-data Prover = P {
+data (Name a, PrettyVar a) => Prover a = P {
         -- path to execteable
         name     :: FilePath,
         -- flags given to prover when calling it
         flags    :: [Flag],
         -- function to prepare the theory
-        prepare  :: Theory Id -> IO String,
+        prepare  :: Theory a -> IO String,
         -- parse the output from the prover
         parseOut :: [String] -> IO (Bool, [String])
     }
 
-instance Show Prover where
+instance Name a => Show (Prover a) where
     show p = "Prover: " ++ name p ++ ", flags: " ++ unwords (flags p)
 
 -- A prover instance of the first-order-logic prover E
-eprover :: Prover
+eprover :: Name a => Prover a
 eprover = P {name = "eproof",
              flags = ["--tstp-in", "--auto", "--full-deriv",
                         "--soft-cpu-limit=5"],
-             prepare = jukebox_hs . show . ppTheory' . head . tff [SkolemiseConjecture],
+             prepare = (\i ->
+                    do 
+                        let str = show . ppTheory' . head . tff [SkolemiseConjecture] $ i
+                        writeFile (out_path "preJukebox") str
+                        jukebox_hs str),
              parseOut = pout}
     where
         pout :: [String] -> IO (Bool,[String])

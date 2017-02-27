@@ -2,8 +2,8 @@ resolver: lts-7.7
 
 packages:
 - ./
-- ../../tip/tools/tip-types/
-- ../../tip/tools/tip-lib/
+- ../../tools/tip-types/
+- ../../tools/tip-lib/
 - location:
     git: git://github.com/nick8325/quickspec
     commit: c63e13992fc3b25909b108eca663e7f7ea7184b2

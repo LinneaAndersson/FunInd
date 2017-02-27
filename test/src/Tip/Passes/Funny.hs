@@ -18,8 +18,8 @@ import Data.Maybe
 
 
 --Returns The "sub"-properties of the property
-test :: (PrettyVar a, Name a) =>  Theory a -> Expr a -> Fresh [Property a]
-test th e = es --freshFrom es th
+createProperties :: (PrettyVar a, Name a) =>  Theory a -> Expr a -> Fresh [Property a]
+createProperties th e = es --freshFrom es th
     where
         es = do
             let apps = findApps (thy_funcs th) e
@@ -31,26 +31,41 @@ test th e = es --freshFrom es th
                     fIds <- freshIds (map fst apps)
                     sequence $ zipWith (createProperty e) fIds funcs
 
+createAsserts ::  (PrettyVar a, Name a) => Theory a -> Expr a -> Fresh [(Property a,[[Expr a]])]
+createAsserts theory expr = createProperties theory expr >>= \p -> zip p <$> mapM createApps p
 
---betterTest :: (PrettyVar a, Name a) => Theory a -> Expr a -> [(Property a , [[Expr a]])]
---betterTest th e =  
+createGoal ::  (PrettyVar a, Name a) => Property a  -> Fresh (Formula a)
+createGoal prop = do
+    let        constants = map (\p' -> Gbl p' :@: []) (propGlobals prop)
+    let        lcls = map Lcl (propInp prop)
+    propE      <- updateRef'  (zip lcls constants) (propBody prop) 
+    return $   Formula Prove [("goal", Nothing)] [] (mkQuant Forall (propQnts prop) propE)
+
+createSignatures :: (PrettyVar a, Name a) => Property a -> [Signature a]
+createSignatures prop = map (\g -> Signature (gbl_name g) [] (gbl_type g)) (propGlobals prop)
+
 
 applicativeInduction :: (PrettyVar a, Name a) => [Int] -> Theory a -> Fresh ([Theory a])
 applicativeInduction (l:ls) theory = do
-    let         expr = fm_body . head . fst . theoryGoals $ theory
-    let         newTheory = deleteConjecture 0 theory
-    propExpr    <- test newTheory expr >>= \p -> zip p <$> mapM createApps p
-    let         prop = fst $ propExpr !! l
-    prop' <- updateRef' (zip (map Lcl (propInp prop)) (map (\p' -> Gbl p' :@: []) (propGlobals prop))) (propBody prop)
-    let p' = mkQuant Forall (propQnts prop) prop'
-    --let         ps = Formula Assert [("psssssss",Nothing)] [] $ p'
-    let         varDefs = map (\g -> Signature (gbl_name g) [] (gbl_type g)) (propGlobals prop)
-    --let         sigs = Signature (gbl_name (propName prop)) [] (gbl_type (propName prop))     
-    -- exchange to global constants
-    let prop'' = mkQuant Forall (propQnts prop) prop' 
-    let goals = Formula Prove [("goal", Nothing)] [] prop''
-    --let         goals = Formula Prove [] [] ((propBody prop) :@: (map (\g -> Gbl g :@: [])) (propGlobals prop))
+    let         goalExpr = fm_body . head . fst . theoryGoals $ theory
 
-    let         nTheory = newTheory{thy_asserts = (thy_asserts newTheory) ++ [goals], thy_sigs =  varDefs ++ (thy_sigs newTheory)}
+    -- Remove the original goal from the theory
+    let         newTheory = deleteConjecture 0 theory
+
+    -- 
+    propExpr    <-  createAsserts newTheory goalExpr
+
+    -- update references from locals to constants in the hypotheses
+    let         prop = fst $ propExpr !! l
+    
+    -- Create the definitions of the constants 
+    let         varDefs = createSignatures prop
+
+    -- create the goal
+    goal        <- createGoal prop
+
+    -- update the theory with the new assumptions, signatures and goal
+    let         nTheory = newTheory{thy_asserts = (thy_asserts newTheory) ++ [goal], thy_sigs =  varDefs ++ (thy_sigs newTheory)}
     return $ map (\ props -> nTheory{thy_asserts = (exprs props) ++ thy_asserts nTheory}) (snd (propExpr !! l))
         where exprs ps = map (Formula Assert [("ttttt",Nothing)] [] ) $ ps
+  

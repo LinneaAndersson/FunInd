@@ -7,6 +7,7 @@ import           System.FilePath.Posix
 data Params = Params
     { inputFile   :: InputFile
     , outputLevel :: OutputLevel
+    , indType     :: IndType
     }
 
 -- verbosity level
@@ -14,6 +15,8 @@ type OutputLevel = Int
 
 -- inputfile format
 data InputFile = HS FilePath | SMT FilePath | Unrecognized
+
+data IndType = Structural | Applicative
 
 -- parse vebosity flag
 parseOutputLevel :: Parser OutputLevel
@@ -31,12 +34,20 @@ parseInputFile = fun <$> strArgument (metavar "FILENAME" <> help "File to proces
                 ".smt2" -> SMT fileName
                 ".hs"   -> HS  fileName
                 _       -> Unrecognized
+
+parseIndType :: Parser IndType
+parseIndType =
+    flag'    Structural      (long "structural-induction" <> help "Prove using structural induction")
+    <|> flag Applicative Applicative  (long "applicative-induction" <> help "Prove using applicative induction (default)")
+
+
 -- parse all input parameters
 parseParams :: IO Params
 parseParams = execParser $ info
                 (helper <*>
                     (Params    <$>     parseInputFile
-                               <*>     parseOutputLevel))
+                               <*>     parseOutputLevel
+                               <*>     parseIndType))
                 (fullDesc <>
                  progDesc "Prov properties of recursively defined functions" <>
                  -- TODO we really need a better name... :)

@@ -14,6 +14,7 @@ import           System.IO
 import           Text.Regex
 import           Tip.Core              (forallView, theoryGoals, free)
 import           Tip.Formula
+import           Tip.Fresh
 import           Tip.Funny.Utils       (findApps)
 import Tip.Funny.Property (propBody,propFunc,propGlobals)
 import           Tip.Haskell.Rename
@@ -30,7 +31,8 @@ import           Tip.Types
 import           Tip.Passes.Funny
 
 import           Constants
-import           Induction
+import           Induction.Induction
+import           Induction.Types
 import           Process
 import           Prover                hiding (getAxioms)
 import           Utils
@@ -57,14 +59,14 @@ main = do
 
     -- Structural Induction TODO:: ADD (freshPass (monomorphise False) theory_qs)
     case induct (renameLemmas theory_qs) >>= printResult . fst of
-        Induct a -> runStateT a $ initState params
+        TP (Induct a) -> runStateT a (initState params $ getIndType params)
     return ()
         where -- count the number of conjectures in the theory
             numConj th = length $ fst $ theoryGoals th
             -- induction loop
-            induct theory = loop_conj theory 0 (numConj theory) False
+            induct theory = loop_conj theory 0 (numConj theory) False -- :: (Name a, PrettyVar a) => Theory a -> TP a (Theory Id, Bool)
             -- initial state
-            initState par = IndState par eprover [] Nothing []
+            initState par ind = IndState par eprover ind [] Nothing []
 
 -- When the input file is in haskell we need to run tip-ghc
 -- to convert it to smt2
@@ -85,7 +87,7 @@ checkInputFile Unrecognized = fail "Incompatible file extension"
 -- If provable with structural induction, they are put into the theory as proven lemmas
 -- If during one loop none is being proved, do not continue
 -- TODO change timeout on continue
-loop_conj :: Theory Id -> Int -> Int -> Bool -> Induction (Theory Id, Bool)
+loop_conj :: Name a => Theory a -> Int -> Int -> Bool -> TP a (Theory a, Bool)
 loop_conj theory curr num continue
     | curr >= num = -- tested all conjectures
         if continue -- check whether to loop again
@@ -95,10 +97,6 @@ loop_conj theory curr num continue
         let
             -- pick a conjecture
             th0      = selectConjecture curr theory
-            -- find all variables
-            vars    =  fst . forallView $ fm_body $ head . fst $ theoryGoals th0
-            -- count variables, to be used in induction loop
-            nbrVar  = length $ findApps (thy_funcs th0) (fm_body $ head . fst $ theoryGoals th0)  -- length vars
             -- the formula matching the current conjecture
             formula = head . fst $ theoryGoals th0
             -- lookup up unique name of formual
@@ -106,9 +104,7 @@ loop_conj theory curr num continue
             -- turn formula into printable form
             formulaPrint = showFormula formula
         in do
-            --liftIO $ putStrLn "------------------------------"
-            --liftIO $ putStrLn $ show $ ppTheory' th0
-            --liftIO $ putStrLn "------------------------------"
+            nbrVar  <- inductionSize <$> getInduction 
             let th = th0            
             -- clean temporary state
             modify (\s -> s{axioms = [], ind=Nothing})
@@ -118,7 +114,7 @@ loop_conj theory curr num continue
                     addLemma f_name -- add formula to proved lemmas
                     -- go to next conjecture
                     loop_conj (provedConjecture curr theory) curr (num-1) continue)
-                (mcase (loop_ind th 0 nbrVar) -- Attempt induction
+                (mcase (loop_ind th 0 (nbrVar th)) -- Attempt induction
                         (do -- Proved using induction
                             printStr 3 $ "| " ++ f_name  ++  "  -- I | " ++ formulaPrint
                             --fail $ "printout"
@@ -134,13 +130,17 @@ loop_conj theory curr num continue
 
 
 -- Trying to prove a conjecture, looping over all variables in the conjecture
-loop_ind :: Theory Id -> Int -> Int -> Induction Bool
+loop_ind :: Name a => Theory a -> Int -> Int -> TP a Bool
 loop_ind theory num tot
     | num >= tot = return False -- tested all variables, unable to prove
     | otherwise  = do
 
-        prob <- liftIO =<< (prepare <$> getProver) <*> pure (last ind_theory)
-        liftIO $ writeFile (out_path ("problem" ++ (show num))) prob
+        --prepare theory for induction on variable/application 'num'
+        indPass <- inductionPass <$> getInduction
+        let ind_theory = freshPass (indPass [num]) theory
+
+        --prob <- liftIO =<< (prepare <$> getProver) <*> pure (last ind_theory)
+        --liftIO $ writeFile (out_path ("problem" ++ (show num))) prob
 
         liftIO $ do
                       --putStrLn $ show $ map ppTheory' ind_theory
@@ -151,11 +151,10 @@ loop_ind theory num tot
                 modify (\s -> s{ind = Just num}) -- add variable used
                 return True)
             (loop_ind theory (num+1) tot)   -- unable to prove, try next variable
-    where -- prepare theory for induction on variable 'num'
-        ind_theory = freshPass (applicativeInduction [num]) theory
+        
 
 -- Returns true if all conjectures are provable
-proveAll :: [Theory Id] -> Induction Bool
+proveAll :: Name a => [Theory a] -> TP a Bool
 proveAll []       = return True
 proveAll (th:ths) = mcase (prove th)
                         (proveAll ths)
@@ -165,7 +164,7 @@ proveAll (th:ths) = mcase (prove th)
 -- trying to prove one conjecture, returns true if provable
 -- TODO passes should be prover dependent!!!
 -- TODO Do something proper about multi-theories
-prove :: Theory Id -> Induction Bool
+prove :: Name a => Theory a -> TP a Bool
 prove th = do
     {-let goal' = head $ passes th -- prepare conjecture using various passes
         goal''  = ppTheory' goal' -- turn conjecture into printable format
