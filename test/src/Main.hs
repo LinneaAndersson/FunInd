@@ -124,6 +124,7 @@ loop_conj theory curr num continue
                         -- Unable to prove with current theory
                         -- try next conjecture
                         (do 
+                            
                             printStr 3 $ "| " ++ f_name  ++  "  -- U | " ++ formulaPrint            
                             loop_conj theory (curr + 1) num continue))
 
@@ -138,10 +139,10 @@ loop_ind theory num tot
         --prepare theory for induction on variable/application 'num'
         indPass <- inductionPass <$> getInduction
         let ind_theory = freshPass (indPass [num]) theory
-
-        --prob <- liftIO =<< (prepare <$> getProver) <*> pure (last ind_theory)
-        --liftIO $ writeFile (out_path ("problem" ++ (show num))) prob
-
+        
+        prob <- {-show . ppTheory' . tff [SkolemiseConjecture] . last $ ind_theory-}liftIO =<< (prepare <$> getProver) <*> pure (last ind_theory)
+        liftIO $ writeFile (out_path ("problem" ++ (show num))) prob
+        --fail "sdahasdkh"
         liftIO $ do
                       --putStrLn $ show $ map ppTheory' ind_theory
                       putStrLn "-----------------------------------------"
@@ -175,7 +176,7 @@ prove th = do
         -- and apply it to the goal
         prob <- liftIO =<< (prepare <$> getProver) <*> pure th
         liftIO $ writeFile (out_path "problem") prob
-
+        
         -- run prover on the problem
         ep <- runProver $ out_path "problem"
 

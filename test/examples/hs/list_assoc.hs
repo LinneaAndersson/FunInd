@@ -1,16 +1,17 @@
 module Int where
 
 import Tip
---import Data.List
+import Data.List
 
-data List = Nil | Cons Integer List
+--data List = Nil | Cons Integer List
 
-pList :: List -> List -> List
-pList Nil           bs = bs
-pList (Cons a as)   bs = Cons a (pList as bs)
+--pList :: List -> List -> List
+--pList Nil           bs = bs
+--pList (Cons a as)   bs = Cons a (pList as bs)
 
-prop_a_1 :: List -> List -> List -> Prop
-prop_a_1 a b c =   (pList a (pList b c))  === (pList (pList a b) c)
+
+prop_a_1 :: [a] -> [a] -> [a] -> Prop
+prop_a_1 a b c =  a ++ (b ++ c) === (a ++ b) ++ c 
 
 
 --eq :: List -> List -> Bool

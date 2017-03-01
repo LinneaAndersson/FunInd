@@ -9,10 +9,12 @@ import Tip.Parser
 import Tip.Pretty
 import Control.Monad
 import Tip.Funny.Utils
+import Tip.Pretty.SMT
 
 data (PrettyVar a, Name a) => Property a = Prop 
     { propInp  :: [Local a]
     , propQnts :: [Local a]
+    , propGblBody :: [Global a]
     , propBody :: Expr a
     , propFunc :: Function a
     , propGlobals :: [Global a]
@@ -23,8 +25,10 @@ createProperty :: (PrettyVar a, Name a) => Expr a -> [(Expr a, a)] -> Function a
 createProperty e ids func = do
     (input, qnts, body) <- createPropExpr e ids
     gbls <- mapM (\pt -> freshGlobal (PolyType [] [] (lcl_type pt)) []) input 
+    gblBody <- mapM (\pt -> freshGlobal (PolyType [] [] (lcl_type pt)) []) qnts
     --lcls <- mapM freshLocal $ polytype_args (gbl_type name) 
-    return $ Prop input qnts body func gbls  
+    --fail $ show $ map (\gg -> ppExpr $ Gbl gg :@: []) gbls ++ ([ppExpr body]) ++ (map (ppExpr . Lcl) qnts)
+    return $ Prop input qnts gblBody body func gbls  
     
 
 -- Create one application property 

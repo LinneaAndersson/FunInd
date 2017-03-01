@@ -81,5 +81,5 @@ universe = G.universe
 freshGlobal :: (PrettyVar a, Name a) => PolyType a -> [Type a] -> Fresh (Global a)
 freshGlobal pt t = 
     do 
-        id <- freshNamed "g"
+        id <- fresh
         return $ Global id pt t

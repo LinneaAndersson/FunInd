@@ -36,7 +36,7 @@ instance Name a => Show (Prover a) where
 eprover :: Name a => Prover a
 eprover = P {name = "eproof",
              flags = ["--tstp-in", "--auto", "--full-deriv",
-                        "--soft-cpu-limit=5"],
+                        "--soft-cpu-limit=1"],
              prepare = (\i ->
                     do 
                         let str = show . ppTheory' . head . tff [SkolemiseConjecture] $ i
