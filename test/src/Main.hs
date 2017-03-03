@@ -143,7 +143,8 @@ loop_ind theory num tot
         let ind_theory = freshPass (indPass [num]) theory
         
         prep <- (prepare <$> getProver)
-        liftIO $ printTheories (return . show . ppTheory' . head . tff [SkolemiseConjecture]) ind_theory 0 (out_path ("Theory" ++ (show num)))        
+        liftIO $ printTheories prep ind_theory 0 (out_path ("Theory" ++ (show num)))  
+        --(return . show . ppTheory' . head . tff [SkolemiseConjecture])      
 
         liftIO $ do
                       --putStrLn $ show $ map ppTheory' ind_theory
@@ -152,7 +153,7 @@ loop_ind theory num tot
         mcase (proveAll ind_theory)     -- try induction on one variable
             (do -- proves using induction on 'num'
                 modify (\s -> s{ind = Just num}) -- add variable used
-                fail "")
+                return True)
             (loop_ind theory (num+1) tot)   -- unable to prove, try next variable
        
 
