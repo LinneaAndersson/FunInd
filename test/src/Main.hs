@@ -11,6 +11,7 @@ import           Parser.Params
 import           System.Environment
 import           System.FilePath.Posix
 import           System.IO
+import           System.Directory
 import           Text.Regex
 import           Tip.Core              (forallView, theoryGoals, free)
 import           Tip.Formula
@@ -104,6 +105,7 @@ loop_conj theory curr num continue
             -- turn formula into printable form
             formulaPrint = showFormula formula
         in do
+            liftIO $ removeContentInFolder (out_path "")
             nbrVar  <- inductionSize <$> getInduction 
             let th = th0            
             -- clean temporary state
@@ -140,9 +142,9 @@ loop_ind theory num tot
         indPass <- inductionPass <$> getInduction
         let ind_theory = freshPass (indPass [num]) theory
         
-        prob <- {-show . ppTheory' . tff [SkolemiseConjecture] . last $ ind_theory-}liftIO =<< (prepare <$> getProver) <*> pure (last ind_theory)
-        liftIO $ writeFile (out_path ("problem" ++ (show num))) prob
-        --fail "sdahasdkh"
+        prep <- (prepare <$> getProver)
+        liftIO $ printTheories (return . show . ppTheory' . head . tff [SkolemiseConjecture]) ind_theory 0 (out_path ("Theory" ++ (show num)))        
+
         liftIO $ do
                       --putStrLn $ show $ map ppTheory' ind_theory
                       putStrLn "-----------------------------------------"
@@ -150,9 +152,25 @@ loop_ind theory num tot
         mcase (proveAll ind_theory)     -- try induction on one variable
             (do -- proves using induction on 'num'
                 modify (\s -> s{ind = Just num}) -- add variable used
-                return True)
+                fail "")
             (loop_ind theory (num+1) tot)   -- unable to prove, try next variable
+       
+
+printTheories :: Name a => (Theory a -> IO String) -> [Theory a] -> Int -> String -> IO ()
+printTheories _ [] _ _              = return ()
+printTheories prep (t:ts) i s       = 
+    do
+        createDirectoryIfMissing False s
+        prob <- prep t {-show . ppTheory' . tff [SkolemiseConjecture] . last $ ind_theory-} 
+        writeFile (s ++ "/problem" ++ (show i)) prob
+        printTheories prep ts (i+1) s 
         
+
+removeContentInFolder :: String -> IO ()
+removeContentInFolder s = do
+    removeDirectoryRecursive s
+    createDirectory s
+    
 
 -- Returns true if all conjectures are provable
 proveAll :: Name a => [Theory a] -> TP a Bool

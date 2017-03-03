@@ -61,7 +61,7 @@ applicativeInduction (l:ls) theory' = do
     
     --
     let hyp = snd $ propExpr !! l
-    hyps <- mapM (updateRef' (zip (map Lcl (propQnts prop)) (map (\gg -> Gbl gg :@: []) (propGblBody prop)))) hyp
+    let hyps = map (mkQuant Forall (propQnts prop)) hyp --(updateRef' (zip (map Lcl (propQnts prop)) (map (\gg -> Gbl gg :@: []) (propGblBody prop)))) hyp
     let freeVars = map free hyps
     listFree <- mapM (mapM (\pt -> freshGlobal (PolyType [] [] (lcl_type pt)) [])) freeVars
     hyps' <- mapM (\(fV,lF,hs) -> updateRef' (zip (map Lcl fV) (map (\gg -> Gbl gg :@: []) lF)) hs) $ zip3 freeVars listFree hyps

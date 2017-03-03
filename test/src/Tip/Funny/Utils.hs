@@ -32,7 +32,7 @@ updateRef ls m@(Match e cs)  =
                     return (c{case_rhs = cUp}) ) cs
                 return $ Match eUp listUp 
         Just l' -> return $ Lcl l' 
-updateRef ls a             = fail "Expression not supported "
+updateRef ls a             = fail "Expression not supported in updateRef"
 
 
 updateRef' :: (PrettyVar a, Name a) => [(Expr a, Expr a)] -> Expr a -> Fresh (Expr a) 
@@ -57,7 +57,8 @@ updateRef' ls m@(Match e cs)  =
                     return (c{case_rhs = cUp}) ) cs
                 return $ Match eUp listUp 
         Just l' -> return $ l' 
-updateRef' ls a             = fail "Expression not supported "
+updateRef' ls (Quant t dn lcl exp) = Quant t dn lcl <$> (updateRef' ls exp)
+updateRef' ls a             = fail "Expression not supported in updateRef'"
 
 
 isLocal :: (PrettyVar a, Name a) => Expr a -> Bool
