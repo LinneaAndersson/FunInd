@@ -2,7 +2,7 @@
 module Main where
 
 import           Control.Monad.State
-import           Data.Either
+--import           Data.Either
 import           Data.List
 import           Data.List.Split
 import           Data.Maybe
