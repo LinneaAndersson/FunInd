@@ -55,9 +55,6 @@ main = do
     -- parsing tip qith quickspec to theory
     theory_qs <- readTheory prop_file
 
-    --printStr ""
-    --printStr "---------- Now considering: ----------"
-
     -- Structural Induction TODO:: ADD (freshPass (monomorphise False) theory_qs)
     case induct (renameLemmas theory_qs) >>= printResult . fst of
         TP (Induct a) -> runStateT a (initState params $ getIndType params)
@@ -106,8 +103,8 @@ loop_conj theory curr num continue
             formulaPrint = showFormula formula
         in do
             liftIO $ removeContentInFolder (out_path "")
-            nbrVar  <- inductionSize <$> getInduction 
-            let th = th0            
+            nbrVar  <- inductionSize <$> getInduction
+            let th = th0
             -- clean temporary state
             modify (\s -> s{axioms = [], ind=Nothing})
             mcase (prove th) -- Test if solvable without induction
@@ -125,9 +122,9 @@ loop_conj theory curr num continue
                             loop_conj (provedConjecture curr theory) curr (num-1) True)
                         -- Unable to prove with current theory
                         -- try next conjecture
-                        (do 
-                            
-                            printStr 3 $ "| " ++ f_name  ++  "  -- U | " ++ formulaPrint            
+                        (do
+
+                            printStr 3 $ "| " ++ f_name  ++  "  -- U | " ++ formulaPrint
                             loop_conj theory (curr + 1) num continue))
 
 
@@ -141,10 +138,10 @@ loop_ind theory num tot
         --prepare theory for induction on variable/application 'num'
         indPass <- inductionPass <$> getInduction
         let ind_theory = freshPass (indPass [num]) theory
-        
+
         prep <- (prepare <$> getProver)
-        liftIO $ printTheories prep ind_theory 0 (out_path ("Theory" ++ (show num)))  
-        --(return . show . ppTheory' . head . tff [SkolemiseConjecture])      
+        liftIO $ printTheories prep ind_theory 0 (out_path ("Theory" ++ (show num)))
+        --(return . show . ppTheory' . head . tff [SkolemiseConjecture])
 
         liftIO $ do
                       --putStrLn $ show $ map ppTheory' ind_theory
@@ -155,23 +152,23 @@ loop_ind theory num tot
                 modify (\s -> s{ind = Just num}) -- add variable used
                 return True)
             (loop_ind theory (num+1) tot)   -- unable to prove, try next variable
-       
+
 
 printTheories :: Name a => (Theory a -> IO String) -> [Theory a] -> Int -> String -> IO ()
 printTheories _ [] _ _              = return ()
-printTheories prep (t:ts) i s       = 
+printTheories prep (t:ts) i s       =
     do
         createDirectoryIfMissing False s
-        prob <- prep t {-show . ppTheory' . tff [SkolemiseConjecture] . last $ ind_theory-} 
+        prob <- prep t {-show . ppTheory' . tff [SkolemiseConjecture] . last $ ind_theory-}
         writeFile (s ++ "/problem" ++ (show i)) prob
-        printTheories prep ts (i+1) s 
-        
+        printTheories prep ts (i+1) s
+
 
 removeContentInFolder :: String -> IO ()
 removeContentInFolder s = do
     removeDirectoryRecursive s
     createDirectory s
-    
+
 
 -- Returns true if all conjectures are provable
 proveAll :: Name a => [Theory a] -> TP a Bool
@@ -195,7 +192,7 @@ prove th = do
         -- and apply it to the goal
         prob <- liftIO =<< (prepare <$> getProver) <*> pure th
         liftIO $ writeFile (out_path "problem") prob
-        
+
         -- run prover on the problem
         ep <- runProver $ out_path "problem"
 
