@@ -17,8 +17,9 @@ import           Tip.Fresh
 import           Constants
 
 type Flag = String
+
 -- represenatation of a prover
-data (Name a, PrettyVar a) => Prover a = P {
+data Name a => Prover a = P {
         -- path to execteable
         name     :: FilePath,
         -- flags given to prover when calling it
@@ -26,23 +27,29 @@ data (Name a, PrettyVar a) => Prover a = P {
         -- function to prepare the theory
         prepare  :: Theory a -> IO String,
         -- parse the output from the prover
-        parseOut :: [String] -> IO (Bool, [String])
+        parseOut :: [String] -> IO (Bool, [String]),
+        -- timeout
+        setTime  :: Int -> Flag
     }
 
 instance Name a => Show (Prover a) where
-    show p = "Prover: " ++ name p ++ ", flags: " ++ unwords (flags p)
+    show p = unlines
+            ["== Prover Information ==",
+             "Prover: " ++ name p,
+             "flags: " ++ unwords (flags p)
+            ]
 
 -- A prover instance of the first-order-logic prover E
 eprover :: Name a => Prover a
 eprover = P {name = "eproof",
-             flags = ["--tstp-in", "--auto", "--full-deriv",
-                        "--soft-cpu-limit=1"],
+             flags = ["--tstp-in", "--auto", "--full-deriv"],
              prepare = (\i ->
-                    do 
+                    do
                         let str = show . ppTheory' . head . tff [SkolemiseConjecture] $ i
                         writeFile (out_path "preJukebox") str
                         jukebox_hs str),
-             parseOut = pout}
+             parseOut = pout,
+             setTime = \i -> "--soft-cpu-limit=" ++ (show i)}
     where
         pout :: [String] -> IO (Bool,[String])
         pout [prob, ep] = do

@@ -32,12 +32,17 @@ addLemma name = modify (\s ->  s{lemmas = Lemma name (axioms s) (ind s):lemmas s
 
 -- run the choosen prover on the file given by the filepath
 runProver :: Name a => FilePath -> TP a String
-runProver source = liftIO
-                    =<< run_process
+runProver source = liftIO =<<
+                    run_process
                         <$> (name <$> getProver)
                         <*> pure "."
                         <*> fs
-    where fs = (++ [source]) <$> (flags <$> getProver)
+    where
+        fs = do
+            defFs <- (flags <$> getProver)
+            time <- (head . timeouts) <$> (params <$> get)
+            timeout <- (setTime <$> getProver) <*> pure time
+            return $ timeout:defFs ++ [source]
 
 
 printResult :: Name a => Theory a -> TP a ()
@@ -47,17 +52,16 @@ printResult th =
         ls <- getLemmas
         let (ind, notInd) = partition isInductive $ reverse ls
 
-        printStr 0 "\n-------------------------------------------------"
         --printStr 0 . show =<< (outputLevel . params <$> get)
-        printStr 1 "Summary:"
+        printStr 1 "== Summary =="
         printStr 1 ""
-        printStr 1 "Proved without induction"
+        printStr 1 "= Proved without induction ="
         mapM_ putLemma notInd
         printStr 1 ""
-        printStr 1 "Proved with induction"
+        printStr 1 "= Proved with induction ="
         mapM_ putLemma ind
         -- printStr 0 $ show $ mapM_ name ls
-    where putLemma l = 
+    where putLemma l =
             let -- all formula's in the theory
                 thy_f       = thy_asserts th
                 -- name of proven lemma
@@ -72,7 +76,7 @@ printResult th =
                     userProp    = getUserProperty formula
                     -- the level of verbosity
                     outLevel    = (if isNothing userProp then 2 else 1 )
-                    
+
                 in do
                 printStr outLevel
                         $ fromMaybe nameL userProp
@@ -103,4 +107,17 @@ printStr i s = mwhen ((i <=) <$> (outputLevel . params <$> get))
 getIndType :: Name a => Params -> Induction a
 getIndType p = case indType p of
     Structural  -> structuralInd
-    Applicative -> applicativeInd 
+    Applicative -> applicativeInd
+
+nextTimeout :: Name a => TP a ()
+nextTimeout = do
+    ps <- params <$> get
+    let ts = timeouts ps
+    when (null ts) $ fail "error: No prover timeout found"
+    modify $ \s ->
+        s{ params =
+            ps{ timeouts = case ts of
+                    [x] -> [x]
+                    xs  ->  drop 1 xs
+            }
+        }

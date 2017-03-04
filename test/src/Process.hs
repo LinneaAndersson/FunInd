@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 module Process where
 
 import           Jukebox.Form
