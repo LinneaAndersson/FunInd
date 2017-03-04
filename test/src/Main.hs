@@ -12,6 +12,7 @@ import           System.Environment
 import           System.FilePath.Posix
 import           System.IO
 import           System.Directory
+import           System.Process
 import           Text.Regex
 import           Tip.Core              (forallView, theoryGoals, free)
 import           Tip.Formula
