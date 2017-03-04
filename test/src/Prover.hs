@@ -43,13 +43,13 @@ instance Name a => Show (Prover a) where
 eprover :: Name a => Prover a
 eprover = P {name = "eproof",
              flags = ["--tstp-in", "--auto", "--full-deriv"],
-             prepare = (\i ->
+             prepare = \i ->
                     do
                         let str = show . ppTheory' . head . tff [SkolemiseConjecture] $ i
                         writeFile (out_path "preJukebox") str
-                        jukebox_hs str),
+                        jukebox_hs str,
              parseOut = pout,
-             setTime = \i -> "--soft-cpu-limit=" ++ (show i)}
+             setTime = \i -> "--soft-cpu-limit=" ++ show i}
     where
         pout :: [String] -> IO (Bool,[String])
         pout [prob, ep] = do

@@ -152,8 +152,8 @@ loop_ind theory num tot
         indPass <- inductionPass <$> getInduction
         let ind_theory = freshPass (indPass [num]) theory
 
-        prep <- (prepare <$> getProver)
-        liftIO $ printTheories prep ind_theory 0 (out_path ("Theory" ++ (show num)))
+        prep <- prepare <$> getProver
+        liftIO $ printTheories prep ind_theory 0 (out_path ("Theory" ++ show num))
         --(return . show . ppTheory' . head . tff [SkolemiseConjecture])
 
         printStr 3 "-----------------------------------------"
@@ -170,7 +170,7 @@ printTheories prep (t:ts) i s       =
     do
         createDirectoryIfMissing False s
         prob <- prep t {-show . ppTheory' . tff [SkolemiseConjecture] . last $ ind_theory-}
-        writeFile (s ++ "/problem" ++ (show i)) prob
+        writeFile (s ++ "/problem" ++ show i) prob
         printTheories prep ts (i+1) s
 
 

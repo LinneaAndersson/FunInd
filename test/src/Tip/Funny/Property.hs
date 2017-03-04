@@ -43,13 +43,13 @@ createPropExpr e ids =
         -- Update substitution/locals list, create req
         let (locals1, exprs) = partition (isLocal . fst) subst
         newLocals1 <- addReq' locals1 $ map fst exprs
-        let locals2 = newLocals1 ++ (map (\ (Lcl l) -> l) $ locals' prop)
+        let locals2 = newLocals1 ++ map (\ (Lcl l) -> l) (locals' prop)
 
         -- Update quantifiers and refresh variables in body
         let rQuant = removeQuant e
         uRefs <- updateRef subst rQuant
         let newLocals2 = [ le | 
-                (Lcl le) <- locals' uRefs, not (le `elem` locals2) ]
+                (Lcl le) <- locals' uRefs, le `notElem` locals2 ]
         let body = uRefs--mkQuant Forall newLocals2 uRefs
 
         -- Let substituitions imply body
@@ -63,7 +63,7 @@ createPropExpr e ids =
         -- get global from property        
         --let (Gbl _ :@: ts) = prop        
         
-        return ((map snd subst),newLocals1++newLocals2, pEqB)
+        return (map snd subst , newLocals1++newLocals2, pEqB)
 
 
 
@@ -80,14 +80,14 @@ addReq el newL =
         let fA = andExpr --mkQuant Forall newL andExpr
         return fA  
 
-addReq' :: (PrettyVar a, Name a) =>[(Expr a, Local a)] -> [Expr a] -> Fresh ([Local a])
-addReq' _  []         = return $ []
+addReq' :: (PrettyVar a, Name a) =>[(Expr a, Local a)] -> [Expr a] -> Fresh [Local a]
+addReq' _  []         = return []
 addReq' ls (e:es) = 
-    do req <- (addReq' (diff ++ ls) es)
-       return $ (map snd diff) ++ req 
+    do req <- addReq' (diff ++ ls) es
+       return $ map snd diff ++ req 
     where 
         eLoc = [ (e', le)  | e'@(Lcl le)<-locals' e]
-        diff = [ (e,i) | (e,i) <- eLoc, not (e `elem` (map fst ls))]  
+        diff = [ (e,i) | (e,i) <- eLoc, e `notElem` map fst ls]  
 
 
 
@@ -96,7 +96,7 @@ createProp :: (PrettyVar a, Name a) =>[Local a] -> Fresh (Expr a)
 createProp ls = (\name -> Gbl (Global name pType []) :@: lcls) <$> gName
     where
         t = BuiltinType Boolean
-        gName = (freshNamed "prop")
+        gName = freshNamed "prop"
         gArgs = map lcl_type ls
         pType = PolyType [] gArgs t
         lcls = map Lcl ls
@@ -104,15 +104,13 @@ createProp ls = (\name -> Gbl (Global name pType []) :@: lcls) <$> gName
 
 
 -- convert first Expr to a funny property over second Expr 
-freshIds :: (PrettyVar a, Name a) =>[Expr a] -> Fresh [[(Expr a, a)]]-- [Expr a]
-freshIds apps = sequence $ map (p . unzip) (map freshIds apps)
-    where  
-        freshIds app = freshArgs app --renameVar app
-        p (as, bs) = (zip as) <$> (sequence bs)        
+freshIds :: (PrettyVar a, Name a) =>[Expr a] -> Fresh [[(Expr a, a)]]
+freshIds = mapM (p . unzip . freshArgs)
+    where p (as, bs) = zip as <$> sequence bs
 
-freshArgs :: (PrettyVar a, Name a) =>Expr a -> [(Expr a, Fresh a)]
+freshArgs :: (PrettyVar a, Name a) => Expr a -> [(Expr a, Fresh a)]
 freshArgs expr@(Gbl a :@: ts) = map rName ts
     where 
-        rName :: (PrettyVar a, Name a) =>Expr a -> (Expr a, Fresh a)
+        rName :: (PrettyVar a, Name a) => Expr a -> (Expr a, Fresh a)
         rName (Lcl a) = (Lcl a, refresh (lcl_name a))
         rName e = (e, freshNamed "x")

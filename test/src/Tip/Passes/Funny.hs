@@ -23,13 +23,13 @@ createProperties th e = es --freshFrom es th
     where
         es = do
             let apps = findApps (thy_funcs th) e
-            let mFuncs = map (\id -> find ((==) id . func_name) (thy_funcs th)) (map snd apps)
+            let mFuncs = map (\aps -> find ((==) (snd aps) . func_name) (thy_funcs th)) apps
             if Nothing `elem` mFuncs then
                 fail "Could not find function"
                 else do
                     let funcs = catMaybes mFuncs
                     fIds <- freshIds (map fst apps)
-                    sequence $ zipWith (createProperty e) fIds funcs
+                    zipWithM (createProperty e) fIds funcs
 
 createAsserts ::  (PrettyVar a, Name a) => Theory a -> Expr a -> Fresh [(Property a,[Expr a])]
 createAsserts theory expr = createProperties theory expr >>= \p -> zip p <$> mapM createApps p
@@ -45,7 +45,7 @@ createSignatures :: (PrettyVar a, Name a) => Property a -> [Signature a]
 createSignatures prop = map (\g -> Signature (gbl_name g) [] (gbl_type g)) (propGlobals prop)
 
 
-applicativeInduction :: (PrettyVar a, Name a) => [Int] -> Theory a -> Fresh ([Theory a])
+applicativeInduction :: (PrettyVar a, Name a) => [Int] -> Theory a -> Fresh [Theory a]
 applicativeInduction (l:ls) theory' = do
     theory <- head <$> runPasses [TypeSkolemConjecture, Monomorphise False] theory'
     let         goalExpr = fm_body . head . fst . theoryGoals $ theory
@@ -68,15 +68,15 @@ applicativeInduction (l:ls) theory' = do
     let sigsFree = map (\lF -> map (\g -> Signature (gbl_name g) [] (gbl_type g)) (lF ++ propGblBody prop)) listFree
 
     -- Create the definitions of the constants 
-    let         varDefs = map (++ (createSignatures prop)) sigsFree
+    let         varDefs = map (++ createSignatures prop) sigsFree
 
     -- create the goal
     goal        <- createGoal prop
 
     -- update the theory with the new assumptions, signatures and goal
-    let         nTheory = newTheory{thy_asserts = (thy_asserts newTheory) ++ [goal]}
-    return $ zipWith (\hs vd -> nTheory{thy_asserts =  thy_asserts nTheory ++ [exprs hs], thy_sigs =  vd ++ (thy_sigs newTheory)}) hyps' varDefs
+    let         nTheory = newTheory{thy_asserts = thy_asserts newTheory ++ [goal]}
+    return $ zipWith (\hs vd -> nTheory{thy_asserts =  thy_asserts nTheory ++ [exprs hs], thy_sigs =  vd ++ thy_sigs newTheory}) hyps' varDefs
         where 
-            exprs ps =  (Formula Assert [("ttttt",Nothing)] [] ) $ ps
+            exprs = Formula Assert [("Assert",Nothing)] []
             
   

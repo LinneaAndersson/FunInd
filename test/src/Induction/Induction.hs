@@ -39,7 +39,7 @@ runProver source = liftIO =<<
                         <*> fs
     where
         fs = do
-            defFs <- (flags <$> getProver)
+            defFs <- flags <$> getProver
             time <- (head . timeouts) <$> (params <$> get)
             timeout <- (setTime <$> getProver) <*> pure time
             return $ timeout:defFs ++ [source]
@@ -68,7 +68,7 @@ printResult th =
                 nameL       = lemmaName l
                 -- formula (body) of lemma
                 jFormula     = lookupFormula nameL thy_f
-            in do
+            in
             if isNothing jFormula then fail "error: Could not find formula" else
                 let
                     formula     = fromJust jFormula
@@ -85,13 +85,13 @@ printResult th =
                 case indVar l of
                     Nothing -> return ()
                     Just i  -> printStr outLevel
-                                        $ "--- Proved with index: " ++ (show i) -- ++ (show $ getFormulaVar formula i)
+                                        $ "--- Proved with index: " ++ show i -- ++ (show $ getFormulaVar formula i)
                 -- Print all auxiliary lemmas used in the proof
                 mapM_ (\a -> printStr outLevel
                     (" | " ++ (if outLevel==1
                                 then do
-                                    let hFormula = (lookupFormula a thy_f)
-                                    if isNothing hFormula then fail "error: Could not find formula" else getFormula (fromJust hFormula)
+                                    let hFormula = lookupFormula a thy_f
+                                    maybe (fail "error: Could not find formula") getFormula hFormula
                                 else a))) $
                     nub $ filter (nameL /=) (hLemmas l)
 

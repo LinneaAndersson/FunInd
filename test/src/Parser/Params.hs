@@ -16,12 +16,12 @@ data Params = Params
 instance Show Params where
     show p = unlines
         ["== Program Parameters ==",
-         " Input File: " ++ (show $ inputFile p),
-         " Verbosity Level: " ++ (show $ outputLevel p),
-         " Induction Type: " ++ (show $ indType p),
-         " Prover Timeouts: " ++ (show $ timeouts p),
-         " TipSpec Enabled: " ++ (show $ tipspec p),
-         " Prover Backend: " ++ (show $ backend p)
+         " Input File: " ++ show (inputFile p),
+         " Verbosity Level: " ++ show (outputLevel p),
+         " Induction Type: " ++ show (indType p),
+         " Prover Timeouts: " ++ show (timeouts p),
+         " TipSpec Enabled: " ++ show (tipspec p),
+         " Prover Backend: " ++ show (backend p)
         ]
 
 data TheoremProver = E
@@ -34,7 +34,7 @@ type OutputLevel = Int
 data InputFile = HS FilePath | SMT FilePath | Unrecognized
 
 instance Show InputFile where
-    show (Unrecognized) = "Unrecognized Filetype"
+    show Unrecognized = "Unrecognized Filetype"
     show (HS fp) = fp
     show (SMT fp) = fp
 

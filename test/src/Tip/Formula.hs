@@ -23,7 +23,7 @@ lookupFormula s (f:fs)
 
 -- Returns the i:th variable if input is just Formula
 getFormulaVar :: (Name a, PrettyVar a) => Formula a -> Int -> String
-getFormulaVar f i = varStr $ lcl_name $ (fst (forallView $ fm_body f)) !! i
+getFormulaVar f i = varStr $ lcl_name $ fst (forallView $ fm_body f) !! i
 
 -- TODO rename function?
 -- remove formula from Maytbe AND format it
