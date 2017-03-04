@@ -45,6 +45,8 @@ main = do
     -- parse input parameters: inout file and verbosity flags
     params <- parseParams
 
+    when (outputLevel params >= 4) $ putStrLn $ show params
+
     -- check file extension
     preQS <- checkInputFile (inputFile params)
 
@@ -58,14 +60,21 @@ main = do
 
     -- Structural Induction TODO:: ADD (freshPass (monomorphise False) theory_qs)
     case induct (renameLemmas theory_qs) >>= printResult . fst of
-        TP (Induct a) -> runStateT a (initState params $ getIndType params)
+        TP (Induct a) -> runStateT a (initState params)
     return ()
         where -- count the number of conjectures in the theory
             numConj th = length $ fst $ theoryGoals th
             -- induction loop
-            induct theory = loop_conj theory 0 (numConj theory) False -- :: (Name a, PrettyVar a) => Theory a -> TP a (Theory Id, Bool)
-            -- initial state
-            initState par ind = IndState par eprover ind [] Nothing []
+            induct theory = do
+                pstr <- show <$> getProver
+                printStr 4 pstr
+                loop_conj theory 0 (numConj theory) False
+
+initState :: Name a => Params -> IndState a
+initState par = IndState par
+    (selectProver par)
+    (getIndType par)
+    [] Nothing []
 
 -- When the input file is in haskell we need to run tip-ghc
 -- to convert it to smt2
@@ -80,17 +89,18 @@ checkInputFile (HS f)      = do
 checkInputFile (SMT f)      = return f
 checkInputFile Unrecognized = fail "Incompatible file extension"
 
-
+selectProver ::Name a => Params -> Prover a
+selectProver p = case backend p of
+                    E -> eprover
 
 -- Looping through all conjectures and try to prove them
 -- If provable with structural induction, they are put into the theory as proven lemmas
 -- If during one loop none is being proved, do not continue
--- TODO change timeout on continue
 loop_conj :: Name a => Theory a -> Int -> Int -> Bool -> TP a (Theory a, Bool)
 loop_conj theory curr num continue
     | curr >= num = -- tested all conjectures
         if continue -- check whether to loop again
-            then loop_conj theory 0 num False   -- continue
+            then nextTimeout >> loop_conj theory 0 num False   -- continue
             else return (theory, continue)      -- done
     | otherwise  = -- test next conjecture
         let
@@ -103,6 +113,8 @@ loop_conj theory curr num continue
             -- turn formula into printable form
             formulaPrint = showFormula formula
         in do
+            ti <- (show . head . timeouts) <$> (params <$> get)
+            printStr 4 ("Timeout is: " ++ ti)
             liftIO $ removeContentInFolder (out_path "")
             nbrVar  <- inductionSize <$> getInduction
             let th = th0
@@ -144,10 +156,7 @@ loop_ind theory num tot
         liftIO $ printTheories prep ind_theory 0 (out_path ("Theory" ++ (show num)))
         --(return . show . ppTheory' . head . tff [SkolemiseConjecture])
 
-        liftIO $ do
-                      --putStrLn $ show $ map ppTheory' ind_theory
-                      putStrLn "-----------------------------------------"
-
+        printStr 3 "-----------------------------------------"
         mcase (proveAll ind_theory)     -- try induction on one variable
             (do -- proves using induction on 'num'
                 modify (\s -> s{ind = Just num}) -- add variable used

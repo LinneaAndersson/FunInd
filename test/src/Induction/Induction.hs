@@ -32,8 +32,8 @@ addLemma name = modify (\s ->  s{lemmas = Lemma name (axioms s) (ind s):lemmas s
 
 -- run the choosen prover on the file given by the filepath
 runProver :: Name a => FilePath -> TP a String
-runProver source = liftIO
-                    =<< run_process
+runProver source = liftIO =<<
+                    run_process
                         <$> (name <$> getProver)
                         <*> pure "."
                         <*> fs
@@ -52,14 +52,13 @@ printResult th =
         ls <- getLemmas
         let (ind, notInd) = partition isInductive $ reverse ls
 
-        printStr 0 "\n-------------------------------------------------"
         --printStr 0 . show =<< (outputLevel . params <$> get)
-        printStr 1 "Summary:"
+        printStr 1 "== Summary =="
         printStr 1 ""
-        printStr 1 "Proved without induction"
+        printStr 1 "= Proved without induction ="
         mapM_ putLemma notInd
         printStr 1 ""
-        printStr 1 "Proved with induction"
+        printStr 1 "= Proved with induction ="
         mapM_ putLemma ind
         -- printStr 0 $ show $ mapM_ name ls
     where putLemma l =
@@ -109,3 +108,16 @@ getIndType :: Name a => Params -> Induction a
 getIndType p = case indType p of
     Structural  -> structuralInd
     Applicative -> applicativeInd
+
+nextTimeout :: Name a => TP a ()
+nextTimeout = do
+    ps <- params <$> get
+    let ts = timeouts ps
+    when (null ts) $ fail "error: No prover timeout found"
+    modify $ \s ->
+        s{ params =
+            ps{ timeouts = case ts of
+                    [x] -> [x]
+                    xs  ->  drop 1 xs
+            }
+        }

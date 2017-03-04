@@ -17,8 +17,9 @@ import           Tip.Fresh
 import           Constants
 
 type Flag = String
+
 -- represenatation of a prover
-data (Name a, PrettyVar a) => Prover a = P {
+data Name a => Prover a = P {
         -- path to execteable
         name     :: FilePath,
         -- flags given to prover when calling it
@@ -32,7 +33,11 @@ data (Name a, PrettyVar a) => Prover a = P {
     }
 
 instance Name a => Show (Prover a) where
-    show p = "Prover: " ++ name p ++ ", flags: " ++ unwords (flags p)
+    show p = unlines
+            ["== Prover Information ==",
+             "Prover: " ++ name p,
+             "flags: " ++ unwords (flags p)
+            ]
 
 -- A prover instance of the first-order-logic prover E
 eprover :: Name a => Prover a
