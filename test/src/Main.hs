@@ -1,43 +1,32 @@
 
 module Main where
 
-import           Control.Monad.State
---import           Data.Either
-import           Data.List
-import           Data.List.Split
-import           Data.Maybe
---import GHC.IO.Handle
-import           Parser.Params
-import           System.Environment
-import           System.FilePath.Posix
-import           System.IO
-import           System.Directory
-import           System.Process
-import           Text.Regex
-import           Tip.Core              (forallView, theoryGoals, free)
-import           Tip.Formula
-import           Tip.Fresh
-import           Tip.Funny.Utils       (findApps)
-import Tip.Funny.Property (propBody,propFunc,propGlobals)
-import           Tip.Haskell.Rename
---import           Tip.Haskell.Translate
-import           Tip.Lint
-import           Tip.Mod
-import           Tip.Parser
-import           Tip.Passes
-import           Tip.Pretty
-import           Tip.Pretty.TFF
-import           Tip.Scope
-import Tip.Rename
-import           Tip.Types
-import           Tip.Passes.Funny
+import           Control.Monad.State   (get, join, liftIO, modify, runStateT,
+                                        when)
+import           Data.Maybe            (fromMaybe)
+import           System.FilePath.Posix (splitFileName)
+import           System.Directory      (createDirectory,
+                                        createDirectoryIfMissing,
+                                        removeDirectoryRecursive)
 
-import           Constants
-import           Induction.Induction
-import           Induction.Types
-import           Process
-import           Prover                hiding (getAxioms)
-import           Utils
+import           Tip.Core              (theoryGoals)
+import           Tip.Formula           (showFormula)
+import           Tip.Fresh             (Name, freshPass)
+import           Tip.Mod               (renameLemmas)
+import           Tip.Passes            (provedConjecture, selectConjecture)
+import           Tip.Types             (Theory, fm_attrs)
+
+import           Constants             (out_path, prop_file, tip_file)
+import           Induction.Induction   (addLemma, getIndType, nextTimeout,
+                                        printResult, printStr, runProver)
+import           Induction.Types       (IndState (..), Induction (..), TP (..),
+                                        TheoremProverT (..), getInduction,
+                                        getProver)
+import           Parser.Params         (InputFile (..), Params (..),
+                                        TheoremProver (..), parseParams)
+import           Process               (readTheory, run_process)
+import           Prover                (Prover (..), eprover)
+import           Utils                 (mcase)
 
 main :: IO()
 main = do

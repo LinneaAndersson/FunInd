@@ -12,6 +12,6 @@ extra-deps:
 - twee-0.1
 - genifunctors-0.4
 - process-1.4.0.0
-- filepath-1.4.1.0 
+- filepath-1.4.1.0
 
 local-bin-path: ./bin
