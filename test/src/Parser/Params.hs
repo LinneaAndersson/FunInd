@@ -41,7 +41,7 @@ parseProverTimeouts :: Parser [Int]
 parseProverTimeouts =
     option auto (long "timeouts" <> metavar "TIMEOUT..." <> help "Timeouts for the prover"
             <> showDefault
-            <> value [5])
+            <> value [1,5,10])
     -- <|> (value [5])
 
 parseTipSpecEnabled :: Parser Bool

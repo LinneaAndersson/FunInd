@@ -37,7 +37,12 @@ runProver source = liftIO
                         <$> (name <$> getProver)
                         <*> pure "."
                         <*> fs
-    where fs = (++ [source]) <$> (flags <$> getProver)
+    where
+        fs = do
+            defFs <- (flags <$> getProver)
+            time <- (head . timeouts) <$> (params <$> get)
+            timeout <- (setTime <$> getProver) <*> pure time
+            return $ timeout:defFs ++ [source]
 
 
 printResult :: Name a => Theory a -> TP a ()
@@ -57,7 +62,7 @@ printResult th =
         printStr 1 "Proved with induction"
         mapM_ putLemma ind
         -- printStr 0 $ show $ mapM_ name ls
-    where putLemma l = 
+    where putLemma l =
             let -- all formula's in the theory
                 thy_f       = thy_asserts th
                 -- name of proven lemma
@@ -72,7 +77,7 @@ printResult th =
                     userProp    = getUserProperty formula
                     -- the level of verbosity
                     outLevel    = (if isNothing userProp then 2 else 1 )
-                    
+
                 in do
                 printStr outLevel
                         $ fromMaybe nameL userProp
@@ -103,4 +108,4 @@ printStr i s = mwhen ((i <=) <$> (outputLevel . params <$> get))
 getIndType :: Name a => Params -> Induction a
 getIndType p = case indType p of
     Structural  -> structuralInd
-    Applicative -> applicativeInd 
+    Applicative -> applicativeInd
