@@ -4,15 +4,15 @@
 
 module Induction.Types where
 
-import           Control.Monad.State
-import           Data.List
-import           Data.Maybe
-import           Parser.Params
-import           Prover              hiding (getAxioms)
-import           Tip.Pretty
-import           Tip.Fresh
-import           Tip.Types
+import           Control.Monad.State (MonadIO, MonadState, MonadTrans, StateT,
+                                      get)
+import           Data.List           (find)
 
+import           Tip.Fresh           (Fresh (..), Name)
+import           Tip.Types           (Theory (..))
+
+import           Parser.Params       (Params (..))
+import           Prover              (Prover (..))
 
 -- Monad-transformer for induction
 newtype TheoremProverT s m a = Induct (StateT s m a)
@@ -22,14 +22,14 @@ data Name a => Induction a = Ind
     {   inductionSize :: Theory a -> Int
     ,   inductionPass :: [Int] -> Theory a -> Fresh [Theory a]
     }
- 
+
 data Name a => IndState a = IndState
-  {  params     :: Params
-  ,  prover     :: Prover a
-  ,  induct     :: Induction a
-  ,  lemmas     :: [Lemma]
-  ,  ind        :: Maybe Int
-  ,  axioms     :: [String]
+  {  params :: Params
+  ,  prover :: Prover a
+  ,  induct :: Induction a
+  ,  lemmas :: [Lemma]
+  ,  ind    :: Maybe Int
+  ,  axioms :: [String]
   }
 
 -- Prover/IO instance

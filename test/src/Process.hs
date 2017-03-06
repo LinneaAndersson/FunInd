@@ -1,15 +1,15 @@
 {-# LANGUAGE TupleSections #-}
 module Process where
 
-import           Jukebox.Form
-import           Jukebox.Options
-import           Jukebox.Toolbox
-import           Jukebox.TPTP.Parse
-import           Jukebox.TPTP.Print
-import           System.IO
-import           System.Process
-import           Tip.Parser
-import           Tip.Types
+import           Jukebox.Options    (parser, runPar)
+import           Jukebox.Toolbox    (toFofBox)
+import           Jukebox.TPTP.Parse (parseString)
+import           Jukebox.TPTP.Print (showProblem)
+import           System.IO          (hGetContents)
+import           System.Process     (StdStream (CreatePipe), createProcess, cwd,
+                                     proc, std_out, waitForProcess)
+import           Tip.Parser         (Id, parseFile)
+import           Tip.Types          (Theory)
 
 
 -- read a theory from a file with given filepath

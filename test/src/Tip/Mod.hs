@@ -3,19 +3,25 @@
 {-# LANGUAGE ViewPatterns      #-}
 module Tip.Mod where
 
-import           Tip.Core
-import           qualified Data.Generics.Geniplate  as G   
-import           Control.Monad
-import           Data.List
-import           Data.Maybe
-import           Text.PrettyPrint
-import           Tip.Fresh
-import           Tip.Parser
-import           Tip.Passes
-import           Tip.Pretty
-import           Tip.Pretty.TFF
-import           Tip.Rename
-import           Tip.Types
+
+import qualified Data.Generics.Geniplate as G   (UniverseBi, universe)
+import           Control.Monad                  (join)
+import           Data.Maybe                     (isJust, fromMaybe)
+import           Text.PrettyPrint               (Doc(..), vcat)
+
+import           Tip.Core                       (locals)
+import           Tip.Fresh                      (Name, Fresh(..), fresh)
+import           Tip.Passes                     (StandardPass(..), runPasses,
+                                                 freshPass)
+import           Tip.Pretty                     (PrettyVar)
+import           Tip.Pretty.TFF                 (clause, ppExpr, ppSort,
+                                                 ppUninterp, tffify, tffvarify,
+                                                 validTFFChar)
+import           Tip.Rename                     (renameAvoiding)
+import           Tip.Types                      (Head(..), Global(..), Type(..),
+                                                 PolyType(..),Expr(..),
+                                                 Theory(..), Formula(..),
+                                                 Role(..))
 
 -- pretty print a formula in tff format
 ppFormula' :: (Ord a, PrettyVar a) => Formula a -> Doc
@@ -79,7 +85,7 @@ universe :: G.UniverseBi a a => a -> [a]
 universe = G.universe
 
 freshGlobal :: (PrettyVar a, Name a) => PolyType a -> [Type a] -> Fresh (Global a)
-freshGlobal pt t = 
-    do 
+freshGlobal pt t =
+    do
         id <- fresh
         return $ Global id pt t

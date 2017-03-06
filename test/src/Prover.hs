@@ -1,20 +1,18 @@
 module Prover where
 
-import           Data.List
-import qualified Jukebox.Provers.E  as Ep
---import Jukebox.TPTP.Parse
-import           Jukebox.Form
-import           Jukebox.TPTP.Parse
-import           Process
-import           Text.Regex
-import           Tip.Mod
-import           Tip.Parser
-import           Tip.Passes
-import           Tip.Types
-import           Tip.Pretty
-import           Tip.Fresh
+import           Data.List          (isInfixOf)
+import qualified Jukebox.Provers.E  as Ep (extractAnswer)
+import           Jukebox.Form       (Answer (..))
+import           Jukebox.TPTP.Parse (parseString)
+import           Text.Regex         (mkRegex, splitRegex)
 
-import           Constants
+import           Tip.Mod            (ppTheory', tff)
+import           Tip.Passes         (StandardPass (SkolemiseConjecture))
+import           Tip.Types          (Theory)
+import           Tip.Fresh          (Name)
+
+import           Constants          (out_path)
+import           Process            (jukebox_hs)
 
 type Flag = String
 

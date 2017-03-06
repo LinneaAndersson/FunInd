@@ -102,8 +102,6 @@ loop_conj theory curr num continue
             -- turn formula into printable form
             formulaPrint = showFormula formula
         in do
-            ti <- (show . head . timeouts) <$> (params <$> get)
-            printStr 4 ("Timeout is: " ++ ti)
             liftIO $ removeContentInFolder (out_path "")
             nbrVar  <- inductionSize <$> getInduction
             let th = th0

@@ -1,23 +1,25 @@
 module Induction.Induction where
 
-import           Control.Monad.State
-import           Data.List
-import           Data.Maybe
-import           Induction.Types
-import           Parser.Params
-import           Process
-import           Prover              hiding (getAxioms)
-import           Text.Regex
-import           Tip.Core
-import           Tip.Passes.Funny
-import           Tip.Fresh
-import           Tip.Formula
-import           Tip.Parser
-import           Tip.Passes
-import           Tip.Pretty
-import           Tip.Types
-import           Utils
-import           Tip.Funny.Utils
+import           Control.Monad.State (get, liftIO, modify, when)
+import           Data.List           (nub, partition)
+import           Data.Maybe          (fromJust, fromMaybe, isJust, isNothing)
+
+import           Tip.Core            (forallView, theoryGoals)
+import           Tip.Formula         (getFormula, getUserProperty,
+                                      lookupFormula)
+import           Tip.Fresh           (Name)
+import           Tip.Funny.Utils     (findApps)
+import           Tip.Passes          (induction)
+import           Tip.Passes.Funny    (applicativeInduction)
+import           Tip.Types           (Formula (..), Theory (..))
+
+import           Induction.Types     (Induction (..), Lemma (..), TP (..),
+                                      axioms, getLemmas, getProver, ind, lemmas,
+                                      params)
+import           Parser.Params       (IndType (..), Params (..))
+import           Process             (run_process)
+import           Prover              (Prover (..))
+import           Utils               (mwhen)
 
 
 applicativeInd :: Name a => Induction a
@@ -121,3 +123,5 @@ nextTimeout = do
                     xs  ->  drop 1 xs
             }
         }
+    ti <- (show . head . timeouts) <$> (params <$> get)
+    printStr 4 (unlines ["== New Timeout == ", " timeout:" ++ ti])

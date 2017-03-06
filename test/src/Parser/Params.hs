@@ -1,7 +1,11 @@
 module Parser.Params where
 
-import           Options.Applicative
-import           System.FilePath.Posix
+import           Options.Applicative   (Parser (..), auto, execParser, flag,
+                                        flag', fullDesc, header, help, helper,
+                                        info, long, metavar, option, progDesc,
+                                        short, showDefault, strArgument, value,
+                                        (<>), (<|>))
+import           System.FilePath.Posix (splitExtension)
 
 -- type for input parameters
 data Params = Params
@@ -35,8 +39,8 @@ data InputFile = HS FilePath | SMT FilePath | Unrecognized
 
 instance Show InputFile where
     show Unrecognized = "Unrecognized Filetype"
-    show (HS fp) = fp
-    show (SMT fp) = fp
+    show (HS fp)      = fp
+    show (SMT fp)     = fp
 
 data IndType = Structural | Applicative
     deriving Show

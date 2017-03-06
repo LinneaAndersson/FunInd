@@ -1,0 +1,822 @@
+== Program Parameters ==
+ Input File: examples/hs/flatten.hs
+ Verbosity Level: 4
+ Induction Type: Applicative
+ Prover Timeouts: [1,5,10]
+ TipSpec Enabled: True
+ Prover Backend: E
+
+== Prover Information ==
+Prover: eproof
+flags: --tstp-in --auto --full-deriv
+
+Timeout is: 1
+(declare-datatypes ()
+  ((Nat :source Tree.Nat (Z :source Tree.Z)
+     (S :source Tree.S (proj1-S Nat)))))
+(declare-datatypes ()
+  ((Tree :source Tree.Tree
+     (Node :source Tree.Node (proj1-Node Tree)
+       (proj2-Node Nat) (proj3-Node Tree))
+     (Nil :source Tree.Nil))))
+(declare-datatypes ()
+  ((TreeList :source Tree.TreeList (TNul :source Tree.TNul)
+     (TreeCons :source Tree.TreeCons (proj1-TreeCons Tree)
+       (proj2-TreeCons TreeList)))))
+(declare-datatypes ()
+  ((List :source Tree.List (Nul :source Tree.Nul)
+     (Cons :source Tree.Cons (proj1-Cons Nat) (proj2-Cons List)))))
+(define-fun-rec
+  flatten1 :keep :source Tree.flatten1
+    ((x TreeList)) List
+    (match x
+      (case TNul Nul)
+      (case (TreeCons y ps)
+        (match y
+          (case (Node z x2 q)
+            (match z
+              (case (Node x3 x4 x5)
+                (flatten1
+                  (TreeCons (Node x3 x4 x5) (TreeCons (Node Nil x2 q) ps))))
+              (case Nil (Cons x2 (flatten1 (TreeCons q ps))))))
+          (case Nil (flatten1 ps))))))
+(define-fun-rec
+  |concat'| :keep :source |Tree.concat'|
+    ((x List) (y List)) List
+    (match x
+      (case Nul y)
+      (case (Cons z xs) (Cons z (|concat'| xs y)))))
+(define-fun-rec
+  flatten0 :keep :source Tree.flatten0
+    ((x Tree)) List
+    (match x
+      (case (Node p y q)
+        (|concat'| (|concat'| (flatten0 p) (Cons y Nul)) (flatten0 q)))
+      (case Nil Nul)))
+(assert-not
+  :name lemma0 :source Tree.proppy
+  (forall ((p Tree) (q TreeList))
+    (= (flatten1 (TreeCons p q))
+      (|concat'| (flatten0 p) (flatten1 q)))))
+(assert-not
+  :name lemma1 :source Tree.prop_Flatten1
+  (forall ((p Tree)) (= (flatten1 (TreeCons p TNul)) (flatten0 p))))
+(check-sat)
+
+Theory before indpass
+
+(declare-datatypes ()
+  ((Nat :source Tree.Nat (Z :source Tree.Z)
+     (S :source Tree.S (proj1-S Nat)))))
+(declare-datatypes ()
+  ((Tree :source Tree.Tree
+     (Node :source Tree.Node (proj1-Node Tree)
+       (proj2-Node Nat) (proj3-Node Tree))
+     (Nil :source Tree.Nil))))
+(declare-datatypes ()
+  ((TreeList :source Tree.TreeList (TNul :source Tree.TNul)
+     (TreeCons :source Tree.TreeCons (proj1-TreeCons Tree)
+       (proj2-TreeCons TreeList)))))
+(declare-datatypes ()
+  ((List :source Tree.List (Nul :source Tree.Nul)
+     (Cons :source Tree.Cons (proj1-Cons Nat) (proj2-Cons List)))))
+(define-fun-rec
+  flatten1 :keep :source Tree.flatten1
+    ((x TreeList)) List
+    (match x
+      (case TNul Nul)
+      (case (TreeCons y ps)
+        (match y
+          (case (Node z x2 q)
+            (match z
+              (case (Node x3 x4 x5)
+                (flatten1
+                  (TreeCons (Node x3 x4 x5) (TreeCons (Node Nil x2 q) ps))))
+              (case Nil (Cons x2 (flatten1 (TreeCons q ps))))))
+          (case Nil (flatten1 ps))))))
+(define-fun-rec
+  |concat'| :keep :source |Tree.concat'|
+    ((x List) (y List)) List
+    (match x
+      (case Nul y)
+      (case (Cons z xs) (Cons z (|concat'| xs y)))))
+(define-fun-rec
+  flatten0 :keep :source Tree.flatten0
+    ((x Tree)) List
+    (match x
+      (case (Node p y q)
+        (|concat'| (|concat'| (flatten0 p) (Cons y Nul)) (flatten0 q)))
+      (case Nil Nul)))
+(assert-not
+  :name lemma0 :source Tree.proppy
+  (forall ((p Tree) (q TreeList))
+    (= (flatten1 (TreeCons p q))
+      (|concat'| (flatten0 p) (flatten1 q)))))
+(check-sat)
+
+#######################################
+
+
+Theory after indpass
+
+(declare-sort sk :skolem 0)
+(declare-datatypes ()
+  ((Nat :source Tree.Nat (Z :source Tree.Z)
+     (S :source Tree.S (proj1-S Nat)))))
+(declare-datatypes ()
+  ((Tree :source Tree.Tree
+     (Node :source Tree.Node (proj1-Node Tree)
+       (proj2-Node Nat) (proj3-Node Tree))
+     (Nil :source Tree.Nil))))
+(declare-datatypes ()
+  ((TreeList :source Tree.TreeList (TNul :source Tree.TNul)
+     (TreeCons :source Tree.TreeCons (proj1-TreeCons Tree)
+       (proj2-TreeCons TreeList)))))
+(declare-datatypes ()
+  ((List :source Tree.List (Nul :source Tree.Nul)
+     (Cons :source Tree.Cons (proj1-Cons Nat) (proj2-Cons List)))))
+(declare-const x TreeList)
+(declare-const y TreeList)
+(declare-const p :skolem Tree)
+(declare-const q :skolem TreeList)
+(define-fun-rec
+  flatten1 :keep :source Tree.flatten1
+    ((z TreeList)) List
+    (match z
+      (case TNul Nul)
+      (case (TreeCons y2 ps)
+        (match y2
+          (case (Node z2 x2 r)
+            (match z2
+              (case (Node x3 x4 x5)
+                (flatten1
+                  (TreeCons (Node x3 x4 x5) (TreeCons (Node Nil x2 r) ps))))
+              (case Nil (Cons x2 (flatten1 (TreeCons r ps))))))
+          (case Nil (flatten1 ps))))))
+(define-fun-rec
+  |concat'| :keep :source |Tree.concat'|
+    ((z List) (y2 List)) List
+    (match z
+      (case Nul y2)
+      (case (Cons z2 xs) (Cons z2 (|concat'| xs y2)))))
+(define-fun-rec
+  flatten0 :keep :source Tree.flatten0
+    ((z Tree)) List
+    (match z
+      (case (Node r y2 q2)
+        (|concat'| (|concat'| (flatten0 r) (Cons y2 Nul)) (flatten0 q2)))
+      (case Nil Nul)))
+(assert-not
+  :goal
+  (=> (= y (TreeCons p q))
+    (= (flatten1 y) (|concat'| (flatten0 p) (flatten1 q)))))
+(assert
+  :ttttt
+  (and (= y (TreeCons Nil x))
+    (=> (= x (TreeCons p q))
+      (= (flatten1 x) (|concat'| (flatten0 p) (flatten1 q))))))
+(check-sat)
+
+#######################################
+
+-----------------------------------------
+
+Theory before indpass
+
+(declare-datatypes ()
+  ((Nat :source Tree.Nat (Z :source Tree.Z)
+     (S :source Tree.S (proj1-S Nat)))))
+(declare-datatypes ()
+  ((Tree :source Tree.Tree
+     (Node :source Tree.Node (proj1-Node Tree)
+       (proj2-Node Nat) (proj3-Node Tree))
+     (Nil :source Tree.Nil))))
+(declare-datatypes ()
+  ((TreeList :source Tree.TreeList (TNul :source Tree.TNul)
+     (TreeCons :source Tree.TreeCons (proj1-TreeCons Tree)
+       (proj2-TreeCons TreeList)))))
+(declare-datatypes ()
+  ((List :source Tree.List (Nul :source Tree.Nul)
+     (Cons :source Tree.Cons (proj1-Cons Nat) (proj2-Cons List)))))
+(define-fun-rec
+  flatten1 :keep :source Tree.flatten1
+    ((x TreeList)) List
+    (match x
+      (case TNul Nul)
+      (case (TreeCons y ps)
+        (match y
+          (case (Node z x2 q)
+            (match z
+              (case (Node x3 x4 x5)
+                (flatten1
+                  (TreeCons (Node x3 x4 x5) (TreeCons (Node Nil x2 q) ps))))
+              (case Nil (Cons x2 (flatten1 (TreeCons q ps))))))
+          (case Nil (flatten1 ps))))))
+(define-fun-rec
+  |concat'| :keep :source |Tree.concat'|
+    ((x List) (y List)) List
+    (match x
+      (case Nul y)
+      (case (Cons z xs) (Cons z (|concat'| xs y)))))
+(define-fun-rec
+  flatten0 :keep :source Tree.flatten0
+    ((x Tree)) List
+    (match x
+      (case (Node p y q)
+        (|concat'| (|concat'| (flatten0 p) (Cons y Nul)) (flatten0 q)))
+      (case Nil Nul)))
+(assert-not
+  :name lemma0 :source Tree.proppy
+  (forall ((p Tree) (q TreeList))
+    (= (flatten1 (TreeCons p q))
+      (|concat'| (flatten0 p) (flatten1 q)))))
+(check-sat)
+
+#######################################
+
+
+Theory after indpass
+
+(declare-sort sk :skolem 0)
+(declare-datatypes ()
+  ((Nat :source Tree.Nat (Z :source Tree.Z)
+     (S :source Tree.S (proj1-S Nat)))))
+(declare-datatypes ()
+  ((Tree :source Tree.Tree
+     (Node :source Tree.Node (proj1-Node Tree)
+       (proj2-Node Nat) (proj3-Node Tree))
+     (Nil :source Tree.Nil))))
+(declare-datatypes ()
+  ((TreeList :source Tree.TreeList (TNul :source Tree.TNul)
+     (TreeCons :source Tree.TreeCons (proj1-TreeCons Tree)
+       (proj2-TreeCons TreeList)))))
+(declare-datatypes ()
+  ((List :source Tree.List (Nul :source Tree.Nul)
+     (Cons :source Tree.Cons (proj1-Cons Nat) (proj2-Cons List)))))
+(declare-const x Nat)
+(declare-const y List)
+(declare-const z List)
+(declare-const x2 List)
+(declare-const p :skolem Tree)
+(declare-const q :skolem TreeList)
+(define-fun-rec
+  flatten1 :keep :source Tree.flatten1
+    ((x3 TreeList)) List
+    (match x3
+      (case TNul Nul)
+      (case (TreeCons y2 ps)
+        (match y2
+          (case (Node z2 x22 r)
+            (match z2
+              (case (Node x32 x4 x5)
+                (flatten1
+                  (TreeCons (Node x32 x4 x5) (TreeCons (Node Nil x22 r) ps))))
+              (case Nil (Cons x22 (flatten1 (TreeCons r ps))))))
+          (case Nil (flatten1 ps))))))
+(define-fun-rec
+  |concat'| :keep :source |Tree.concat'|
+    ((x3 List) (y2 List)) List
+    (match x3
+      (case Nul y2)
+      (case (Cons z2 xs) (Cons z2 (|concat'| xs y2)))))
+(define-fun-rec
+  flatten0 :keep :source Tree.flatten0
+    ((x3 Tree)) List
+    (match x3
+      (case (Node r y2 q2)
+        (|concat'| (|concat'| (flatten0 r) (Cons y2 Nul)) (flatten0 q2)))
+      (case Nil Nul)))
+(assert-not
+  :goal
+  (=> (and (= z (flatten0 p)) (= x2 (flatten1 q)))
+    (= (flatten1 (TreeCons p q)) (|concat'| z x2))))
+(assert
+  :ttttt
+  (and (= z (Cons x y))
+    (=> (and (= y (flatten0 p)) (= x2 (flatten1 q)))
+      (= (flatten1 (TreeCons p q)) (|concat'| y x2)))))
+(check-sat)
+
+#######################################
+
+-----------------------------------------
+
+Theory before indpass
+
+(declare-datatypes ()
+  ((Nat :source Tree.Nat (Z :source Tree.Z)
+     (S :source Tree.S (proj1-S Nat)))))
+(declare-datatypes ()
+  ((Tree :source Tree.Tree
+     (Node :source Tree.Node (proj1-Node Tree)
+       (proj2-Node Nat) (proj3-Node Tree))
+     (Nil :source Tree.Nil))))
+(declare-datatypes ()
+  ((TreeList :source Tree.TreeList (TNul :source Tree.TNul)
+     (TreeCons :source Tree.TreeCons (proj1-TreeCons Tree)
+       (proj2-TreeCons TreeList)))))
+(declare-datatypes ()
+  ((List :source Tree.List (Nul :source Tree.Nul)
+     (Cons :source Tree.Cons (proj1-Cons Nat) (proj2-Cons List)))))
+(define-fun-rec
+  flatten1 :keep :source Tree.flatten1
+    ((x TreeList)) List
+    (match x
+      (case TNul Nul)
+      (case (TreeCons y ps)
+        (match y
+          (case (Node z x2 q)
+            (match z
+              (case (Node x3 x4 x5)
+                (flatten1
+                  (TreeCons (Node x3 x4 x5) (TreeCons (Node Nil x2 q) ps))))
+              (case Nil (Cons x2 (flatten1 (TreeCons q ps))))))
+          (case Nil (flatten1 ps))))))
+(define-fun-rec
+  |concat'| :keep :source |Tree.concat'|
+    ((x List) (y List)) List
+    (match x
+      (case Nul y)
+      (case (Cons z xs) (Cons z (|concat'| xs y)))))
+(define-fun-rec
+  flatten0 :keep :source Tree.flatten0
+    ((x Tree)) List
+    (match x
+      (case (Node p y q)
+        (|concat'| (|concat'| (flatten0 p) (Cons y Nul)) (flatten0 q)))
+      (case Nil Nul)))
+(assert-not
+  :name lemma0 :source Tree.proppy
+  (forall ((p Tree) (q TreeList))
+    (= (flatten1 (TreeCons p q))
+      (|concat'| (flatten0 p) (flatten1 q)))))
+(check-sat)
+
+#######################################
+
+
+Theory after indpass
+
+(declare-sort sk :skolem 0)
+(declare-datatypes ()
+  ((Nat :source Tree.Nat (Z :source Tree.Z)
+     (S :source Tree.S (proj1-S Nat)))))
+(declare-datatypes ()
+  ((Tree :source Tree.Tree
+     (Node :source Tree.Node (proj1-Node Tree)
+       (proj2-Node Nat) (proj3-Node Tree))
+     (Nil :source Tree.Nil))))
+(declare-datatypes ()
+  ((TreeList :source Tree.TreeList (TNul :source Tree.TNul)
+     (TreeCons :source Tree.TreeCons (proj1-TreeCons Tree)
+       (proj2-TreeCons TreeList)))))
+(declare-datatypes ()
+  ((List :source Tree.List (Nul :source Tree.Nul)
+     (Cons :source Tree.Cons (proj1-Cons Nat) (proj2-Cons List)))))
+(declare-const x Tree)
+(declare-const p :skolem Tree)
+(declare-const q :skolem TreeList)
+(define-fun-rec
+  flatten1 :keep :source Tree.flatten1
+    ((y TreeList)) List
+    (match y
+      (case TNul Nul)
+      (case (TreeCons z ps)
+        (match z
+          (case (Node z2 x2 r)
+            (match z2
+              (case (Node x3 x4 x5)
+                (flatten1
+                  (TreeCons (Node x3 x4 x5) (TreeCons (Node Nil x2 r) ps))))
+              (case Nil (Cons x2 (flatten1 (TreeCons r ps))))))
+          (case Nil (flatten1 ps))))))
+(define-fun-rec
+  |concat'| :keep :source |Tree.concat'|
+    ((y List) (z List)) List
+    (match y
+      (case Nul z)
+      (case (Cons z2 xs) (Cons z2 (|concat'| xs z)))))
+(define-fun-rec
+  flatten0 :keep :source Tree.flatten0
+    ((y Tree)) List
+    (match y
+      (case (Node r z q2)
+        (|concat'| (|concat'| (flatten0 r) (Cons z Nul)) (flatten0 q2)))
+      (case Nil Nul)))
+(assert-not
+  :goal
+  (=> (= x p)
+    (= (flatten1 (TreeCons x q))
+      (|concat'| (flatten0 x) (flatten1 q)))))
+(assert
+  :ttttt
+  (= x Nil))
+(check-sat)
+
+#######################################
+
+-----------------------------------------
+
+Theory before indpass
+
+(declare-datatypes ()
+  ((Nat :source Tree.Nat (Z :source Tree.Z)
+     (S :source Tree.S (proj1-S Nat)))))
+(declare-datatypes ()
+  ((Tree :source Tree.Tree
+     (Node :source Tree.Node (proj1-Node Tree)
+       (proj2-Node Nat) (proj3-Node Tree))
+     (Nil :source Tree.Nil))))
+(declare-datatypes ()
+  ((TreeList :source Tree.TreeList (TNul :source Tree.TNul)
+     (TreeCons :source Tree.TreeCons (proj1-TreeCons Tree)
+       (proj2-TreeCons TreeList)))))
+(declare-datatypes ()
+  ((List :source Tree.List (Nul :source Tree.Nul)
+     (Cons :source Tree.Cons (proj1-Cons Nat) (proj2-Cons List)))))
+(define-fun-rec
+  flatten1 :keep :source Tree.flatten1
+    ((x TreeList)) List
+    (match x
+      (case TNul Nul)
+      (case (TreeCons y ps)
+        (match y
+          (case (Node z x2 q)
+            (match z
+              (case (Node x3 x4 x5)
+                (flatten1
+                  (TreeCons (Node x3 x4 x5) (TreeCons (Node Nil x2 q) ps))))
+              (case Nil (Cons x2 (flatten1 (TreeCons q ps))))))
+          (case Nil (flatten1 ps))))))
+(define-fun-rec
+  |concat'| :keep :source |Tree.concat'|
+    ((x List) (y List)) List
+    (match x
+      (case Nul y)
+      (case (Cons z xs) (Cons z (|concat'| xs y)))))
+(define-fun-rec
+  flatten0 :keep :source Tree.flatten0
+    ((x Tree)) List
+    (match x
+      (case (Node p y q)
+        (|concat'| (|concat'| (flatten0 p) (Cons y Nul)) (flatten0 q)))
+      (case Nil Nul)))
+(assert-not
+  :name lemma0 :source Tree.proppy
+  (forall ((p Tree) (q TreeList))
+    (= (flatten1 (TreeCons p q))
+      (|concat'| (flatten0 p) (flatten1 q)))))
+(check-sat)
+
+#######################################
+
+
+Theory after indpass
+
+(declare-sort sk :skolem 0)
+(declare-datatypes ()
+  ((Nat :source Tree.Nat (Z :source Tree.Z)
+     (S :source Tree.S (proj1-S Nat)))))
+(declare-datatypes ()
+  ((Tree :source Tree.Tree
+     (Node :source Tree.Node (proj1-Node Tree)
+       (proj2-Node Nat) (proj3-Node Tree))
+     (Nil :source Tree.Nil))))
+(declare-datatypes ()
+  ((TreeList :source Tree.TreeList (TNul :source Tree.TNul)
+     (TreeCons :source Tree.TreeCons (proj1-TreeCons Tree)
+       (proj2-TreeCons TreeList)))))
+(declare-datatypes ()
+  ((List :source Tree.List (Nul :source Tree.Nul)
+     (Cons :source Tree.Cons (proj1-Cons Nat) (proj2-Cons List)))))
+(declare-const x TreeList)
+(declare-const y TreeList)
+(declare-const p :skolem Tree)
+(declare-const q :skolem TreeList)
+(define-fun-rec
+  flatten1 :keep :source Tree.flatten1
+    ((z TreeList)) List
+    (match z
+      (case TNul Nul)
+      (case (TreeCons y2 ps)
+        (match y2
+          (case (Node z2 x2 r)
+            (match z2
+              (case (Node x3 x4 x5)
+                (flatten1
+                  (TreeCons (Node x3 x4 x5) (TreeCons (Node Nil x2 r) ps))))
+              (case Nil (Cons x2 (flatten1 (TreeCons r ps))))))
+          (case Nil (flatten1 ps))))))
+(define-fun-rec
+  |concat'| :keep :source |Tree.concat'|
+    ((z List) (y2 List)) List
+    (match z
+      (case Nul y2)
+      (case (Cons z2 xs) (Cons z2 (|concat'| xs y2)))))
+(define-fun-rec
+  flatten0 :keep :source Tree.flatten0
+    ((z Tree)) List
+    (match z
+      (case (Node r y2 q2)
+        (|concat'| (|concat'| (flatten0 r) (Cons y2 Nul)) (flatten0 q2)))
+      (case Nil Nul)))
+(assert-not
+  :goal
+  (=> (= y q)
+    (= (flatten1 (TreeCons p y))
+      (|concat'| (flatten0 p) (flatten1 y)))))
+(assert
+  :ttttt
+  (and (= y (TreeCons Nil x))
+    (=> (= x q)
+      (= (flatten1 (TreeCons p x))
+        (|concat'| (flatten0 p) (flatten1 x))))))
+(check-sat)
+
+#######################################
+
+-----------------------------------------
+| lemma0  -- U | ![p:Tree, q:TreeList]:
+  (flatten1(TreeCons(p, q)) = concat'(flatten0(p), flatten1(q)))
+Timeout is: 1
+(declare-datatypes ()
+  ((Nat :source Tree.Nat (Z :source Tree.Z)
+     (S :source Tree.S (proj1-S Nat)))))
+(declare-datatypes ()
+  ((Tree :source Tree.Tree
+     (Node :source Tree.Node (proj1-Node Tree)
+       (proj2-Node Nat) (proj3-Node Tree))
+     (Nil :source Tree.Nil))))
+(declare-datatypes ()
+  ((TreeList :source Tree.TreeList (TNul :source Tree.TNul)
+     (TreeCons :source Tree.TreeCons (proj1-TreeCons Tree)
+       (proj2-TreeCons TreeList)))))
+(declare-datatypes ()
+  ((List :source Tree.List (Nul :source Tree.Nul)
+     (Cons :source Tree.Cons (proj1-Cons Nat) (proj2-Cons List)))))
+(define-fun-rec
+  flatten1 :keep :source Tree.flatten1
+    ((x TreeList)) List
+    (match x
+      (case TNul Nul)
+      (case (TreeCons y ps)
+        (match y
+          (case (Node z x2 q)
+            (match z
+              (case (Node x3 x4 x5)
+                (flatten1
+                  (TreeCons (Node x3 x4 x5) (TreeCons (Node Nil x2 q) ps))))
+              (case Nil (Cons x2 (flatten1 (TreeCons q ps))))))
+          (case Nil (flatten1 ps))))))
+(define-fun-rec
+  |concat'| :keep :source |Tree.concat'|
+    ((x List) (y List)) List
+    (match x
+      (case Nul y)
+      (case (Cons z xs) (Cons z (|concat'| xs y)))))
+(define-fun-rec
+  flatten0 :keep :source Tree.flatten0
+    ((x Tree)) List
+    (match x
+      (case (Node p y q)
+        (|concat'| (|concat'| (flatten0 p) (Cons y Nul)) (flatten0 q)))
+      (case Nil Nul)))
+(assert-not
+  :name lemma0 :source Tree.proppy
+  (forall ((p Tree) (q TreeList))
+    (= (flatten1 (TreeCons p q))
+      (|concat'| (flatten0 p) (flatten1 q)))))
+(assert-not
+  :name lemma1 :source Tree.prop_Flatten1
+  (forall ((p Tree)) (= (flatten1 (TreeCons p TNul)) (flatten0 p))))
+(check-sat)
+
+Theory before indpass
+
+(declare-datatypes ()
+  ((Nat :source Tree.Nat (Z :source Tree.Z)
+     (S :source Tree.S (proj1-S Nat)))))
+(declare-datatypes ()
+  ((Tree :source Tree.Tree
+     (Node :source Tree.Node (proj1-Node Tree)
+       (proj2-Node Nat) (proj3-Node Tree))
+     (Nil :source Tree.Nil))))
+(declare-datatypes ()
+  ((TreeList :source Tree.TreeList (TNul :source Tree.TNul)
+     (TreeCons :source Tree.TreeCons (proj1-TreeCons Tree)
+       (proj2-TreeCons TreeList)))))
+(declare-datatypes ()
+  ((List :source Tree.List (Nul :source Tree.Nul)
+     (Cons :source Tree.Cons (proj1-Cons Nat) (proj2-Cons List)))))
+(define-fun-rec
+  flatten1 :keep :source Tree.flatten1
+    ((x TreeList)) List
+    (match x
+      (case TNul Nul)
+      (case (TreeCons y ps)
+        (match y
+          (case (Node z x2 q)
+            (match z
+              (case (Node x3 x4 x5)
+                (flatten1
+                  (TreeCons (Node x3 x4 x5) (TreeCons (Node Nil x2 q) ps))))
+              (case Nil (Cons x2 (flatten1 (TreeCons q ps))))))
+          (case Nil (flatten1 ps))))))
+(define-fun-rec
+  |concat'| :keep :source |Tree.concat'|
+    ((x List) (y List)) List
+    (match x
+      (case Nul y)
+      (case (Cons z xs) (Cons z (|concat'| xs y)))))
+(define-fun-rec
+  flatten0 :keep :source Tree.flatten0
+    ((x Tree)) List
+    (match x
+      (case (Node p y q)
+        (|concat'| (|concat'| (flatten0 p) (Cons y Nul)) (flatten0 q)))
+      (case Nil Nul)))
+(assert-not
+  :name lemma1 :source Tree.prop_Flatten1
+  (forall ((p Tree)) (= (flatten1 (TreeCons p TNul)) (flatten0 p))))
+(check-sat)
+
+#######################################
+
+
+Theory after indpass
+
+(declare-sort sk :skolem 0)
+(declare-datatypes ()
+  ((Nat :source Tree.Nat (Z :source Tree.Z)
+     (S :source Tree.S (proj1-S Nat)))))
+(declare-datatypes ()
+  ((Tree :source Tree.Tree
+     (Node :source Tree.Node (proj1-Node Tree)
+       (proj2-Node Nat) (proj3-Node Tree))
+     (Nil :source Tree.Nil))))
+(declare-datatypes ()
+  ((TreeList :source Tree.TreeList (TNul :source Tree.TNul)
+     (TreeCons :source Tree.TreeCons (proj1-TreeCons Tree)
+       (proj2-TreeCons TreeList)))))
+(declare-datatypes ()
+  ((List :source Tree.List (Nul :source Tree.Nul)
+     (Cons :source Tree.Cons (proj1-Cons Nat) (proj2-Cons List)))))
+(declare-const x TreeList)
+(declare-const y TreeList)
+(declare-const p :skolem Tree)
+(define-fun-rec
+  flatten1 :keep :source Tree.flatten1
+    ((z TreeList)) List
+    (match z
+      (case TNul Nul)
+      (case (TreeCons y2 ps)
+        (match y2
+          (case (Node z2 x2 q)
+            (match z2
+              (case (Node x3 x4 x5)
+                (flatten1
+                  (TreeCons (Node x3 x4 x5) (TreeCons (Node Nil x2 q) ps))))
+              (case Nil (Cons x2 (flatten1 (TreeCons q ps))))))
+          (case Nil (flatten1 ps))))))
+(define-fun-rec
+  |concat'| :keep :source |Tree.concat'|
+    ((z List) (y2 List)) List
+    (match z
+      (case Nul y2)
+      (case (Cons z2 xs) (Cons z2 (|concat'| xs y2)))))
+(define-fun-rec
+  flatten0 :keep :source Tree.flatten0
+    ((z Tree)) List
+    (match z
+      (case (Node q y2 r)
+        (|concat'| (|concat'| (flatten0 q) (Cons y2 Nul)) (flatten0 r)))
+      (case Nil Nul)))
+(assert-not
+  :goal
+  (=> (= y (TreeCons p TNul)) (= (flatten1 y) (flatten0 p))))
+(assert
+  :ttttt
+  (and (= y (TreeCons Nil x))
+    (=> (= x (TreeCons p TNul)) (= (flatten1 x) (flatten0 p)))))
+(check-sat)
+
+#######################################
+
+-----------------------------------------
+
+Theory before indpass
+
+(declare-datatypes ()
+  ((Nat :source Tree.Nat (Z :source Tree.Z)
+     (S :source Tree.S (proj1-S Nat)))))
+(declare-datatypes ()
+  ((Tree :source Tree.Tree
+     (Node :source Tree.Node (proj1-Node Tree)
+       (proj2-Node Nat) (proj3-Node Tree))
+     (Nil :source Tree.Nil))))
+(declare-datatypes ()
+  ((TreeList :source Tree.TreeList (TNul :source Tree.TNul)
+     (TreeCons :source Tree.TreeCons (proj1-TreeCons Tree)
+       (proj2-TreeCons TreeList)))))
+(declare-datatypes ()
+  ((List :source Tree.List (Nul :source Tree.Nul)
+     (Cons :source Tree.Cons (proj1-Cons Nat) (proj2-Cons List)))))
+(define-fun-rec
+  flatten1 :keep :source Tree.flatten1
+    ((x TreeList)) List
+    (match x
+      (case TNul Nul)
+      (case (TreeCons y ps)
+        (match y
+          (case (Node z x2 q)
+            (match z
+              (case (Node x3 x4 x5)
+                (flatten1
+                  (TreeCons (Node x3 x4 x5) (TreeCons (Node Nil x2 q) ps))))
+              (case Nil (Cons x2 (flatten1 (TreeCons q ps))))))
+          (case Nil (flatten1 ps))))))
+(define-fun-rec
+  |concat'| :keep :source |Tree.concat'|
+    ((x List) (y List)) List
+    (match x
+      (case Nul y)
+      (case (Cons z xs) (Cons z (|concat'| xs y)))))
+(define-fun-rec
+  flatten0 :keep :source Tree.flatten0
+    ((x Tree)) List
+    (match x
+      (case (Node p y q)
+        (|concat'| (|concat'| (flatten0 p) (Cons y Nul)) (flatten0 q)))
+      (case Nil Nul)))
+(assert-not
+  :name lemma1 :source Tree.prop_Flatten1
+  (forall ((p Tree)) (= (flatten1 (TreeCons p TNul)) (flatten0 p))))
+(check-sat)
+
+#######################################
+
+
+Theory after indpass
+
+(declare-sort sk :skolem 0)
+(declare-datatypes ()
+  ((Nat :source Tree.Nat (Z :source Tree.Z)
+     (S :source Tree.S (proj1-S Nat)))))
+(declare-datatypes ()
+  ((Tree :source Tree.Tree
+     (Node :source Tree.Node (proj1-Node Tree)
+       (proj2-Node Nat) (proj3-Node Tree))
+     (Nil :source Tree.Nil))))
+(declare-datatypes ()
+  ((TreeList :source Tree.TreeList (TNul :source Tree.TNul)
+     (TreeCons :source Tree.TreeCons (proj1-TreeCons Tree)
+       (proj2-TreeCons TreeList)))))
+(declare-datatypes ()
+  ((List :source Tree.List (Nul :source Tree.Nul)
+     (Cons :source Tree.Cons (proj1-Cons Nat) (proj2-Cons List)))))
+(declare-const x Tree)
+(declare-const p :skolem Tree)
+(define-fun-rec
+  flatten1 :keep :source Tree.flatten1
+    ((y TreeList)) List
+    (match y
+      (case TNul Nul)
+      (case (TreeCons z ps)
+        (match z
+          (case (Node z2 x2 q)
+            (match z2
+              (case (Node x3 x4 x5)
+                (flatten1
+                  (TreeCons (Node x3 x4 x5) (TreeCons (Node Nil x2 q) ps))))
+              (case Nil (Cons x2 (flatten1 (TreeCons q ps))))))
+          (case Nil (flatten1 ps))))))
+(define-fun-rec
+  |concat'| :keep :source |Tree.concat'|
+    ((y List) (z List)) List
+    (match y
+      (case Nul z)
+      (case (Cons z2 xs) (Cons z2 (|concat'| xs z)))))
+(define-fun-rec
+  flatten0 :keep :source Tree.flatten0
+    ((y Tree)) List
+    (match y
+      (case (Node q z r)
+        (|concat'| (|concat'| (flatten0 q) (Cons z Nul)) (flatten0 r)))
+      (case Nil Nul)))
+(assert-not
+  :goal
+  (=> (= x p) (= (flatten1 (TreeCons x TNul)) (flatten0 x))))
+(assert
+  :ttttt
+  (= x Nil))
+(check-sat)
+
+#######################################
+
+-----------------------------------------
+| lemma1  -- U | ![p:Tree]: (flatten1(TreeCons(p, TNul)) = flatten0(p))
+== Summary ==
+
+= Proved without induction =
+
+= Proved with induction =
