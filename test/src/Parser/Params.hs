@@ -15,17 +15,19 @@ data Params = Params
     , timeouts    :: [Int]
     , tipspec     :: Bool
     , backend     :: TheoremProver
+    , splitCases  :: Bool
     }
 
 instance Show Params where
     show p = unlines
         ["== Program Parameters ==",
-         " Input File: " ++ show (inputFile p),
-         " Verbosity Level: " ++ show (outputLevel p),
-         " Induction Type: " ++ show (indType p),
-         " Prover Timeouts: " ++ show (timeouts p),
-         " TipSpec Enabled: " ++ show (tipspec p),
-         " Prover Backend: " ++ show (backend p)
+         " Input File: "        ++ show (inputFile p),
+         " Verbosity Level: "   ++ show (outputLevel p),
+         " Induction Type: "    ++ show (indType p),
+         " Prover Timeouts: "   ++ show (timeouts p),
+         " TipSpec Enabled: "   ++ show (tipspec p),
+         " Prover Backend: "    ++ show (backend p),
+         " Split Cases: "       ++ show (splitCases p)
         ]
 
 data TheoremProver = E
@@ -57,12 +59,17 @@ parseParams = execParser $ info
                                <*>  parseIndType
                                <*>  parseProverTimeouts
                                <*>  parseTipSpecEnabled
-                               <*>  parseProver))
+                               <*>  parseProver
+                               <*>  parseSplit))
                 (fullDesc <>
                  progDesc "Prov properties of recursively defined functions" <>
                  -- TODO we really need a better name... :)
                  header "test - Inductive theorem prover")
 
+parseSplit :: Parser Bool
+parseSplit = 
+        flag' False     (long "no-split-cases" <> help "Prove whole property at once")
+    <|> flag  True True (long "split-cases" <> help "Split properties by pattern matching (default)")
 
 parseProver :: Parser TheoremProver
 parseProver =
@@ -70,7 +77,7 @@ parseProver =
 
 parseProverTimeouts :: Parser [Int]
 parseProverTimeouts =
-    option auto (long "timeouts" <> metavar "TIMEOUT..." <> help "Timeouts for the prover"
+    option auto (long "timeouts" <> metavar "[INT,...]" <> help "Timeouts for the prover"
             <> showDefault
             <> value [1,5,10])
     -- <|> (value [5])

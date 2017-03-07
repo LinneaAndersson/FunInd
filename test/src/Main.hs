@@ -13,8 +13,9 @@ import           Tip.Core              (theoryGoals)
 import           Tip.Formula           (showFormula)
 import           Tip.Fresh             (Name, freshPass)
 import           Tip.Mod               (renameLemmas)
-import           Tip.Passes            (provedConjecture, selectConjecture)
+import           Tip.Passes            (StandardPass(..),provedConjecture, selectConjecture, runPasses, freshPass)
 import           Tip.Types             (Theory, fm_attrs)
+import           Tip.Pretty.SMT        (ppTheory)
 
 import           Constants             (out_path, prop_file, tip_file)
 import           Induction.Induction   (addLemma, getIndType, nextTimeout,
@@ -39,16 +40,24 @@ main = do
     -- check file extension
     preQS <- checkInputFile (inputFile params)
 
-    -- created conjectures
+        -- created conjectures
     -- TODO verbosity
-    prop_string <- run_process "tip-spec" "." [preQS]
+    prop_string <- if (tipspec params) 
+                        then run_process "tip-spec" "." [preQS]
+                        else readFile preQS  
     writeFile prop_file prop_string
 
+    --theory <- readTheory preQS
+    
     -- parsing tip qith quickspec to theory
     theory_qs <- readTheory prop_file
 
+
+    let theory' = theory_qs--head . freshPass (runPasses [TypeSkolemConjecture, Monomorphise False]) $ theory_qs
+
+    --writeFile (out_path "monoSkolem") . show . ppTheory [] $ theory'
     -- Structural Induction TODO:: ADD (freshPass (monomorphise False) theory_qs)
-    case induct (renameLemmas theory_qs) >>= printResult . fst of
+    case induct (renameLemmas theory') >>= printResult . fst of
         TP (Induct a) -> runStateT a (initState params)
     return ()
         where -- count the number of conjectures in the theory
@@ -89,8 +98,10 @@ loop_conj :: Name a => Theory a -> Int -> Int -> Bool -> TP a (Theory a, Bool)
 loop_conj theory curr num continue
     | curr >= num = -- tested all conjectures
         if continue -- check whether to loop again
-            then nextTimeout >> loop_conj theory 0 num False   -- continue
-            else return (theory, continue)      -- done
+            then loop_conj theory 0 num False   -- continue
+            else mcase (nextTimeout)
+                    (loop_conj theory 0 num False)
+                    (return (theory, continue))      -- done
     | otherwise  = -- test next conjecture
         let
             -- pick a conjecture
@@ -112,9 +123,10 @@ loop_conj theory curr num continue
                     printStr 3 $ "| " ++ f_name  ++  "  -- P | " ++ formulaPrint
                     addLemma f_name -- add formula to proved lemmas
                     -- go to next conjecture
-                    loop_conj (provedConjecture curr theory) curr (num-1) continue)
+                    loop_conj (provedConjecture curr theory) curr (num-1) True)
                 (mcase (loop_ind th 0 (nbrVar th)) -- Attempt induction
                         (do -- Proved using induction
+                            --fail "hello"
                             printStr 3 $ "| " ++ f_name  ++  "  -- I | " ++ formulaPrint
                             --fail $ "printout"
                             addLemma f_name -- add formula to proved lemmas

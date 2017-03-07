@@ -1,6 +1,6 @@
 module Induction.Induction where
 
-import           Control.Monad.State (get, liftIO, modify, when)
+import           Control.Monad.State (get, liftIO, modify, when, join)
 import           Data.List           (nub, partition)
 import           Data.Maybe          (fromJust, fromMaybe, isJust, isNothing)
 
@@ -22,8 +22,8 @@ import           Prover              (Prover (..))
 import           Utils               (mwhen)
 
 
-applicativeInd :: Name a => Induction a
-applicativeInd =  Ind (\th0 -> length $ findApps (thy_funcs th0) (fm_body $ head . fst $ theoryGoals th0)) applicativeInduction
+applicativeInd :: Name a => Bool -> Induction a
+applicativeInd b =  Ind (\th0 -> length $ findApps (thy_funcs th0) (fm_body $ head . fst $ theoryGoals th0)) (applicativeInduction b)
 
 structuralInd :: Name a => Induction a
 structuralInd = Ind (length . fst . forallView . fm_body . head . fst . theoryGoals) induction
@@ -63,7 +63,17 @@ printResult th =
         printStr 1 "= Proved with induction ="
         mapM_ putLemma ind
         -- printStr 0 $ show $ mapM_ name ls
-    where putLemma l =
+        printStr 1 ""
+        printStr 1 "= Could not prove ="
+        mapM_ printUnproven (fst . theoryGoals $ th)
+    where printUnproven f = do
+            let userProp = getUserProperty f
+            let outLevel    = if (isNothing userProp) then 2 else 1
+            let nameL       = fromJust $ join $ lookup (if (outLevel==1) then "source" else "name") (fm_attrs f)
+            printStr outLevel
+                        $ fromMaybe nameL userProp
+                            ++  " " ++ getFormula f
+          putLemma l =
             let -- all formula's in the theory
                 thy_f       = thy_asserts th
                 -- name of proven lemma
@@ -89,13 +99,15 @@ printResult th =
                     Just i  -> printStr outLevel
                                         $ "--- Proved with index: " ++ show i -- ++ (show $ getFormulaVar formula i)
                 -- Print all auxiliary lemmas used in the proof
+                userLevel <- outputLevel <$> (params <$> get)
                 mapM_ (\a -> printStr outLevel
-                    (" | " ++ (if outLevel==1
+                    (" | " ++ (if userLevel==1
                                 then do
                                     let hFormula = lookupFormula a thy_f
                                     maybe (fail "error: Could not find formula") getFormula hFormula
                                 else a))) $
                     nub $ filter (nameL /=) (hLemmas l)
+
 
 -- check if a lemma was proved using induction
 isInductive :: Lemma -> Bool
@@ -109,19 +121,19 @@ printStr i s = mwhen ((i <=) <$> (outputLevel . params <$> get))
 getIndType :: Name a => Params -> Induction a
 getIndType p = case indType p of
     Structural  -> structuralInd
-    Applicative -> applicativeInd
+    Applicative -> applicativeInd (splitCases p)
 
-nextTimeout :: Name a => TP a ()
+nextTimeout :: Name a => TP a Bool
 nextTimeout = do
     ps <- params <$> get
     let ts = timeouts ps
-    when (null ts) $ fail "error: No prover timeout found"
-    modify $ \s ->
-        s{ params =
-            ps{ timeouts = case ts of
-                    [x] -> [x]
-                    xs  ->  drop 1 xs
-            }
-        }
-    ti <- (show . head . timeouts) <$> (params <$> get)
-    printStr 4 (unlines ["== New Timeout == ", " timeout:" ++ ti])
+    if (length ts <= 1)
+        then
+            return False
+        else
+            do
+                modify $ \s ->
+                    s{ params = ps{ timeouts = drop 1 ts } }
+                ti <- (show . head . timeouts) <$> (params <$> get)
+                printStr 4 (unlines ["== New Timeout == ", " timeout:" ++ ti])
+                return True

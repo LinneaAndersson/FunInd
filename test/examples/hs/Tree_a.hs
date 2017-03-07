@@ -25,4 +25,4 @@ f1 (TCons (Leaf x) ts) = Cons x $ f1 ts
 f1 (TCons (Node p q) ts) = f1 (TCons p $ TCons q ts)
 
 proppy ps qs = f1 (ps `tapp` qs) === f1 ps `app` f1 qs
-prop_test y z = f1 (TCons y TNil) === (f0 y) 
+--prop_test y z = f1 (TCons y TNil) === (f0 y) 

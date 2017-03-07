@@ -10,6 +10,8 @@ import           Tip.Pretty.SMT     (ppExpr)
 import           Tip.Types          (Builtin (..), Case (..), Expr (..),
                                      Function (..), Global (..), Head (..),
                                      Pattern (..))
+import           Tip.Mod             (universe)
+import           Data.List           (nub)
 
 createApps :: Name a => Property a -> Fresh [Expr a]
 createApps p =
@@ -35,9 +37,10 @@ mExpr exprs p (Match m cs)        =
             (\l e ->
                 do
                     expr <- mExpr (l:exprs) p e
+                    let containsMatch = not $ null [0 | (Match _ _) <- universe e]
                     return (case expr of
                         [] -> [ands (map (uncurry (===)) (l:exprs))]
-                        xs -> xs)) lhs rhs
+                        xs -> if(containsMatch) then xs else [ands (nub xs)])) lhs rhs
         return (inM ++ concat allMatches)
 mExpr exprs p (Builtin g :@: ls)  = concat <$> mapM (mExpr exprs p) ls
 mExpr exprs p g@(Gbl g1 :@: ls)      =
