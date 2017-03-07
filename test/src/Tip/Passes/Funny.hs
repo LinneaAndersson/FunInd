@@ -33,16 +33,20 @@ createProperties th e = es --freshFrom es th
                     fIds <- freshIds (map fst apps)
                     zipWithM (createProperty e) fIds funcs
 
+-- Create sub properties and their hypotheses
 createAsserts :: Name a => Theory a -> Expr a -> Fresh [(Property a,[Expr a])]
 createAsserts theory expr = createProperties theory expr >>= \p -> zip p <$> mapM createApps p
 
+-- Returns the goal of the property as a formula
 createGoal :: Name a => Property a  -> Fresh (Formula a)
 createGoal prop = do
     let        constants = map (\p' -> Gbl p' :@: []) (propGlobals prop ++ propGblBody prop)
     let        lcls = map Lcl (propInp prop ++ propQnts prop)
     propE      <- updateRef'  (zip lcls constants) (propBody prop)
-    return $   Formula Prove [("goal", Nothing)] [] propE --(mkQuant Forall (propQnts prop) propE)
+    return $   Formula Prove [("goal", Nothing)] [] propE 
 
+-- Returns signatures for the input arguments of the application we are
+-- making induction over
 createSignatures :: Name a => Property a -> [Signature a]
 createSignatures prop = map (\g -> Signature (gbl_name g) [] (gbl_type g)) (propGlobals prop)
 
