@@ -27,7 +27,7 @@ import           Induction.Types       (IndState (..), Induction (..), TP (..),
                                         getProver)
 import           Parser.Params         (InputFile (..), Params (..),
                                         TheoremProver (..), parseParams)
-import           Process               (readTheory, run_process)
+import           Process               (readTheory, run_process, run_process')
 import           Prover                (Prover (..), eprover)
 import           Utils                 (mcase)
 
@@ -47,7 +47,9 @@ main = do
         -- created conjectures
     -- TODO verbosity
     prop_string <- if (tipspec params) 
-                        then run_process "tip-spec" "." [preQS]
+                        then if outputLevel params > 0 
+                                then run_process  "tip-spec" "." [preQS]
+                                else run_process' "tip-spec" "." [preQS,"2>","/dev/null"]
                         else readFile preQS  
     writeFile prop_file prop_string
 
