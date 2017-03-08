@@ -20,14 +20,14 @@ concatMap' (TreeCons t ts)    = concat' (flatten0 t) (concatMap' ts)
 flatten0 :: Tree -> List
 flatten0 Nil          = Nul
 flatten0 (Node p x q) =concat' (concat' (flatten0 p) (Cons x Nul)) (flatten0 q)
-
+{-
 flatten1 :: TreeList -> List
 flatten1 TNul                           = Nul
 flatten1 (TreeCons Nil              ps) = flatten1 ps
 flatten1 (TreeCons (Node Nil x q)   ps) = Cons x $ flatten1 (TreeCons q ps)
 flatten1 (TreeCons (Node p x q)     ps) = flatten1 $ TreeCons p  (TreeCons (Node Nil x q) ps)
 
-{-flatten2 :: Tree -> List -> List
+flatten2 :: Tree -> List -> List
 flatten2 Nil          ys = ys
 flatten2 (Node p x q) ys = flatten2 p (Cons x (flatten2 q ys))
 -}
@@ -38,12 +38,13 @@ flatten3 (Node Nil x q)          = Cons x $ flatten3 q
 
 --------------------------------------------------------------------------------
 
-
+{-
 prop_Flatten1 p =
   flatten1 (TreeCons p TNul) === flatten0 p
 
 prop_Flatten1List ps =
   flatten1 ps === concatMap' ps
+-}
 {-
 prop_Flatten2 :: Tree -> Prop
 prop_Flatten2 p =
@@ -51,12 +52,12 @@ prop_Flatten2 p =
 -}
 prop_Flatten3 p =
   flatten3 p === flatten0 p
-
+{-
 prop_PROVE_FALSE p =
   flatten3 (Node p (S Z) p) === flatten0 p
 
 lemma25 x = flatten1 x === concatMap' x 
-
+-}
 
 --------------------------------------------------------------------------------
 {-

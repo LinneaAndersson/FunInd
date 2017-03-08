@@ -30,7 +30,7 @@ instance Show Params where
          " Split Cases: "       ++ show (splitCases p)
         ]
 
-data TheoremProver = E
+data TheoremProver = E | Z
     deriving Show
 
 -- verbosity level
@@ -73,7 +73,8 @@ parseSplit =
 
 parseProver :: Parser TheoremProver
 parseProver =
-    flag E E (long "prover-E" <> help "Use E-prover as the prover backend")
+        flag' Z     (long "prover-Z3" <> help "Use Z3 as the prover backend")
+    <|> flag  E E    (long "prover-E" <> help "Use E-prover as the prover backend")
 
 parseProverTimeouts :: Parser [Int]
 parseProverTimeouts =

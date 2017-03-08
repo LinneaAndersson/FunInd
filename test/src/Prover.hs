@@ -7,12 +7,13 @@ import           Jukebox.TPTP.Parse (parseString)
 import           Text.Regex         (mkRegex, splitRegex)
 
 import           Tip.Mod            (ppTheory', tff)
-import           Tip.Passes         (StandardPass (SkolemiseConjecture))
+import           Tip.Passes         (StandardPass (..),runPasses, freshPass)
 import           Tip.Types          (Theory)
 import           Tip.Fresh          (Name)
 
 import           Constants          (out_path)
 import           Process            (jukebox_hs)
+import           Tip.Pretty.SMT as SMT    (ppTheory)
 
 type Flag = String
 
@@ -85,3 +86,29 @@ getAxioms (x:xs)
         -- name of any aux lemma is last in split
         -- init since last char is ')'
         sDone s = init (s !! (length s - 1))
+
+
+-- A prover instance of the first-order-logic prover E
+z3 :: Name a => Prover a
+z3 = P {name = "z3",
+        flags = [],
+        prepare = \i ->
+            do
+                let str = show . SMT.ppTheory [] . head . freshPass (z3PrePasses) $ i
+                writeFile (out_path "prepared") str
+                return str,
+        parseOut = pout,
+        setTime = \i -> "-T:"++ show i}
+    where
+        z3PrePasses = runPasses [TypeSkolemConjecture, 
+            Monomorphise  False, SimplifyGently, LambdaLift, 
+            AxiomatizeLambdas, Monomorphise False, SimplifyGently, CollapseEqual,
+            RemoveAliases, SimplifyGently , AxiomatizeFuncdefs2, RemoveMatch, SkolemiseConjecture, NegateConjecture] 
+        pout :: [String] -> IO (Bool,[String])
+        pout [prob, out] = do
+            if "unsat" `isInfixOf` out 
+                then return (True, output out) 
+                else return (False, [])
+
+
+

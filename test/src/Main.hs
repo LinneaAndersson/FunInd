@@ -28,7 +28,7 @@ import           Induction.Types       (IndState (..), Induction (..), TP (..),
 import           Parser.Params         (InputFile (..), Params (..),
                                         TheoremProver (..), parseParams)
 import           Process               (readTheory, run_process, run_process')
-import           Prover                (Prover (..), eprover)
+import           Prover                (Prover (..), eprover, z3)
 import           Utils                 (mcase)
 
 main :: IO()
@@ -47,7 +47,7 @@ main = do
         -- created conjectures
     -- TODO verbosity
     prop_string <- if (tipspec params) 
-                        then if outputLevel params > 0 
+                        then if outputLevel params > 1
                                 then run_process  "tip-spec" "." [preQS]
                                 else run_process' "tip-spec" "." [preQS,"2>","/dev/null"]
                         else readFile preQS  
@@ -102,6 +102,7 @@ checkInputFile Unrecognized = fail "Incompatible file extension"
 selectProver ::Name a => Params -> Prover a
 selectProver p = case backend p of
                     E -> eprover
+                    Z -> z3
 
 -- Looping through all conjectures and try to prove them
 -- If provable with structural induction, they are put into the theory as proven lemmas
