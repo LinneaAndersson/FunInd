@@ -8,6 +8,8 @@ import           System.FilePath.Posix (splitFileName)
 import           System.Directory      (createDirectory,
                                         createDirectoryIfMissing,
                                         removeDirectoryRecursive)
+import           System.CPUTime         (getCPUTime)
+import           Data.Time              (getCurrentTime,diffUTCTime)
 
 import           Tip.Core              (theoryGoals)
 import           Tip.Formula           (showFormula)
@@ -31,7 +33,9 @@ import           Utils                 (mcase)
 
 main :: IO()
 main = do
-
+    
+    start <- getCurrentTime  
+    
     -- parse input parameters: inout file and verbosity flags
     params <- parseParams
 
@@ -59,6 +63,12 @@ main = do
     -- Structural Induction TODO:: ADD (freshPass (monomorphise False) theory_qs)
     case induct (renameLemmas theory') >>= printResult . fst of
         TP (Induct a) -> runStateT a (initState params)
+
+    end <- getCurrentTime
+    let diff = diffUTCTime end start--(fromIntegral (end - start)) / (10^12)
+    when  (outputLevel params>0) $ do   
+        putStrLn ""
+        putStrLn $  "Time taken: " ++ (show diff) ++ "sec"
     return ()
         where -- count the number of conjectures in the theory
             numConj th = length $ fst $ theoryGoals th
