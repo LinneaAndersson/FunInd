@@ -51,7 +51,8 @@ mExpr exprs p g@(Gbl g1 :@: ls)      =
             Nothing -> return list_exprs
             Just e  -> return (e:list_exprs)
 mExpr exprs p (Lcl l) = return []
-mExpr _ _ e = fail $ "Cannot handle lamda, let, letrec or quantifier in expression in: "
+mExpr exprs p (Lam ls e) = mExpr exprs p e
+mExpr _ _ e = fail $ "Cannot handle let, letrec or quantifier in expression in: "
                         ++ show (ppExpr  e)
 
 gblExpr :: Name a => [(Expr a, Expr a)] -> Property a -> Expr a -> Fresh (Maybe (Expr a))

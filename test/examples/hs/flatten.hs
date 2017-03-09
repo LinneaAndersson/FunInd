@@ -3,35 +3,35 @@ module Tree where
 import Tip
 
 data Nat = Z | S Nat
-data List = Nul | Cons Nat List
+data List1 = Nul | Cons Nat List1
 data TreeList = TNul | TreeCons Tree TreeList
 data Tree = Node (Tree) Nat (Tree) | Nil
 
 --------------------------------------------------------------------------------
 
-concat' :: List -> List -> List
+concat' :: List1 -> List1 -> List1
 concat' Nul ys           = ys
 concat' (Cons x xs) ys   = Cons x (concat' xs ys) 
 
-concatMap' :: TreeList -> List
+concatMap' :: TreeList -> List1
 concatMap' TNul               = Nul
 concatMap' (TreeCons t ts)    = concat' (flatten0 t) (concatMap' ts) 
 
-flatten0 :: Tree -> List
+flatten0 :: Tree -> List1
 flatten0 Nil          = Nul
 flatten0 (Node p x q) =concat' (concat' (flatten0 p) (Cons x Nul)) (flatten0 q)
 {-
-flatten1 :: TreeList -> List
+flatten1 :: TreeList -> List1
 flatten1 TNul                           = Nul
 flatten1 (TreeCons Nil              ps) = flatten1 ps
 flatten1 (TreeCons (Node Nil x q)   ps) = Cons x $ flatten1 (TreeCons q ps)
 flatten1 (TreeCons (Node p x q)     ps) = flatten1 $ TreeCons p  (TreeCons (Node Nil x q) ps)
 
-flatten2 :: Tree -> List -> List
+flatten2 :: Tree -> List1 -> List1
 flatten2 Nil          ys = ys
 flatten2 (Node p x q) ys = flatten2 p (Cons x (flatten2 q ys))
 -}
-flatten3 :: Tree -> List
+flatten3 :: Tree -> List1
 flatten3 Nil                     = Nul
 flatten3 (Node (Node p x q) y r) = flatten3 (Node p x (Node q y r))
 flatten3 (Node Nil x q)          = Cons x $ flatten3 q

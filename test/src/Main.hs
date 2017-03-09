@@ -44,14 +44,7 @@ main = do
     -- check file extension
     preQS <- checkInputFile (inputFile params)
 
-        -- created conjectures
-    -- TODO verbosity
-    prop_string <- if (tipspec params) 
-                        then if outputLevel params > 1
-                                then run_process  "tip-spec" "." [preQS]
-                                else run_process' "tip-spec" "." [preQS,"2>","/dev/null"]
-                        else readFile preQS  
-    writeFile prop_file prop_string
+    runTipSpec
 
     --theory <- readTheory preQS
     
@@ -63,8 +56,9 @@ main = do
 
     --writeFile (out_path "monoSkolem") . show . ppTheory [] $ theory'
     -- Structural Induction TODO:: ADD (freshPass (monomorphise False) theory_qs)
-    case induct (renameLemmas theory') >>= printResult . fst of
-        TP (Induct a) -> runStateT a (initState params)
+    catch ( case induct (renameLemmas theory') >>= printResult . fst of
+        TP (Induct a) -> runStateT a (initState params) ) (\e -> putStrLn "It worked catching error!! Yeahoo")
+
 
     end <- getCurrentTime
     let diff = diffUTCTime end start--(fromIntegral (end - start)) / (10^12)
@@ -79,6 +73,24 @@ main = do
                 pstr <- show <$> getProver
                 printStr 4 pstr
                 loop_conj theory 0 (numConj theory) False
+
+runTipSpec :: Params -> FilePath -> IO ()
+runTipSpec params file = do
+    -- created conjectures
+    case tipspec params of
+        No  -> readFile file >>= writeFile prop_file 
+        Yes folder -> do
+                createDirectoryIfMissing False folder
+                smt <- if outputLevel params > 1
+                        then run_process  "tip-spec" "." [file]
+                        else run_process' "tip-spec" "." [file,"2>","/dev/null"]
+                writeFile (folder ++ (takeFileName file)) smt  
+                writeFile prop_file smt                 
+        UseExisting folder -> do 
+            let lemmaFile = folder ++ (takeFileName file)
+            mcase (doesFileExist lemmaFile) 
+                (readFile lemmaFile >>= writeFile prop_file)
+                (runTipSpec params{tipSpec=Yes folder} file)
 
 initState :: Name a => Params -> IndState a
 initState par = IndState par

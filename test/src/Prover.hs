@@ -1,10 +1,15 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Prover where
 
 import           Data.List          (isInfixOf)
+import           Data.Char          (isNumber)
 import qualified Jukebox.Provers.E  as Ep (extractAnswer)
 import           Jukebox.Form       (Answer (..))
 import           Jukebox.TPTP.Parse (parseString)
 import           Text.Regex         (mkRegex, splitRegex)
+import           Text.Regex.Applicative (findFirstInfix,string,some, psym, RE(..))
+import           Text.Regex.Applicative.Common (digit)
 
 import           Tip.Mod            (ppTheory', tff)
 import           Tip.Passes         (StandardPass (..),runPasses, freshPass)
@@ -13,7 +18,7 @@ import           Tip.Fresh          (Name)
 
 import           Constants          (out_path)
 import           Process            (jukebox_hs)
-import           Tip.Pretty.SMT as SMT    (ppTheory)
+import           Tip.Pretty.SMT.Mod as SMT    (ppTheory)
 
 type Flag = String
 
@@ -76,7 +81,7 @@ output :: String -> [String]
 output = getAxioms . lines
 
 -- find auxiliary lemmas used in the proof
-getAxioms :: [String] -> [String]
+{-getAxioms :: [String] -> [String]
 getAxioms [] = []
 getAxioms (x:xs)
     | "lemma" `isInfixOf` x = filter (/=' ') (sDone (sp x)) : getAxioms xs
@@ -85,13 +90,13 @@ getAxioms (x:xs)
         sp = splitRegex (mkRegex ",")
         -- name of any aux lemma is last in split
         -- init since last char is ')'
-        sDone s = init (s !! (length s - 1))
+        sDone s = init (s !! (length s - 1))-}
 
 
 -- A prover instance of the first-order-logic prover E
 z3 :: Name a => Prover a
 z3 = P {name = "z3",
-        flags = [],
+        flags = ["-smt2","proof=true","unsat-core=true","pp.pretty-proof=true"],
         prepare = \i ->
             do
                 let str = show . SMT.ppTheory [] . head . freshPass (z3PrePasses) $ i
@@ -105,10 +110,17 @@ z3 = P {name = "z3",
             AxiomatizeLambdas, Monomorphise False, SimplifyGently, CollapseEqual,
             RemoveAliases, SimplifyGently , AxiomatizeFuncdefs2, RemoveMatch, SkolemiseConjecture, NegateConjecture] 
         pout :: [String] -> IO (Bool,[String])
-        pout [prob, out] = do
+        pout [prob, out] = 
             if "unsat" `isInfixOf` out 
                 then return (True, output out) 
                 else return (False, [])
 
 
+getAxioms :: [String]-> [String]
+getAxioms [] = []
+getAxioms (x:xs) =
+    case findFirstInfix (regex) x of
+        Nothing         -> getAxioms xs
+        Just (_,a,s)    -> ("lemma"++a) : getAxioms (s:xs)
+    where regex =  (string "lemma") *>  (some $ psym isNumber) :: RE Char String
 

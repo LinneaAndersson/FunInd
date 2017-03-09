@@ -8,6 +8,8 @@ import           Tip.Mod    (globals')
 import           Tip.Types  (Case (..), Expr (..), Function (..), Global (..),
                              Head (..), Local (..))
 
+import          Tip.Pretty.SMT
+
 updateRef :: Name a => [(Expr a, Local a)] -> Expr a -> Fresh (Expr a)
 updateRef = updateRef' . map (\(e,l) -> (e,Lcl l))
 
@@ -31,7 +33,8 @@ updateRef' ls m@(Match e cs)  =
                 return $ Match eUp listUp
         Just l' -> return l'
 updateRef' ls (Quant t dn lcl exp) = Quant t dn lcl <$> updateRef' ls exp
-updateRef' ls a             = fail "Expression not supported in updateRef'"
+updateRef' ls (Lam lcls expr)   = Lam lcls <$> (updateRef' ls expr)
+updateRef' ls a                 = fail $ "Expression not supported in updateRef' : " ++ (show $ ppExpr a) 
 
 
 isLocal :: Name a => Expr a -> Bool

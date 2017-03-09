@@ -13,7 +13,7 @@ data Params = Params
     , outputLevel :: OutputLevel
     , indType     :: IndType
     , timeouts    :: [Int]
-    , tipspec     :: Bool
+    , tipspec     :: TipSpec
     , backend     :: TheoremProver
     , splitCases  :: Bool
     }
@@ -29,6 +29,8 @@ instance Show Params where
          " Prover Backend: "    ++ show (backend p),
          " Split Cases: "       ++ show (splitCases p)
         ]
+
+data TipSpec = No | Yes String | UseExisting String deriving Show
 
 data TheoremProver = E | Z
     deriving Show
@@ -83,12 +85,21 @@ parseProverTimeouts =
             <> value [1,5,10])
     -- <|> (value [5])
 
-parseTipSpecEnabled :: Parser Bool
+parseTipSpecEnabled :: Parser TipSpec
 parseTipSpecEnabled =
-        flag'   False       (long "no-speculate-lemmas"
-                            <> help "Attempt proof without theory exploration")
-    <|> flag    True True   (long "speculate-lemmas"
-                            <> help "Attempt proof after theory exploration (default)")
+        flag' No              
+            (long "no-speculate-lemmas"
+                  <> help "Attempt proof without theory exploration")
+    <|> Yes <$> strArgument     
+            (long "speculate-lemmas" <> metavar "FOLDER" <> showDefault 
+                <> value "/Generated" 
+                <> help "Attempt proof after theory exploration")
+    <|> UseExisting <$> strArgument     
+            (long "use-lemmas" <> metavar "FOLDER" <> showDefault 
+                <> value "/Generated" 
+                <> help "Attempt proof after theory exploration, looking for and storing generated lemmas in the specified folder (default)")
+    <|> pure $ UseExisting "/Generated"
+    
 
 -- parse vebosity flag
 parseOutputLevel :: Parser OutputLevel
