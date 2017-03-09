@@ -1,6 +1,6 @@
 module Parser.Params where
 
-import           Options.Applicative   (Parser (..), auto, execParser, flag,
+import           Options.Applicative   (Parser (..), auto, execParser, flag, str,
                                         flag', fullDesc, header, help, helper,
                                         info, long, metavar, option, progDesc,
                                         short, showDefault, strArgument, value,
@@ -90,15 +90,15 @@ parseTipSpecEnabled =
         flag' No              
             (long "no-speculate-lemmas"
                   <> help "Attempt proof without theory exploration")
-    <|> Yes <$> strArgument     
+    <|> Yes <$> (option str     
             (long "speculate-lemmas" <> metavar "FOLDER" <> showDefault 
                 <> value "/Generated" 
-                <> help "Attempt proof after theory exploration")
-    <|> UseExisting <$> strArgument     
+                <> help "Attempt proof after theory exploration"))
+    <|> UseExisting <$> option str     
             (long "use-lemmas" <> metavar "FOLDER" <> showDefault 
                 <> value "/Generated" 
                 <> help "Attempt proof after theory exploration, looking for and storing generated lemmas in the specified folder (default)")
-    <|> pure $ UseExisting "/Generated"
+    <|> (pure $ UseExisting "/Generated")
     
 
 -- parse vebosity flag

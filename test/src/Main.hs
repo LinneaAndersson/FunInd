@@ -3,11 +3,14 @@ module Main where
 
 import           Control.Monad.State   (get, join, liftIO, modify, runStateT,
                                         when)
+import           Control.Exception     (Exception, SomeException, catch)
 import           Data.Maybe            (fromMaybe)
-import           System.FilePath.Posix (splitFileName)
+import           System.FilePath.Posix (splitFileName,
+                                        takeFileName)
 import           System.Directory      (createDirectory,
                                         createDirectoryIfMissing,
-                                        removeDirectoryRecursive)
+                                        removeDirectoryRecursive,
+                                        doesFileExist)
 import           System.CPUTime         (getCPUTime)
 import           Data.Time              (getCurrentTime,diffUTCTime)
 
@@ -26,7 +29,7 @@ import           Induction.Types       (IndState (..), Induction (..), TP (..),
                                         TheoremProverT (..), getInduction,
                                         getProver)
 import           Parser.Params         (InputFile (..), Params (..),
-                                        TheoremProver (..), parseParams)
+                                        TheoremProver (..), TipSpec(..), parseParams)
 import           Process               (readTheory, run_process, run_process')
 import           Prover                (Prover (..), eprover, z3)
 import           Utils                 (mcase)
@@ -44,7 +47,7 @@ main = do
     -- check file extension
     preQS <- checkInputFile (inputFile params)
 
-    runTipSpec
+    runTipSpec params preQS 
 
     --theory <- readTheory preQS
     
@@ -56,8 +59,10 @@ main = do
 
     --writeFile (out_path "monoSkolem") . show . ppTheory [] $ theory'
     -- Structural Induction TODO:: ADD (freshPass (monomorphise False) theory_qs)
-    catch ( case induct (renameLemmas theory') >>= printResult . fst of
-        TP (Induct a) -> runStateT a (initState params) ) (\e -> putStrLn "It worked catching error!! Yeahoo")
+    catch (case induct (renameLemmas theory') >>= printResult . fst of
+                TP (Induct a) -> runStateT a (initState params)
+           >> return ()) 
+            (\e -> putStrLn $ "It worked catching error!! Yeahoo" ++ (show (e :: SomeException)))
 
 
     end <- getCurrentTime
@@ -90,7 +95,7 @@ runTipSpec params file = do
             let lemmaFile = folder ++ (takeFileName file)
             mcase (doesFileExist lemmaFile) 
                 (readFile lemmaFile >>= writeFile prop_file)
-                (runTipSpec params{tipSpec=Yes folder} file)
+                (runTipSpec params{tipspec=Yes folder} file)
 
 initState :: Name a => Params -> IndState a
 initState par = IndState par

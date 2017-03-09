@@ -14,4 +14,4 @@ f1 (Leaf x : ts) = x : f1 ts
 f1 (Node p q : ts) = f1 (p : q : ts)
 
 proppy ps qs = f1 (ps ++ qs) === f1 ps ++ f1 qs
-prop_test y = f1 ([y]) === (f0 y) 
+--prop_test y = f1 ([y]) === (f0 y) 
