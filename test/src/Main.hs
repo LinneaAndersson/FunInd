@@ -1,4 +1,3 @@
-
 module Main where
 
 import           Control.Monad.State   (get, join, liftIO, modify, runStateT,
@@ -6,7 +5,9 @@ import           Control.Monad.State   (get, join, liftIO, modify, runStateT,
 import           Control.Exception     (Exception, SomeException, catch)
 import           Data.Maybe            (fromMaybe)
 import           System.FilePath.Posix (splitFileName,
-                                        takeFileName)
+                                        takeBaseName,
+                                        takeDirectory,
+                                        normalise)
 import           System.Directory      (createDirectory,
                                         createDirectoryIfMissing,
                                         removeDirectoryRecursive,
@@ -35,9 +36,10 @@ import           Prover                (Prover (..), eprover, z3)
 import           Utils                 (mcase)
 
 main :: IO()
-main = do
-    
-    start <- getCurrentTime  
+main = join $ (\(a,b) -> mapM_ (runMain a) b) <$> preProcess
+
+preProcess :: IO (Params,[FilePath])
+preProcess = do
     
     -- parse input parameters: inout file and verbosity flags
     params <- parseParams
@@ -45,7 +47,12 @@ main = do
     when (outputLevel params >= 4) $ putStrLn $ show params
 
     -- check file extension
-    preQS <- checkInputFile (inputFile params)
+    (,) params <$> checkInputFile (inputFile params)
+
+runMain :: Params -> FilePath -> IO ()
+runMain params preQS = do
+
+    start <- getCurrentTime      
 
     runTipSpec params preQS 
 
@@ -55,10 +62,8 @@ main = do
     theory_qs <- readTheory prop_file
 
 
-    let theory' = theory_qs--head . freshPass (runPasses [TypeSkolemConjecture, Monomorphise False]) $ theory_qs
+    let theory' = theory_qs
 
-    --writeFile (out_path "monoSkolem") . show . ppTheory [] $ theory'
-    -- Structural Induction TODO:: ADD (freshPass (monomorphise False) theory_qs)
     catch (case induct (renameLemmas theory') >>= printResult . fst of
                 TP (Induct a) -> runStateT a (initState params)
            >> return ()) 
@@ -82,17 +87,26 @@ main = do
 runTipSpec :: Params -> FilePath -> IO ()
 runTipSpec params file = do
     -- created conjectures
+    let path = takeDirectory (show $ inputFile params)
+    let name = takeBaseName (show $ inputFile params)
+
     case tipspec params of
         No  -> readFile file >>= writeFile prop_file 
         Yes folder -> do
-                createDirectoryIfMissing False folder
+                let folder' = normalise $ path ++ folder
+                         --joinPath [takeDirectory file, folder]
+                let lemmaFile = normalise $ folder' ++ "/" ++ name ++ ".smt2"
+                print $ "YES: " ++ lemmaFile
+                createDirectoryIfMissing False folder'
                 smt <- if outputLevel params > 1
                         then run_process  "tip-spec" "." [file]
                         else run_process' "tip-spec" "." [file,"2>","/dev/null"]
-                writeFile (folder ++ (takeFileName file)) smt  
+                writeFile lemmaFile smt  
                 writeFile prop_file smt                 
         UseExisting folder -> do 
-            let lemmaFile = folder ++ (takeFileName file)
+            let folder' = normalise $ path ++ folder
+            let lemmaFile = normalise $ folder' ++ "/" ++ name ++ ".smt2" 
+            print $ "UseExist: " ++ lemmaFile
             mcase (doesFileExist lemmaFile) 
                 (readFile lemmaFile >>= writeFile prop_file)
                 (runTipSpec params{tipspec=Yes folder} file)
@@ -105,16 +119,16 @@ initState par = IndState par
 
 -- When the input file is in haskell we need to run tip-ghc
 -- to convert it to smt2
-checkInputFile :: InputFile -> IO FilePath
-checkInputFile (HS f)      = do
+checkInputFile :: InputFile -> IO [FilePath]
+checkInputFile (HS f)       = do
                 -- start a external Process for tip-ghc, translating a haskell file
                 -- into smt2 (tip-format).
                 let (path, file) = splitFileName f
                 tip_string <- run_process "tip-ghc" path [file]
                 writeFile tip_file tip_string
-                return tip_file
-checkInputFile (SMT f)      = return f
-checkInputFile Unrecognized = fail "Incompatible file extension"
+                return [tip_file]
+checkInputFile (SMT f)          = return [f]
+checkInputFile (Unrecognized f) = fail "Incompatible file extension"
 
 selectProver ::Name a => Params -> Prover a
 selectProver p = case backend p of

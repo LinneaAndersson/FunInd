@@ -39,12 +39,12 @@ data TheoremProver = E | Z
 type OutputLevel = Int
 
 -- inputfile format
-data InputFile = HS FilePath | SMT FilePath | Unrecognized
+data InputFile = HS FilePath | SMT FilePath | Unrecognized FilePath
 
 instance Show InputFile where
-    show Unrecognized = "Unrecognized Filetype"
-    show (HS fp)      = fp
-    show (SMT fp)     = fp
+    show (Unrecognized fp)  = fp
+    show (HS fp)            = fp
+    show (SMT fp)           = fp
 
 data IndType = Structural | Applicative
     deriving Show
@@ -90,14 +90,14 @@ parseTipSpecEnabled =
         flag' No              
             (long "no-speculate-lemmas"
                   <> help "Attempt proof without theory exploration")
-    <|> Yes <$> (option str     
-            (long "speculate-lemmas" <> metavar "FOLDER" <> showDefault 
-                <> value "/Generated" 
-                <> help "Attempt proof after theory exploration"))
     <|> UseExisting <$> option str     
             (long "use-lemmas" <> metavar "FOLDER" <> showDefault 
                 <> value "/Generated" 
                 <> help "Attempt proof after theory exploration, looking for and storing generated lemmas in the specified folder (default)")
+    <|> Yes <$> (option str     
+            (long "speculate-lemmas" <> metavar "FOLDER" <> showDefault 
+                <> value "/Generated" 
+                <> help "Attempt proof after theory exploration"))
     <|> (pure $ UseExisting "/Generated")
     
 
@@ -117,7 +117,7 @@ parseInputFile = fun <$> strArgument (metavar "FILENAME" <> help "File to proces
             case snd $ splitExtension fileName of
                 ".smt2" -> SMT fileName
                 ".hs"   -> HS  fileName
-                _       -> Unrecognized
+                _       -> Unrecognized fileName
 
 parseIndType :: Parser IndType
 parseIndType =
