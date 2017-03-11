@@ -40,7 +40,7 @@ main = join $ (\(a,b) -> mapM_ (runMain a) b) <$> preProcess
 
 preProcess :: IO (Params,[FilePath])
 preProcess = do
-    
+
     -- parse input parameters: inout file and verbosity flags
     params <- parseParams
 
@@ -52,12 +52,12 @@ preProcess = do
 runMain :: Params -> FilePath -> IO ()
 runMain params preQS = do
 
-    start <- getCurrentTime      
+    start <- getCurrentTime
 
-    runTipSpec params preQS 
+    runTipSpec params preQS
 
     --theory <- readTheory preQS
-    
+
     -- parsing tip qith quickspec to theory
     theory_qs <- readTheory prop_file
 
@@ -66,13 +66,13 @@ runMain params preQS = do
 
     catch (case induct (renameLemmas theory') >>= printResult . fst of
                 TP (Induct a) -> runStateT a (initState params)
-           >> return ()) 
+           >> return ())
             (\e -> putStrLn $ "It worked catching error!! Yeahoo" ++ (show (e :: SomeException)))
 
 
     end <- getCurrentTime
     let diff = diffUTCTime end start--(fromIntegral (end - start)) / (10^12)
-    when  (outputLevel params>0) $ do   
+    when  (outputLevel params > 0) $ do
         putStrLn ""
         putStrLn $  "Time taken: " ++ (show diff) ++ "sec"
     return ()
@@ -91,23 +91,23 @@ runTipSpec params file = do
     let name = takeBaseName (show $ inputFile params)
 
     case tipspec params of
-        No  -> readFile file >>= writeFile prop_file 
+        No  -> readFile file >>= writeFile prop_file
         Yes folder -> do
                 let folder' = normalise $ path ++ folder
-                         --joinPath [takeDirectory file, folder]
+                putStrLn folder
                 let lemmaFile = normalise $ folder' ++ "/" ++ name ++ ".smt2"
                 print $ "YES: " ++ lemmaFile
                 createDirectoryIfMissing False folder'
                 smt <- if outputLevel params > 1
                         then run_process  "tip-spec" "." [file]
                         else run_process' "tip-spec" "." [file,"2>","/dev/null"]
-                writeFile lemmaFile smt  
-                writeFile prop_file smt                 
-        UseExisting folder -> do 
+                writeFile lemmaFile smt
+                writeFile prop_file smt
+        UseExisting folder -> do
             let folder' = normalise $ path ++ folder
-            let lemmaFile = normalise $ folder' ++ "/" ++ name ++ ".smt2" 
+            let lemmaFile = normalise $ folder' ++ "/" ++ name ++ ".smt2"
             print $ "UseExist: " ++ lemmaFile
-            mcase (doesFileExist lemmaFile) 
+            mcase (doesFileExist lemmaFile)
                 (readFile lemmaFile >>= writeFile prop_file)
                 (runTipSpec params{tipspec=Yes folder} file)
 
