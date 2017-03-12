@@ -1,17 +1,20 @@
 module Main where
 
-import           Control.Monad.State   (get, join, liftIO, modify, runStateT,
+import           Control.Monad.State   (get, join, liftIO, modify, runStateT, filterM,
                                         when)
 import           Control.Exception     (Exception, SomeException, catch)
 import           Data.Maybe            (fromMaybe)
 import           System.FilePath.Posix (splitFileName,
                                         takeBaseName,
                                         takeDirectory,
-                                        normalise)
+                                        normalise,
+                                        takeExtension)
 import           System.Directory      (createDirectory,
                                         createDirectoryIfMissing,
                                         removeDirectoryRecursive,
-                                        doesFileExist)
+                                        doesFileExist,
+                                        doesDirectoryExist,
+                                        getDirectoryContents)
 import           System.CPUTime         (getCPUTime)
 import           Data.Time              (getCurrentTime,diffUTCTime)
 
@@ -64,6 +67,7 @@ runMain params preQS = do
 
     let theory' = theory_qs
 
+    -- TODO better error handling
     catch (runStateT 
                 (runTP $ induct (renameLemmas theory'))
                 (initState params)
@@ -159,7 +163,22 @@ checkInputFile (HS f)       = do
                 writeFile tip_file tip_string
                 return [tip_file]
 checkInputFile (SMT f)          = return [f]
-checkInputFile (Unrecognized f) = fail "Incompatible file extension"
+checkInputFile (Unrecognized f) = do
+                mcase (doesDirectoryExist f)
+                    (do
+                        cont <- getDirectoryContents f
+                        fs <- filterM doesFileExist cont
+                        -- If HS file then need tip-ghc
+                        mapM 
+                            (\f' -> case takeExtension f' of
+                                        "smt" -> return f'
+                                        _     -> fail "TODO. only SMT for now" 
+                            ) fs
+
+                    )
+                    (fail "Unrecognized filetype")
+
+-- fail "Incompatible file extension"
 
 selectProver ::Name a => Params -> Prover a
 selectProver p = case backend p of
