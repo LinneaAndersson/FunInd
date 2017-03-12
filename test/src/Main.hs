@@ -90,6 +90,7 @@ runMain params preQS = do
                 printStr 4 pstr
                 th <- loop_conj theory 0 (numConj theory) False
                 printResult th
+            runTP (TP a) = a
 
 {- Run tipspec depending on choosen parameters.
     | If 'No' then don't run tipspec and simply use the given file

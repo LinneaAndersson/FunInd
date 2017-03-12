@@ -1,8 +1,6 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE DeriveFunctor              #-}
-{-# LANGUAGE DeriveAnyClass             #-}
 
 module Induction.Types where
 
@@ -35,7 +33,7 @@ data Name a => IndState a = IndState
   }
 
 -- Prover/IO instance
-data Name a => TP a b = TP { runTP :: (StateT (IndState a) IO b)}
+newtype Name a => TP a b = TP (StateT (IndState a) IO b)
     deriving (Functor, Applicative, Monad, MonadIO, MonadState (IndState a))
 
 data Lemma = Lemma
