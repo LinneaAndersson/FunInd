@@ -56,11 +56,8 @@ runMain params preQS = do
 
     runTipSpec params preQS
 
-    --theory <- readTheory preQS
-
     -- parsing tip qith quickspec to theory
     theory_qs <- readTheory prop_file
-
 
     let theory' = theory_qs
 
@@ -71,8 +68,9 @@ runMain params preQS = do
 
 
     end <- getCurrentTime
-    let diff = diffUTCTime end start--(fromIntegral (end - start)) / (10^12)
-    when  (outputLevel params > 0) $ do
+    let diff = diffUTCTime end start
+
+    when (outputLevel params > 0) $ do
         putStrLn ""
         putStrLn $  "Time taken: " ++ (show diff) ++ "sec"
     return ()
@@ -84,33 +82,61 @@ runMain params preQS = do
                 printStr 4 pstr
                 loop_conj theory 0 (numConj theory) False
 
+{- Run tipspec depending on choosen parameters.
+    | If 'No' then don't run tipspec and simply use the given file
+    | If 'Yes' FOLDER then run tipspec while storing the genereated lemma file in the specified folder. Overwrites any existing lemma file in the folder.
+    | If 'UseExisting' FOLDER then look for an existing lemma file in FOLDER. If no file is found then run tipspec while storing the genereated lemma file in the sppecified folder.
+
+-}
 runTipSpec :: Params -> FilePath -> IO ()
 runTipSpec params file = do
-    -- created conjectures
+    -- separate path and name of input file
     let path = takeDirectory (show $ inputFile params)
-    let name = takeBaseName (show $ inputFile params)
+        name = takeBaseName (show $ inputFile params)
 
+    -- check params regarding tipspec
     case tipspec params of
+
+        -- don't run tipspec
         No  -> readFile file >>= writeFile prop_file
+
+        -- run tipspec normaly, storing the generated lemmas in a file
         Yes folder -> do
-                let folder' = normalise $ path ++ folder
-                putStrLn folder
-                let lemmaFile = normalise $ folder' ++ "/" ++ name ++ ".smt2"
-                print $ "YES: " ++ lemmaFile
+
+                -- create path to lemma file and folder
+                let folder'     = normalise $ path ++ folder
+                    lemmaFile   = normalise $ folder' ++ "/" ++ name ++ ".smt2"
+                when (outputLevel params > 3) $ 
+                    putStrLn $ "New TipSpec file @ " ++ lemmaFile
+
+                -- create folder if not exist, 
+                -- the new file will be put in there
                 createDirectoryIfMissing False folder'
+
+                -- run tipspec, either quiet or not
                 smt <- if outputLevel params > 1
                         then run_process  "tip-spec" "." [file]
                         else run_process' "tip-spec" "." [file,"2>","/dev/null"]
+                -- write files
                 writeFile lemmaFile smt
                 writeFile prop_file smt
+
+        -- look for an existing file, 
+        -- if it doesn't exist then run tipspec normally
         UseExisting folder -> do
-            let folder' = normalise $ path ++ folder
-            let lemmaFile = normalise $ folder' ++ "/" ++ name ++ ".smt2"
-            print $ "UseExist: " ++ lemmaFile
+
+            -- create path to lemma file and folder
+            let folder'     = normalise $ path ++ folder
+                lemmaFile   = normalise $ folder' ++ "/" ++ name ++ ".smt2"
+            when (outputLevel params > 3) $
+                putStrLn $ "Lookin for TipSpec file @ " ++ lemmaFile
+
+            -- if file exist, use it, otherwise generate new file
             mcase (doesFileExist lemmaFile)
                 (readFile lemmaFile >>= writeFile prop_file)
                 (runTipSpec params{tipspec=Yes folder} file)
 
+-- create the initial state from the given parameters
 initState :: Name a => Params -> IndState a
 initState par = IndState par
     (selectProver par)
