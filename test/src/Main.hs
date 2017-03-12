@@ -27,7 +27,7 @@ import           Constants             (out_path, prop_file, tip_file)
 import           Induction.Induction   (addLemma, getIndType, nextTimeout,
                                         printResult, printStr, runProver)
 import           Induction.Types       (IndState (..), Induction (..), TP (..),
-                                        TheoremProverT (..), getInduction,
+                                        getInduction,
                                         getProver)
 import           Parser.Params         (InputFile (..), Params (..),
                                         TheoremProver (..), TipSpec(..), parseParams)
@@ -36,7 +36,9 @@ import           Prover                (Prover (..), eprover, z3)
 import           Utils                 (mcase)
 
 main :: IO()
-main = join $ (\(a,b) -> mapM_ (runMain a) b) <$> preProcess
+main = do
+        (params, fps) <- preProcess
+        mapM_ (runMain params) fps
 
 preProcess :: IO (Params,[FilePath])
 preProcess = do
@@ -53,7 +55,8 @@ runMain :: Params -> FilePath -> IO ()
 runMain params preQS = do
 
     start <- getCurrentTime
-
+    
+    -- theory exploration
     runTipSpec params preQS
 
     -- parsing tip qith quickspec to theory
@@ -61,8 +64,9 @@ runMain params preQS = do
 
     let theory' = theory_qs
 
-    catch (case induct (renameLemmas theory') >>= printResult . fst of
-                TP (Induct a) -> runStateT a (initState params)
+    catch (runStateT 
+                (runTP $ induct (renameLemmas theory'))
+                (initState params)
            >> return ())
             (\e -> putStrLn $ "It worked catching error!! Yeahoo" ++ (show (e :: SomeException)))
 
@@ -80,7 +84,8 @@ runMain params preQS = do
             induct theory = do
                 pstr <- show <$> getProver
                 printStr 4 pstr
-                loop_conj theory 0 (numConj theory) False
+                th <- loop_conj theory 0 (numConj theory) False
+                printResult th
 
 {- Run tipspec depending on choosen parameters.
     | If 'No' then don't run tipspec and simply use the given file
@@ -164,14 +169,14 @@ selectProver p = case backend p of
 -- Looping through all conjectures and try to prove them
 -- If provable with structural induction, they are put into the theory as proven lemmas
 -- If during one loop none is being proved, do not continue
-loop_conj :: Name a => Theory a -> Int -> Int -> Bool -> TP a (Theory a, Bool)
+loop_conj :: Name a => Theory a -> Int -> Int -> Bool -> TP a (Theory a)
 loop_conj theory curr num continue
     | curr >= num = -- tested all conjectures
         if continue -- check whether to loop again
             then loop_conj theory 0 num False   -- continue
             else mcase (nextTimeout)
                     (loop_conj theory 0 num False)
-                    (return (theory, continue))      -- done
+                    (return theory)       -- done
     | otherwise  = -- test next conjecture
         let
             -- pick a conjecture

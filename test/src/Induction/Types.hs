@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE DeriveAnyClass             #-}
 
 module Induction.Types where
 
@@ -15,8 +17,8 @@ import           Parser.Params       (Params (..))
 import           Prover              (Prover (..))
 
 -- Monad-transformer for induction
-newtype TheoremProverT s m a = Induct (StateT s m a)
-    deriving (Functor, Applicative, Monad, MonadIO, MonadState s, MonadTrans)
+--type TheoremProverT s m a = StateT s m a
+    --deriving (Functor, Applicative, Monad, MonadIO, MonadState s, MonadTrans)
 
 data Name a => Induction a = Ind
     {   inductionSize :: Theory a -> Int
@@ -33,7 +35,7 @@ data Name a => IndState a = IndState
   }
 
 -- Prover/IO instance
-newtype Name a => TP a b = TP (TheoremProverT (IndState a) IO b)
+data Name a => TP a b = TP { runTP :: (StateT (IndState a) IO b)}
     deriving (Functor, Applicative, Monad, MonadIO, MonadState (IndState a))
 
 data Lemma = Lemma
