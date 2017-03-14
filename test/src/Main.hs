@@ -56,7 +56,7 @@ preProcess = do
             UseExisting f   -> f ++ "/")
     
     -- check file extension
-    (,) params <$> checkInputFile (out_smt) (inputFile params)
+    (,) params <$> checkInputFile params (out_smt) (inputFile params)
 
 runMain :: Params -> FilePath -> IO ()
 runMain params preQS = do
@@ -112,7 +112,7 @@ runMain params preQS = do
 -}
 runTipSpec :: Params -> FilePath -> IO ()
 runTipSpec params file = do
-    putStrLn $ "Working with file: " ++ file
+    debug params $ "Working with file: " ++ file
 
     -- separate path and name of input file
     let path = takeDirectory file
@@ -131,7 +131,7 @@ runTipSpec params file = do
                 let folder'     = normalise $ path ++ folder
                     lemmaFile   = normalise $ folder' ++ "/" ++ name ++ ".smt2"
                 when (outputLevel params > 3) $ 
-                    putStrLn $ "New TipSpec file @ " ++ lemmaFile
+                    debug params $ "New TipSpec file @ " ++ lemmaFile
 
                 -- create folder if not exist, 
                 -- the new file will be put in there
@@ -152,8 +152,7 @@ runTipSpec params file = do
             -- create path to lemma file and folder
             let folder'     = normalise $ path ++ folder
                 lemmaFile   = normalise $ folder' ++ "/" ++ name ++ ".smt2"
-            when (outputLevel params > 3) $
-                putStrLn $ "Lookin for TipSpec file @ " ++ lemmaFile
+            debug params $ "Lookin for TipSpec file @ " ++ lemmaFile
 
             -- if file exist, use it, otherwise generate new file
             mcase (doesFileExist lemmaFile)
@@ -169,9 +168,9 @@ initState par = IndState par
 
 -- When the input file is in haskell we need to run tip-ghc
 -- to convert it to smt2
-checkInputFile :: FilePath -> InputFile -> IO [FilePath]
-checkInputFile fp (HS f)       = do
-    putStrLn $ "making smt out of haskell-file : " ++ f
+checkInputFile :: Params -> FilePath -> InputFile -> IO [FilePath]
+checkInputFile params fp (HS f)       = do
+    debug params $ "Making smt out of haskell-file : " ++ f
     -- start a external Process for tip-ghc, translating a haskell file
     -- into smt2 (tip-format).
     let (path, file) = splitFileName f
@@ -179,20 +178,20 @@ checkInputFile fp (HS f)       = do
     let fileName = (fp ++ (takeBaseName file) ++ ".smt")
     writeFile fileName tip_string
     return [fileName]
-checkInputFile fp (SMT f)          = do 
+checkInputFile _ fp (SMT f)          = do 
     let fileName = fp ++ (takeFileName f)
     writeFile fileName <$> readFile f
     return [fileName]
-checkInputFile fp (Unrecognized f) = do
+checkInputFile params fp (Unrecognized f) = do
     files <- getDirectoryContents f
-    putStrLn $ "FILENAME " ++ f ++ (head $ files)
+    debug params $ "FILENAME " ++ f ++ (head $ files)
     concat <$> mapM getFiles files
         where
            getFiles file = 
              case snd $ splitExtension file of
                 ".smt2" -> return [file]
                 ".smt"  -> return [file]
-                ".hs"   -> checkInputFile fp $ HS (f ++ file)
+                ".hs"   -> checkInputFile params fp $ HS (f ++ file)
                 _       -> return []
 
 
@@ -288,6 +287,12 @@ removeContentInFolder s = do
     removeDirectoryRecursive s
     createDirectory s
 
+talk :: Int -> Params -> String -> IO ()
+talk i p = when (outputLevel p >= i) .
+                putStrLn
+
+debug :: Params -> String -> IO ()
+debug = talk 4
 
 -- Returns true if all conjectures are provable
 proveAll :: Name a => [Theory a] -> TP a Bool
@@ -316,7 +321,7 @@ prove th = do
         ep <- runProver $ out_path "problem"
         -- check the output from the Prover by using
         -- the Provers parse function
-        (b, ax) <- liftIO =<< (parseOut <$> getProver) <*> pure [prob, ep]
+        (proved, ax) <- liftIO =<< (parseOut <$> getProver) <*> pure [prob, ep]
         -- add auxilliary lemmas to temporary state
-        when b $ modify (\s -> s{axioms = axioms s ++ ax})
-        return b
+        when proved $ modify (\s -> s{axioms = axioms s ++ ax})
+        return proved
