@@ -12,3 +12,6 @@ prop_file = out_path "prop.txt"
 
 out_path :: FilePath -> FilePath
 out_path = (++) "./out/"
+
+out_smt :: FilePath
+out_smt = "./tmp/"

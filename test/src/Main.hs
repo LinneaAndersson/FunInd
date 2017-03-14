@@ -7,11 +7,14 @@ import           Data.Maybe            (fromMaybe)
 import           System.FilePath.Posix (splitFileName,
                                         takeBaseName,
                                         takeDirectory,
-                                        normalise)
+                                        normalise,
+                                        splitExtension,
+                                        takeFileName)
 import           System.Directory      (createDirectory,
                                         createDirectoryIfMissing,
                                         removeDirectoryRecursive,
-                                        doesFileExist)
+                                        doesFileExist,
+                                        getDirectoryContents)
 import           System.CPUTime         (getCPUTime)
 import           Data.Time              (getCurrentTime,diffUTCTime)
 
@@ -23,7 +26,7 @@ import           Tip.Passes            (StandardPass(..),provedConjecture, selec
 import           Tip.Types             (Theory, fm_attrs)
 import           Tip.Pretty.SMT        (ppTheory)
 
-import           Constants             (out_path, prop_file, tip_file)
+import           Constants             (out_path, prop_file, tip_file, out_smt)
 import           Induction.Induction   (addLemma, getIndType, nextTimeout,
                                         printResult, printStr, runProver)
 import           Induction.Types       (IndState (..), Induction (..), TP (..),
@@ -36,7 +39,7 @@ import           Prover                (Prover (..), eprover, z3)
 import           Utils                 (mcase)
 
 main :: IO()
-main = join $ (\(a,b) -> mapM_ (runMain a) b) <$> preProcess
+main = join $ (\(a,b) -> mapM_ (\b' -> runMain a{inputFile = SMT  b'} b') b) <$> preProcess
 
 preProcess :: IO (Params,[FilePath])
 preProcess = do
@@ -46,15 +49,25 @@ preProcess = do
 
     when (outputLevel params >= 4) $ putStrLn $ show params
 
+    -- Check where to put file
+    let filePath = (case tipspec params of
+            No              -> out_path ""
+            Yes f           -> f ++ "/"
+            UseExisting f   -> f ++ "/")
+    
     -- check file extension
-    (,) params <$> checkInputFile (inputFile params)
+    (,) params <$> checkInputFile (out_smt) (inputFile params)
 
 runMain :: Params -> FilePath -> IO ()
 runMain params preQS = do
 
     start <- getCurrentTime      
+    
+    theoryNat <- head . freshPass (runPasses [SortsToNat]) <$> (readTheory preQS)     
 
-    runTipSpec params preQS 
+    writeFile "./tmp/tmpTheory.smt2" $ show $ ppTheory [] theoryNat 
+
+    runTipSpec params "./tmp/tmpTheory.smt2" --preQS 
 
     --theory <- readTheory preQS
     
@@ -86,9 +99,11 @@ runMain params preQS = do
 
 runTipSpec :: Params -> FilePath -> IO ()
 runTipSpec params file = do
+    putStrLn $ "Working with file: " ++ file
+
     -- created conjectures
-    let path = takeDirectory (show $ inputFile params)
-    let name = takeBaseName (show $ inputFile params)
+    let path = takeDirectory file
+    let name = takeBaseName file
 
     case tipspec params of
         No  -> readFile file >>= writeFile prop_file 
@@ -119,16 +134,32 @@ initState par = IndState par
 
 -- When the input file is in haskell we need to run tip-ghc
 -- to convert it to smt2
-checkInputFile :: InputFile -> IO [FilePath]
-checkInputFile (HS f)       = do
-                -- start a external Process for tip-ghc, translating a haskell file
-                -- into smt2 (tip-format).
-                let (path, file) = splitFileName f
-                tip_string <- run_process "tip-ghc" path [file]
-                writeFile tip_file tip_string
-                return [tip_file]
-checkInputFile (SMT f)          = return [f]
-checkInputFile (Unrecognized f) = fail "Incompatible file extension"
+checkInputFile :: FilePath -> InputFile -> IO [FilePath]
+checkInputFile fp (HS f)       = do
+    putStrLn $ "making smt out of haskell-file : " ++ f
+    -- start a external Process for tip-ghc, translating a haskell file
+    -- into smt2 (tip-format).
+    let (path, file) = splitFileName f
+    tip_string <- run_process "tip-ghc" path [file]
+    let fileName = (fp ++ (takeBaseName file) ++ ".smt")
+    writeFile fileName tip_string
+    return [fileName]
+checkInputFile fp (SMT f)          = do 
+    let fileName = fp ++ (takeFileName f)
+    writeFile fileName <$> readFile f
+    return [fileName]
+checkInputFile fp (Unrecognized f) = do
+    files <- getDirectoryContents f
+    putStrLn $ "FILENAME " ++ f ++ (head $ files)
+    concat <$> mapM getFiles files
+        where
+           getFiles file = 
+             case snd $ splitExtension file of
+                ".smt2" -> return [file]
+                ".smt"  -> return [file]
+                ".hs"   -> checkInputFile fp $ HS (f ++ file)
+                _       -> return []
+
 
 selectProver ::Name a => Params -> Prover a
 selectProver p = case backend p of
@@ -248,7 +279,6 @@ prove th = do
 
         -- run prover on the problem
         ep <- runProver $ out_path "problem"
-
         -- check the output from the Prover by using
         -- the Provers parse function
         (b, ax) <- liftIO =<< (parseOut <$> getProver) <*> pure [prob, ep]

@@ -116,6 +116,7 @@ parseInputFile = fun <$> strArgument (metavar "FILENAME" <> help "File to proces
     where fun fileName =
             case snd $ splitExtension fileName of
                 ".smt2" -> SMT fileName
+                ".smt" -> SMT fileName
                 ".hs"   -> HS  fileName
                 _       -> Unrecognized fileName
 

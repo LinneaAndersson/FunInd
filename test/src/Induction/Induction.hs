@@ -17,7 +17,7 @@ import           Induction.Types     (Induction (..), Lemma (..), TP (..),
                                       axioms, getLemmas, getProver, ind, lemmas,
                                       params)
 import           Parser.Params       (IndType (..), Params (..))
-import           Process             (run_process)
+import           Process             (run_process1)
 import           Prover              (Prover (..))
 import           Utils               (mwhen)
 
@@ -35,7 +35,7 @@ addLemma name = modify (\s ->  s{lemmas = Lemma name (axioms s) (ind s):lemmas s
 -- run the choosen prover on the file given by the filepath
 runProver :: Name a => FilePath -> TP a String
 runProver source = liftIO =<<
-                    run_process
+                    run_process1
                         <$> (name <$> getProver)
                         <*> pure "."
                         <*> fs
