@@ -6,7 +6,7 @@ import           Tip.Core           (ands, neg, ors, (/\), (===))
 import           Tip.Fresh          (Fresh, Name)
 import           Tip.Funny.Property (Property (..))
 import           Tip.Funny.Utils    (updateRef')
-import           Tip.Pretty.SMT     (ppExpr)
+import qualified Tip.Pretty.SMT as SMT  (ppExpr)
 import           Tip.Types          (Builtin (..), Case (..), Expr (..),
                                      Function (..), Global (..), Head (..),
                                      Pattern (..))
@@ -53,7 +53,7 @@ mExpr exprs p g@(Gbl g1 :@: ls)      =
 mExpr exprs p (Lcl l) = return []
 mExpr exprs p (Lam ls e) = mExpr exprs p e
 mExpr _ _ e = fail $ "Cannot handle let, letrec or quantifier in expression in: "
-                        ++ show (ppExpr  e)
+                        ++ show (SMT.ppExpr  e)
 
 gblExpr :: Name a => [(Expr a, Expr a)] -> Property a -> Expr a -> Fresh (Maybe (Expr a))
 gblExpr reqs p (Gbl g :@: rhsArgs)

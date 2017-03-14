@@ -13,8 +13,8 @@ import           Tip.Core                       (locals)
 import           Tip.Fresh                      (Name, Fresh(..), fresh)
 import           Tip.Passes                     (StandardPass(..), runPasses,
                                                  freshPass)
-import           Tip.Pretty                     (PrettyVar)
-import           Tip.Pretty.TFF                 (clause, ppExpr, ppSort,
+import           Tip.Pretty                    (PrettyVar)
+import qualified Tip.Pretty.TFF as TFF         (clause, ppExpr, ppSort,
                                                  ppUninterp, tffify, tffvarify,
                                                  validTFFChar)
 import           Tip.Rename                     (renameAvoiding)
@@ -24,21 +24,21 @@ import           Tip.Types                      (Head(..), Global(..), Type(..),
                                                  Role(..))
 
 -- pretty print a formula in tff format
-ppFormula' :: (Ord a, PrettyVar a) => Formula a -> Doc
-ppFormula' form =
+ppFormulaTFF :: (Ord a, PrettyVar a) => Formula a -> Doc
+ppFormulaTFF form =
     case fm_role form of
-        Prove  -> clause "goal" "conjecture" body
-        Assert -> clause name "axiom" body
+        Prove  -> TFF.clause "goal" "conjecture" body
+        Assert -> TFF.clause name "axiom" body
     where   name = fromMaybe "axiom" $ join $ lookup "name" $ fm_attrs form
-            body = ppExpr 0 (tffify (fm_body form))
+            body = TFF.ppExpr 0 (TFF.tffify (fm_body form))
 
 -- pretty print a theory in tff format
-ppTheory' :: (Ord a, PrettyVar a) => Theory a -> Doc
-ppTheory' (renameAvoiding [] (filter validTFFChar) . tffvarify -> Theory{..})
+ppTheoryTFF :: (Ord a, PrettyVar a) => Theory a -> Doc
+ppTheoryTFF (renameAvoiding [] (filter TFF.validTFFChar) . TFF.tffvarify -> Theory{..})
   = vcat
-     (map ppSort thy_sorts ++
-      map ppUninterp thy_sigs ++
-      map ppFormula' thy_asserts)
+     (map TFF.ppSort thy_sorts ++
+      map TFF.ppUninterp thy_sigs ++
+      map ppFormulaTFF thy_asserts)
 
 -- rename all speculated-lemmas and source properties with lemm1, lemma2, etc.
 renameLemmas :: (PrettyVar a, Name a) => Theory a -> Theory a

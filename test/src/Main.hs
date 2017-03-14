@@ -24,7 +24,7 @@ import           Tip.Fresh             (Name, freshPass)
 import           Tip.Mod               (renameLemmas)
 import           Tip.Passes            (StandardPass(..),provedConjecture, selectConjecture, runPasses, freshPass)
 import           Tip.Types             (Theory, fm_attrs)
-import           Tip.Pretty.SMT        (ppTheory)
+import qualified Tip.Pretty.SMT.Mod as SMT (ppTheory)
 
 import           Constants             (out_path, prop_file, tip_file, out_smt)
 import           Induction.Induction   (addLemma, getIndType, nextTimeout,
@@ -65,7 +65,7 @@ runMain params preQS = do
     
     theoryNat <- head . freshPass (runPasses [SortsToNat]) <$> (readTheory preQS)     
 
-    writeFile "./tmp/tmpTheory.smt2" $ show $ ppTheory [] theoryNat 
+    writeFile "./tmp/tmpTheory.smt2" $ show $ SMT.ppTheory [] theoryNat 
 
     runTipSpec params "./tmp/tmpTheory.smt2" --preQS 
 

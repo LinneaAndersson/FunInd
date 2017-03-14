@@ -11,14 +11,14 @@ import           Text.Regex         (mkRegex, splitRegex)
 import           Text.Regex.Applicative (findFirstInfix,string,some, psym, RE(..))
 import           Text.Regex.Applicative.Common (digit)
 
-import           Tip.Mod            (ppTheory', tff)
+import           Tip.Mod            (ppTheoryTFF, tff)
 import           Tip.Passes         (StandardPass (..),runPasses, freshPass)
 import           Tip.Types          (Theory)
 import           Tip.Fresh          (Name)
 
 import           Constants          (out_path)
 import           Process            (jukebox_hs)
-import           Tip.Pretty.SMT.Mod as SMT    (ppTheory)
+import qualified Tip.Pretty.SMT.Mod as SMT    (ppTheory)
 
 type Flag = String
 
@@ -49,7 +49,7 @@ eprover = P {name = "eproof",
              flags = ["--tstp-in", "--auto", "--full-deriv"],
              prepare = \i ->
                     do
-                        let str = show . ppTheory' . head . tff [IntToNat, SortsToNat, SkolemiseConjecture] $ i
+                        let str = show . ppTheoryTFF . head . tff [IntToNat, SortsToNat, SkolemiseConjecture] $ i
                         writeFile (out_path "prepared") str
                         jukebox_hs str,
              parseOut = pout,
