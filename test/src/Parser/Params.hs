@@ -5,7 +5,10 @@ import           Options.Applicative   (Parser (..), auto, execParser, flag, str
                                         info, long, metavar, option, progDesc,
                                         short, showDefault, strArgument, value,
                                         (<>), (<|>))
+import           Options.Applicative.Builder (subparser, strOption, command, internal)
 import           System.FilePath.Posix (splitExtension)
+
+import Parser.Mod
 
 -- type for input parameters
 data Params = Params
@@ -69,14 +72,14 @@ parseParams = execParser $ info
                  header "test - Inductive theorem prover")
 
 parseSplit :: Parser Bool
-parseSplit = 
+parseSplit =
         flag' False     (long "no-split-cases" <> help "Prove whole property at once")
     <|> flag  True True (long "split-cases" <> help "Split properties by pattern matching (default)")
 
 parseProver :: Parser TheoremProver
 parseProver =
         flag' Z     (long "prover-Z3" <> help "Use Z3 as the prover backend")
-    <|> flag  E E    (long "prover-E" <> help "Use E-prover as the prover backend")
+    <|> flag  E E    (long "prover-E" <> help "Use E-prover as the prover backend (defualt)")
 
 parseProverTimeouts :: Parser [Int]
 parseProverTimeouts =
@@ -87,24 +90,23 @@ parseProverTimeouts =
 
 parseTipSpecEnabled :: Parser TipSpec
 parseTipSpecEnabled =
-        flag' No              
+        (flag' (const No)
             (long "no-speculate-lemmas"
                   <> help "Attempt proof without theory exploration")
-    <|> UseExisting <$> option str     
-            (long "use-lemmas" <> metavar "FOLDER" <> showDefault 
-                <> value "/Generated" 
-                <> help "Attempt proof after theory exploration, looking for and storing generated lemmas in the specified folder (default)")
-    <|> Yes <$> (option str     
-            (long "speculate-lemmas" <> metavar "FOLDER" <> showDefault 
-                <> value "/Generated" 
+    <|> optFlag' UseExisting
+        (long "use-lemmas"
+            <> metavar "[FOLDER | ]"
+            <> help "Attempt proof after theory exploration, looking for and storing generated lemmas in the specified folder (default)")
+    <|> optFlag UseExisting Yes
+            (long "speculate-lemmas"
+                <> metavar "[FOLDER | ]"
                 <> help "Attempt proof after theory exploration"))
-    <|> (pure $ UseExisting "/Generated")
-    
+    <*> (strArgument (internal <> value "/Generated"))
 
 -- parse vebosity flag
 parseOutputLevel :: Parser OutputLevel
 parseOutputLevel =
-        flag'    4      (long "debug")
+        flag'    4      (long "debug" <> internal)
     <|> flag'    0      (long "quiet"       <> short 'q'    <> help "Only print whether user properties were proven or not")
     <|> flag'    3      (long "full-output" <> short 'f'    <> help "Print full progress of the program as well a summary")
     <|> flag'    2      (long "summary"     <> short 's'    <> help "Print a summary of all proven properties")

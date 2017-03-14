@@ -50,7 +50,7 @@ eprover = P {name = "eproof",
              prepare = \i ->
                     do
                         let str = show . ppTheory' . head . tff [IntToNat, SortsToNat, SkolemiseConjecture] $ i
-                        writeFile (out_path "preJukebox") str
+                        writeFile (out_path "prepared") str
                         jukebox_hs str,
              parseOut = pout,
              setTime = \i -> "--soft-cpu-limit=" ++ show i}
@@ -77,23 +77,7 @@ eprover = P {name = "eproof",
                             NoAnswer reason -> return (False,[show reason])
 
 
-output :: String -> [String]
-output = getAxioms . lines
-
--- find auxiliary lemmas used in the proof
-{-getAxioms :: [String] -> [String]
-getAxioms [] = []
-getAxioms (x:xs)
-    | "lemma" `isInfixOf` x = filter (/=' ') (sDone (sp x)) : getAxioms xs
-    | otherwise             = getAxioms xs
-    where -- split on ','
-        sp = splitRegex (mkRegex ",")
-        -- name of any aux lemma is last in split
-        -- init since last char is ')'
-        sDone s = init (s !! (length s - 1))-}
-
-
--- A prover instance of the first-order-logic prover E
+-- A prover instance for Z3
 z3 :: Name a => Prover a
 z3 = P {name = "z3",
         flags = ["-smt2","proof=true","unsat-core=true","pp.pretty-proof=true"],
@@ -115,7 +99,11 @@ z3 = P {name = "z3",
                 then return (True, output out) 
                 else return (False, [])
 
+-- split input by lines and then search for lemmas
+output :: String -> [String]
+output = getAxioms . lines
 
+-- locate all lemmas in the given list of strings.
 getAxioms :: [String]-> [String]
 getAxioms [] = []
 getAxioms (x:xs) =

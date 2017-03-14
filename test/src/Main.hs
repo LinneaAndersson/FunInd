@@ -1,6 +1,6 @@
 module Main where
 
-import           Control.Monad.State   (get, join, liftIO, modify, runStateT,
+import           Control.Monad.State   (get, join, liftIO, modify, runStateT, filterM,
                                         when)
 import           Control.Exception     (Exception, SomeException, catch)
 import           Data.Maybe            (fromMaybe)
@@ -30,7 +30,7 @@ import           Constants             (out_path, prop_file, tip_file, out_smt)
 import           Induction.Induction   (addLemma, getIndType, nextTimeout,
                                         printResult, printStr, runProver)
 import           Induction.Types       (IndState (..), Induction (..), TP (..),
-                                        TheoremProverT (..), getInduction,
+                                        getInduction,
                                         getProver)
 import           Parser.Params         (InputFile (..), Params (..),
                                         TheoremProver (..), TipSpec(..), parseParams)
@@ -43,7 +43,7 @@ main = join $ (\(a,b) -> mapM_ (\b' -> runMain a{inputFile = SMT  b'} b') b) <$>
 
 preProcess :: IO (Params,[FilePath])
 preProcess = do
-    
+
     -- parse input parameters: inout file and verbosity flags
     params <- parseParams
 
@@ -71,21 +71,26 @@ runMain params preQS = do
 
     --theory <- readTheory preQS
     
+    -- theory exploration
+    runTipSpec params preQS
+
     -- parsing tip qith quickspec to theory
     theory_qs <- readTheory prop_file
 
-
     let theory' = theory_qs
 
-    catch (case induct (renameLemmas theory') >>= printResult . fst of
-                TP (Induct a) -> runStateT a (initState params)
-           >> return ()) 
+    -- TODO better error handling
+    catch (runStateT 
+                (runTP $ induct (renameLemmas theory'))
+                (initState params)
+           >> return ())
             (\e -> putStrLn $ "It worked catching error!! Yeahoo" ++ (show (e :: SomeException)))
 
 
     end <- getCurrentTime
-    let diff = diffUTCTime end start--(fromIntegral (end - start)) / (10^12)
-    when  (outputLevel params>0) $ do   
+    let diff = diffUTCTime end start
+
+    when (outputLevel params > 0) $ do
         putStrLn ""
         putStrLn $  "Time taken: " ++ (show diff) ++ "sec"
     return ()
@@ -95,37 +100,67 @@ runMain params preQS = do
             induct theory = do
                 pstr <- show <$> getProver
                 printStr 4 pstr
-                loop_conj theory 0 (numConj theory) False
+                th <- loop_conj theory 0 (numConj theory) False
+                printResult th
+            runTP (TP a) = a
 
+{- Run tipspec depending on choosen parameters.
+    | If 'No' then don't run tipspec and simply use the given file
+    | If 'Yes' FOLDER then run tipspec while storing the genereated lemma file in the specified folder. Overwrites any existing lemma file in the folder.
+    | If 'UseExisting' FOLDER then look for an existing lemma file in FOLDER. If no file is found then run tipspec while storing the genereated lemma file in the sppecified folder.
+
+-}
 runTipSpec :: Params -> FilePath -> IO ()
 runTipSpec params file = do
     putStrLn $ "Working with file: " ++ file
 
-    -- created conjectures
+    -- separate path and name of input file
     let path = takeDirectory file
     let name = takeBaseName file
 
+    -- check params regarding tipspec
     case tipspec params of
-        No  -> readFile file >>= writeFile prop_file 
+
+        -- don't run tipspec
+        No  -> readFile file >>= writeFile prop_file
+
+        -- run tipspec normaly, storing the generated lemmas in a file
         Yes folder -> do
-                let folder' = normalise $ path ++ folder
-                         --joinPath [takeDirectory file, folder]
-                let lemmaFile = normalise $ folder' ++ "/" ++ name ++ ".smt2"
-                print $ "YES: " ++ lemmaFile
+
+                -- create path to lemma file and folder
+                let folder'     = normalise $ path ++ folder
+                    lemmaFile   = normalise $ folder' ++ "/" ++ name ++ ".smt2"
+                when (outputLevel params > 3) $ 
+                    putStrLn $ "New TipSpec file @ " ++ lemmaFile
+
+                -- create folder if not exist, 
+                -- the new file will be put in there
                 createDirectoryIfMissing False folder'
+
+                -- run tipspec, either quiet or not
                 smt <- if outputLevel params > 1
                         then run_process  "tip-spec" "." [file]
                         else run_process' "tip-spec" "." [file,"2>","/dev/null"]
-                writeFile lemmaFile smt  
-                writeFile prop_file smt                 
-        UseExisting folder -> do 
-            let folder' = normalise $ path ++ folder
-            let lemmaFile = normalise $ folder' ++ "/" ++ name ++ ".smt2" 
-            print $ "UseExist: " ++ lemmaFile
-            mcase (doesFileExist lemmaFile) 
+                -- write files
+                writeFile lemmaFile smt
+                writeFile prop_file smt
+
+        -- look for an existing file, 
+        -- if it doesn't exist then run tipspec normally
+        UseExisting folder -> do
+
+            -- create path to lemma file and folder
+            let folder'     = normalise $ path ++ folder
+                lemmaFile   = normalise $ folder' ++ "/" ++ name ++ ".smt2"
+            when (outputLevel params > 3) $
+                putStrLn $ "Lookin for TipSpec file @ " ++ lemmaFile
+
+            -- if file exist, use it, otherwise generate new file
+            mcase (doesFileExist lemmaFile)
                 (readFile lemmaFile >>= writeFile prop_file)
                 (runTipSpec params{tipspec=Yes folder} file)
 
+-- create the initial state from the given parameters
 initState :: Name a => Params -> IndState a
 initState par = IndState par
     (selectProver par)
@@ -169,14 +204,14 @@ selectProver p = case backend p of
 -- Looping through all conjectures and try to prove them
 -- If provable with structural induction, they are put into the theory as proven lemmas
 -- If during one loop none is being proved, do not continue
-loop_conj :: Name a => Theory a -> Int -> Int -> Bool -> TP a (Theory a, Bool)
+loop_conj :: Name a => Theory a -> Int -> Int -> Bool -> TP a (Theory a)
 loop_conj theory curr num continue
     | curr >= num = -- tested all conjectures
         if continue -- check whether to loop again
             then loop_conj theory 0 num False   -- continue
             else mcase (nextTimeout)
                     (loop_conj theory 0 num False)
-                    (return (theory, continue))      -- done
+                    (return theory)       -- done
     | otherwise  = -- test next conjecture
         let
             -- pick a conjecture
