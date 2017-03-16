@@ -52,6 +52,7 @@ mExpr exprs p g@(Gbl g1 :@: ls)      =
             Just e  -> return (e:list_exprs)
 mExpr exprs p (Lcl l) = return []
 mExpr exprs p (Lam ls e) = mExpr exprs p e
+--mExpr exprs p (Let ls lExpr expr) = mExpr
 mExpr _ _ e = fail $ "Cannot handle let, letrec or quantifier in expression in: "
                         ++ show (SMT.ppExpr  e)
 

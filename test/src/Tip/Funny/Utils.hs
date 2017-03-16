@@ -3,9 +3,9 @@ module Tip.Funny.Utils where
 import           Data.Maybe (fromMaybe)
 
 import           Tip.Core   (exprType)
-import           Tip.Fresh  (Fresh, Name)
+import           Tip.Fresh  (Fresh, Name, fresh)
 import           Tip.Mod    (globals')
-import           Tip.Types  (Case (..), Expr (..), Function (..), Global (..),
+import           Tip.Types  (Case (..), Pattern(..), Expr (..), Function (..), Global (..),
                              Head (..), Local (..))
 
 import qualified Tip.Pretty.SMT as SMT
@@ -27,15 +27,32 @@ updateRef' ls m@(Match e cs)  =
         Nothing ->
             do
                 eUp <- updateRef' ls e
-                listUp <- mapM (\c -> do
-                    cUp <- updateRef' ls (case_rhs c)
-                    return (c{case_rhs = cUp}) ) cs
+                listUp <- mapM (updateCase ls) cs
                 return $ Match eUp listUp
         Just l' -> return l'
-updateRef' ls (Quant t dn lcl exp) = Quant t dn lcl <$> updateRef' ls exp
-updateRef' ls (Lam lcls expr)   = Lam lcls <$> (updateRef' ls expr)
+updateRef' ls (Quant t dn lcls expr) = do
+    fVar <- mapM (\l -> fresh >>= \i -> return $ Local i (lcl_type l)  ) lcls
+    expr' <- updateRef (zip (map Lcl lcls) fVar) expr
+    Quant t dn fVar <$> updateRef' ls expr'
+updateRef' ls (Lam lcls expr)   = do
+    fVar <- mapM (\l -> fresh >>= \i -> return $ Local i (lcl_type l)  ) lcls
+    expr' <- updateRef (zip (map Lcl lcls) fVar) expr
+    Lam fVar <$> (updateRef' ls expr')
+updateRef' ls (Let lcl eLcl expr) = do
+    fVar <-  fresh >>= \i -> return $ Local i (lcl_type lcl)
+    lclExpr <- updateRef [(Lcl lcl,fVar)] expr
+    exprU <- updateRef' ls lclExpr
+    eLcLU <- updateRef' ls eLcl
+    return (Let fVar eLcLU exprU)
 updateRef' ls a                 = fail $ "Expression not supported in updateRef' : " ++ (show $ SMT.ppExpr a) 
 
+updateCase :: Name a => [(Expr a, Expr a)] -> Case a -> Fresh (Case a)
+updateCase ls (Case (ConPat con lcls) rhs) = do 
+    fVar <- mapM (\l -> fresh >>= \i -> return $ Local i (lcl_type l)) lcls
+    rh2 <- updateRef (zip (map Lcl lcls) fVar) rhs
+    cUp <- updateRef' ls rh2
+    return $ Case (ConPat con fVar) cUp
+updateCase ls (Case pat rhs) = updateRef' ls rhs >>= return . Case pat  
 
 isLocal :: Name a => Expr a -> Bool
 isLocal (Lcl _) = True

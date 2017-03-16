@@ -7,6 +7,7 @@ import           Tip.Core              (forallView)
 import           Tip.Fresh             (Name)
 import           Tip.Haskell.Translate (trTheory)
 import           Tip.Pretty            (PrettyVar (..), pp)
+import qualified Tip.Pretty.SMT        as SMT (ppExpr)
 import qualified Tip.Pretty.Haskell    as HS (Mode (..))
 import qualified Tip.Pretty.TFF        as TFF (ppExpr)
 import           Tip.Types             (Formula (..), Local (..), Theory (..))
@@ -37,8 +38,8 @@ getAssertion :: Name a => Formula a -> Maybe String
 getAssertion = join . lookup "name" . fm_attrs
 
 -- Stringify the body of a Formula
-showFormula :: (Ord a, PrettyVar a) => Formula a -> String
-showFormula = show . TFF.ppExpr 0 . fm_body
+showFormulaSMT :: (Ord a, PrettyVar a) => Formula a -> String
+showFormulaSMT = show . SMT.ppExpr . fm_body
 {- concatMap repl splitStr
     where
         str = show $ ppExpr 0 $ fm_body fa
