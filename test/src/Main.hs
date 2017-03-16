@@ -19,7 +19,7 @@ import           System.CPUTime         (getCPUTime)
 import           Data.Time              (getCurrentTime,diffUTCTime)
 
 import           Tip.Core              (theoryGoals)
-import           Tip.Formula           (showFormula)
+import           Tip.Formula           (getFormula)
 import           Tip.Fresh             (Name, freshPass)
 import           Tip.Mod               (renameLemmas)
 import           Tip.Passes            (StandardPass(..),provedConjecture, selectConjecture, runPasses, freshPass)
@@ -37,9 +37,19 @@ import           Parser.Params         (InputFile (..), Params (..),
 import           Process               (readTheory, run_process, run_process')
 import           Prover                (Prover (..), eprover, z3)
 import           Utils                 (mcase)
+import           Benchmarks            (writeResult)
 
 main :: IO()
-main = join $ (\(a,b) -> mapM_ (\b' -> runMain a{inputFile = SMT  b'} b') b) <$> preProcess
+main = do
+    let mrun = \a c -> do
+            m <- runMain a{inputFile = SMT  c} c
+            return (m , c)
+    listError <- join $ (\(a,b) -> mapM (mrun a) b) <$> preProcess
+    mapM_ (\(e,file) -> 
+        case e of
+            Nothing -> return ()
+            Just er -> putStrLn $ "Error in File -- " ++ file ++ " -- " ++ er) (listError)
+    return ()
 
 preProcess :: IO (Params,[FilePath])
 preProcess = do
@@ -58,33 +68,38 @@ preProcess = do
     -- check file extension
     (,) params <$> checkInputFile params (out_smt) (inputFile params)
 
-runMain :: Params -> FilePath -> IO ()
+runMain :: Params -> FilePath -> IO (Maybe String)
 runMain params preQS = do
 
     start <- getCurrentTime      
     
-    theoryNat <- head . freshPass (runPasses [SortsToNat]) <$> (readTheory preQS)     
+    catch ( do
+        theoryNat <- head . freshPass (runPasses [SortsToNat]) <$> (readTheory preQS)     
 
-    writeFile "./tmp/tmpTheory.smt2" $ show $ SMT.ppTheory [] theoryNat 
+        writeFile "./tmp/tmpTheory.smt2" $ show $ SMT.ppTheory [] theoryNat 
 
-    runTipSpec params "./tmp/tmpTheory.smt2" --preQS 
+        runTipSpec params "./tmp/tmpTheory.smt2" --preQS 
 
-    --theory <- readTheory preQS
-    
-    -- theory exploration
-    runTipSpec params preQS
+        --theory <- readTheory preQS
+        
+        -- theory exploration
+        runTipSpec params preQS
 
-    -- parsing tip qith quickspec to theory
-    theory_qs <- readTheory prop_file
+        -- parsing tip qith quickspec to theory
+        theory_qs <- readTheory prop_file
 
-    let theory' = theory_qs
+        let theory' = theory_qs
 
-    -- TODO better error handling
-    catch (runStateT 
-                (runTP $ induct (renameLemmas theory'))
-                (initState params)
-           >> return ())
-            (\e -> putStrLn $ "It worked catching error!! Yeahoo" ++ (show (e :: SomeException)))
+        -- TODO better error handling
+        runStateT 
+            (runTP $ induct (renameLemmas theory'))
+            (initState params)
+
+        return Nothing)
+            (\e -> do
+            putStrLn $ ">>>>>>>>>>>>> ERROR : " ++ (show (e :: SomeException))
+            return $ Just (show (e :: SomeException))
+            )
 
 
     end <- getCurrentTime
@@ -93,7 +108,7 @@ runMain params preQS = do
     when (outputLevel params > 0) $ do
         putStrLn ""
         putStrLn $  "Time taken: " ++ (show diff) ++ "sec"
-    return ()
+    return Nothing
         where -- count the number of conjectures in the theory
             numConj th = length $ fst $ theoryGoals th
             -- induction loop
@@ -102,6 +117,7 @@ runMain params preQS = do
                 printStr 4 pstr
                 th <- loop_conj theory 0 (numConj theory) False
                 printResult th
+                when (benchmarks params) $ writeResult preQS
             runTP (TP a) = a
 
 {- Run tipspec depending on choosen parameters.
@@ -220,7 +236,7 @@ loop_conj theory curr num continue
             -- lookup up unique name of formual
             f_name  = fromMaybe "no name"  $ join $ lookup "name" (fm_attrs formula)
             -- turn formula into printable form
-            formulaPrint = showFormula formula
+            formulaPrint = getFormula formula
         in do
             liftIO $ removeContentInFolder (out_path "")
             nbrVar  <- inductionSize <$> getInduction

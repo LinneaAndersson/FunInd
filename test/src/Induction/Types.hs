@@ -40,7 +40,7 @@ data Lemma = Lemma
     { lemmaName :: String
     , hLemmas   :: [String]
     , indVar    :: Maybe Int
-    }
+    } deriving (Show,Read)
 
 getInduction :: Name a => TP a (Induction a)
 getInduction = induct <$> get

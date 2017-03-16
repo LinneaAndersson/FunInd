@@ -19,6 +19,7 @@ data Params = Params
     , tipspec     :: TipSpec
     , backend     :: TheoremProver
     , splitCases  :: Bool
+    , benchmarks  :: Bool
     }
 
 instance Show Params where
@@ -30,7 +31,8 @@ instance Show Params where
          " Prover Timeouts: "   ++ show (timeouts p),
          " TipSpec Enabled: "   ++ show (tipspec p),
          " Prover Backend: "    ++ show (backend p),
-         " Split Cases: "       ++ show (splitCases p)
+         " Split Cases: "       ++ show (splitCases p),
+         " Run benchmarks: "    ++ show (benchmarks p) 
         ]
 
 data TipSpec = No | Yes String | UseExisting String deriving Show
@@ -65,11 +67,15 @@ parseParams = execParser $ info
                                <*>  parseProverTimeouts
                                <*>  parseTipSpecEnabled
                                <*>  parseProver
-                               <*>  parseSplit))
+                               <*>  parseSplit
+                               <*>  parseBench))
                 (fullDesc <>
                  progDesc "Prov properties of recursively defined functions" <>
                  -- TODO we really need a better name... :)
                  header "test - Inductive theorem prover")
+
+parseBench :: Parser Bool
+parseBench = flag False True (long "benchmark" <> help "Save result of benchmark(s) (default false)")
 
 parseSplit :: Parser Bool
 parseSplit =
