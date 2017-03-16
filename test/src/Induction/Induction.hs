@@ -135,5 +135,5 @@ nextTimeout = do
                 modify $ \s ->
                     s{ params = ps{ timeouts = drop 1 ts } }
                 ti <- (show . head . timeouts) <$> (params <$> get)
-                printStr 4 (unlines ["== New Timeout == ", " timeout:" ++ ti])
+                printStr 3 (unlines ["== New Timeout == ", " timeout:" ++ ti])
                 return True
