@@ -53,7 +53,7 @@ eprover = P {name = "eproof",
                         writeFile (out_path "prepared") str
                         jukebox_hs str,
              parseOut = pout,
-             setTime = \i -> unwords ["--soft-cpu-limit=" ++ show i, "--cpu-limit=" ++ show (i+1)]}
+             setTime = \i -> unwords ["--cpu-limit=" ++ show (i)]}
     where
         pout :: [String] -> IO (Bool,[String])
         pout [prob, ep] = do
