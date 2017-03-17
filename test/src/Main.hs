@@ -2,7 +2,8 @@ module Main where
 
 import           Control.Monad.State   (get, join, liftIO, modify, runStateT, filterM,
                                         when)
-import           Control.Exception     (Exception, SomeException, catch)
+import           Control.Exception     (Exception, SomeException, catch, throw)
+import           Control.Monad.Error   (catchError)
 import           Data.Maybe            (fromMaybe)
 import           System.FilePath.Posix (splitFileName,
                                         takeBaseName,
@@ -31,13 +32,16 @@ import           Induction.Induction   (addLemma, getIndType, nextTimeout,
                                         printResult, printStr, runProver)
 import           Induction.Types       (IndState (..), Induction (..), TP (..),
                                         getInduction,
-                                        getProver)
+                                        getProver,
+                                        getLemmas)
 import           Parser.Params         (InputFile (..), Params (..),
                                         TheoremProver (..), TipSpec(..), parseParams)
 import           Process               (readTheory, run_process, run_process')
 import           Prover                (Prover (..), eprover, z3)
 import           Utils                 (mcase)
-import           Benchmarks            (writeResult)
+import           Benchmarks            (writeResult, writeInterrupt)
+
+import                     System.Exit
 
 main :: IO()
 main = do
@@ -227,44 +231,53 @@ loop_conj theory curr num continue
             else mcase (nextTimeout)
                     (loop_conj theory 0 num False)
                     (return theory)       -- done
-    | otherwise  = -- test next conjecture
-        let
-            -- pick a conjecture
-            th0      = selectConjecture curr theory
-            -- the formula matching the current conjecture
-            formula = head . fst $ theoryGoals th0
-            -- lookup up unique name of formual
-            f_name  = fromMaybe "no name"  $ join $ lookup "name" (fm_attrs formula)
-            -- turn formula into printable form
-            formulaPrint = getFormula formula
-        in do
-            liftIO $ removeContentInFolder (out_path "")
-            nbrVar  <- inductionSize <$> getInduction
-            let th = th0
-            -- clean temporary state
-            modify (\s -> s{axioms = [], ind=Nothing})
-            mcase (prove th) -- Test if solvable without induction
-                (do -- Proved without induction
-                    printStr 3 $ "| " ++ f_name  ++  "  -- P | " ++ formulaPrint
-                    addLemma f_name -- add formula to proved lemmas
-                    -- go to next conjecture
-                    loop_conj (provedConjecture curr theory) curr (num-1) True)
-                (mcase (loop_ind th 0 (nbrVar th)) -- Attempt induction
-                        (do -- Proved using induction
-                            --fail "hello"
-                            printStr 3 $ "| " ++ f_name  ++  "  -- I | " ++ formulaPrint
-                            --fail $ "printout"
-                            addLemma f_name -- add formula to proved lemmas
-                            -- -- go to next conjecture
-                            loop_conj (provedConjecture curr theory) curr (num-1) True)
-                        -- Unable to prove with current theory
-                        -- try next conjecture
-                        (do
+    | otherwise  = do
+        state <- get
+        params <- params <$> get 
+        lemmas <- getLemmas       
+        liftIO $ catch (fst <$> runStateT (runTP $ -- test next conjecture 
+            let
+                -- pick a conjecture
+                th0      = selectConjecture curr theory
+                -- the formula matching the current conjecture
+                formula = head . fst $ theoryGoals th0
+                -- lookup up unique name of formual
+                f_name  = fromMaybe "no name"  $ join $ lookup "name" (fm_attrs formula)
+                -- turn formula into printable form
+                formulaPrint = getFormula formula
+            in do
+                liftIO $ removeContentInFolder (out_path "")
+                nbrVar  <- inductionSize <$> getInduction
+                let th = th0
+                -- clean temporary state
+                modify (\s -> s{axioms = [], ind=Nothing})
+                mcase (prove th) -- Test if solvable without induction
+                    (do -- Proved without induction
+                        printStr 3 $ "| " ++ f_name  ++  "  -- P | " ++ formulaPrint
+                        addLemma f_name -- add formula to proved lemmas
+                        -- go to next conjecture
+                        loop_conj (provedConjecture curr theory) curr (num-1) True)
+                    (mcase (loop_ind th 0 (nbrVar th)) -- Attempt induction
+                            (do -- Proved using induction
+                                --fail "hello"
+                                printStr 3 $ "| " ++ f_name  ++  "  -- I | " ++ formulaPrint
+                                --fail $ "printout"
+                                addLemma f_name -- add formula to proved lemmas
+                                -- -- go to next conjecture
+                                loop_conj (provedConjecture curr theory) curr (num-1) True)
+                            -- Unable to prove with current theory
+                            -- try next conjecture
+                            (do
 
-                            printStr 3 $ "| " ++ f_name  ++  "  -- U | " ++ formulaPrint
-                            loop_conj theory (curr + 1) num continue))
-
-
+                                printStr 3 $ "| " ++ f_name  ++  "  -- U | " ++ formulaPrint
+                                loop_conj theory (curr + 1) num continue))
+                ) (state) 
+            ) (\e -> do 
+                    when (show (e :: SomeException) == "user interrupt") ( do
+                        --putStrLn $ "User interruption! -- " ++ (show (e :: SomeException) )
+                        when (benchmarks params) $ writeInterrupt lemmas "error")
+                    fail "User interupted execution" )
+    where runTP (TP a) = a
 
 -- Trying to prove a conjecture, looping over all variables in the conjecture
 loop_ind :: Name a => Theory a -> Int -> Int -> TP a Bool

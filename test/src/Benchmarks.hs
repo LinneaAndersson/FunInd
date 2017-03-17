@@ -9,7 +9,7 @@ import           Data.Time              (getCurrentTime, showGregorian
 import           Tip.Fresh              (Name)
 import           Data.List              (nub)
 import           Parser.Params          (Params(..))
-import           Induction.Types        (params)
+import           Induction.Types        (params,Lemma(..))
 
 
 writeResult :: Name a => FilePath -> TP a ()
@@ -24,10 +24,10 @@ writeResult fp = do
     let file = folder ++ "/" ++ (takeFileName fp)  
 
     --fail ("Date: " ++ (showGregorian (utctDay date)))
-    liftIO $ createDirectoryIfMissing False benchFolder
-    liftIO $ createDirectoryIfMissing False indFolder
-    liftIO $ createDirectoryIfMissing False proverFolder
-    liftIO $ createDirectoryIfMissing False folder
+   -- liftIO $ createDirectoryIfMissing False benchFolder
+   -- liftIO $ createDirectoryIfMissing False indFolder
+    --liftIO $ createDirectoryIfMissing False proverFolder
+    liftIO $ createDirectoryIfMissing True folder
 
 
     proved <- getLemmas
@@ -39,5 +39,21 @@ writeResult fp = do
     liftIO $ writeFile file res
 
 
+writeInterrupt :: [Lemma] -> FilePath -> IO ()
+writeInterrupt lemmas file = do
+    let folder = "./benchmarks/Interrupted"
+    let file1 = folder ++ "/" ++ file
 
+    createDirectoryIfMissing True folder
+
+    let provedNub = map (\l -> l{hLemmas = nub $ hLemmas l}) lemmas     
+    let res = show provedNub
+
+    writeFile file1 res
+
+
+
+    
+  
+     
 

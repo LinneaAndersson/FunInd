@@ -6,6 +6,8 @@ module Induction.Types where
 
 import           Control.Monad.State (MonadIO, MonadState, MonadTrans, StateT,
                                       get)
+import           Control.Exception.Base (SomeAsyncException)
+import           Control.Monad.Error ( MonadError)  
 import           Data.List           (find)
 
 import           Tip.Fresh           (Fresh (..), Name)
