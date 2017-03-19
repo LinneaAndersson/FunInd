@@ -52,8 +52,5 @@ writeInterrupt lemmas file = do
     writeFile file1 res
 
 
-
-    
-  
      
 
