@@ -1,7 +1,7 @@
 module Main where
 
 import           Control.Monad.State   (get, join, liftIO, modify, runStateT, filterM,
-                                        when)
+                                        when, put)
 import           Control.Exception     (Exception, SomeException, catch, throw)
 import           Control.Monad.Error   (catchError)
 import           Data.Maybe            (fromMaybe)
@@ -78,11 +78,11 @@ runMain params preQS = do
     start <- getCurrentTime      
     
     catch ( do
-        theoryNat <- head . freshPass (runPasses [SortsToNat]) <$> (readTheory preQS)     
+        --theoryNat <- head . freshPass (runPasses [SortsToNat]) <$> (readTheory preQS)     
 
-        writeFile "./tmp/tmpTheory.smt2" $ show $ SMT.ppTheory [] theoryNat 
+        --writeFile "./tmp/tmpTheory.smt2" $ show $ SMT.ppTheory [] theoryNat 
 
-        runTipSpec params "./tmp/tmpTheory.smt2" --preQS 
+        --runTipSpec params "./tmp/tmpTheory.smt2" --preQS 
 
         --theory <- readTheory preQS
         
@@ -235,7 +235,7 @@ loop_conj theory curr num continue
         state <- get
         params <- params <$> get 
         lemmas <- getLemmas       
-        liftIO $ catch (fst <$> runStateT (runTP $ -- test next conjecture 
+        (the,state) <- liftIO $ catch (runStateT (runTP $ -- test next conjecture 
             let
                 -- pick a conjecture
                 th      = selectConjecture curr theory
@@ -276,6 +276,8 @@ loop_conj theory curr num continue
                         --putStrLn $ "User interruption! -- " ++ (show (e :: SomeException) )
                         when (benchmarks params) $ writeInterrupt lemmas "error")
                     fail "User interupted execution" )
+        put state
+        return the
     where runTP (TP a) = a
           combVars par nbr = comb (nbrInduct par) [0..nbr-1]
 

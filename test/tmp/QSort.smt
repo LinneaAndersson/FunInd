@@ -11,13 +11,19 @@
           (case nil true)
           (case (cons y2 xs) (and (<= y y2) (ordered (cons y2 xs))))))))
 (define-fun-rec
-  (par (a)
-    (filter :let :source Prelude.filter
-       ((p (=> a Bool)) (x (list a))) (list a)
-       (match x
-         (case nil (as nil (list a)))
-         (case (cons y xs)
-           (ite (@ p y) (cons y (filter p xs)) (filter p xs)))))))
+  filterLEq :keep :source Sort.filterLEq
+    ((x Int) (y (list Int))) (list Int)
+    (match y
+      (case nil (as nil (list Int)))
+      (case (cons b bs)
+        (ite (<= b x) (cons b (filterLEq x bs)) (filterLEq x bs)))))
+(define-fun-rec
+  filterGT :keep :source Sort.filterGT
+    ((x Int) (y (list Int))) (list Int)
+    (match y
+      (case nil (as nil (list Int)))
+      (case (cons b bs)
+        (ite (> b x) (cons b (filterGT x bs)) (filterGT x bs)))))
 (define-fun-rec
   count :keep :source Sort.count
     ((x Int) (y (list Int))) Int
@@ -37,9 +43,8 @@
     (match x
       (case nil (as nil (list Int)))
       (case (cons y xs)
-        (++ (qsort (filter (lambda ((z Int)) (<= z y)) xs))
-          (++ (cons y (as nil (list Int)))
-            (qsort (filter (lambda ((x2 Int)) (> x2 y)) xs)))))))
+        (++ (qsort (filterLEq y xs))
+          (++ (cons y (as nil (list Int))) (qsort (filterGT y xs)))))))
 (assert-not
   :source Sort.prop_QSortSorts
   (forall ((xs (list Int))) (ordered (qsort xs))))

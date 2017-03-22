@@ -6,7 +6,19 @@ import Tip
 
 qsort ::  [Int] -> [Int]
 qsort []     = []
-qsort (x:xs) = qsort (filter (<=x) xs) ++ [x] ++ qsort (filter (>x) xs)
+qsort (x:xs) = qsort (filterLEq x xs) ++ [x] ++ qsort (filterGT x xs)
+
+filterLEq, filterGT :: Int -> [Int] -> [Int]
+filterLEq a [] = []
+filterLEq a (b:bs) 
+    | b<=a = b:filterLEq a bs
+    | otherwise = filterLEq a bs
+
+filterGT a [] = []
+filterGT a (b:bs) 
+    | b>a = b:filterGT a bs
+    | otherwise = filterGT a bs
+
 
 -- QuickSort
 prop_QSortSorts xs = ordered (qsort xs) === True
