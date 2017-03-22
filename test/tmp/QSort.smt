@@ -2,6 +2,12 @@
   ((list :source |Prelude.[]| (nil :source |Prelude.[]|)
      (cons :source |Prelude.:| (head a) (tail (list a))))))
 (define-fun-rec
+  smallerEq :keep :source Sort.smallerEq
+    ((x (list Int)) (y Int)) Bool
+    (match x
+      (case nil true)
+      (case (cons z xs) (and (<= z y) (smallerEq xs y)))))
+(define-fun-rec
   ordered :keep :source Sort.ordered
     ((x (list Int))) Bool
     (match x
@@ -31,6 +37,12 @@
       (case nil 0)
       (case (cons z ys) (ite (= x z) (+ 1 (count x ys)) (count x ys)))))
 (define-fun-rec
+  bigger :keep :source Sort.bigger
+    ((x (list Int)) (y Int)) Bool
+    (match x
+      (case nil true)
+      (case (cons z xs) (and (> z y) (bigger xs y)))))
+(define-fun-rec
   (par (a)
     (++ :source Prelude.++
        ((x (list a)) (y (list a))) (list a)
@@ -45,6 +57,12 @@
       (case (cons y xs)
         (++ (qsort (filterLEq y xs))
           (++ (cons y (as nil (list Int))) (qsort (filterGT y xs)))))))
+(assert-not
+  :source Sort.prop_small
+  (forall ((y Int) (xs (list Int))) (smallerEq (filterLEq y xs) y)))
+(assert-not
+  :source Sort.prop_bigg
+  (forall ((y Int) (xs (list Int))) (bigger (filterGT y xs) y)))
 (assert-not
   :source Sort.prop_QSortSorts
   (forall ((xs (list Int))) (ordered (qsort xs))))

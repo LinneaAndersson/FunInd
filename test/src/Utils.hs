@@ -24,3 +24,6 @@ splitLine c xs = takeWhile (c /= ) xs : splitLine c (dropWhile (c /= ) xs)
 
 comb :: Int -> [a] -> [[a]]
 comb m =  filter ((==m) . length) . subsequences
+
+subsets 0 _ = []
+subsets n nbr = subsets (n-1) nbr ++ comb n [0..nbr-1]

@@ -38,7 +38,7 @@ import           Parser.Params         (InputFile (..), Params (..),
                                         TheoremProver (..), TipSpec(..), parseParams)
 import           Process               (readTheory, run_process, run_process')
 import           Prover                (Prover (..), eprover, z3)
-import           Utils                 (mcase, comb)
+import           Utils                 (mcase, subsets)
 import           Benchmarks            (writeResult, writeInterrupt)
 
 import                     System.Exit
@@ -256,7 +256,10 @@ loop_conj theory curr num continue
                         addLemma f_name -- add formula to proved lemmas
                         -- go to next conjecture
                         loop_conj (provedConjecture curr theory) curr (num-1) True)
-                    (mcase ( loop_ind th (combVars params (nbrVar th)) ) -- Attempt induction
+                    (do
+                        let indVars = subsets (nbrInduct params) (nbrVar th)
+                        printStr 4 $ unlines ["", "= Indices to induct on =", " " ++ show indVars,""]
+                        mcase ( loop_ind th indVars ) -- Attempt induction
                             (do -- Proved using induction
                                 --fail "hello"
                                 printStr 3 $ "| " ++ f_name  ++  "  -- I | " ++ formulaPrint
@@ -279,13 +282,13 @@ loop_conj theory curr num continue
         put state
         return the
     where runTP (TP a) = a
-          combVars par nbr = comb (nbrInduct par) [0..nbr-1]
 
 -- Trying to prove a conjecture, looping over all variables in the conjecture
 loop_ind :: Name a => Theory a -> [[Int]] -> TP a Bool
 loop_ind theory [] = return False -- tested all variables, unable to prove
 loop_ind theory (x:xs) = do
 
+        printStr 4 $ unwords [" Induction on indices", show x ]
         --prepare theory for induction on variables/application in x 
         indPass <- inductionPass <$> getInduction
         let ind_theory = freshPass (indPass x) theory

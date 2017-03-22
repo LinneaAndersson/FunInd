@@ -19,6 +19,18 @@ filterGT a (b:bs)
     | b>a = b:filterGT a bs
     | otherwise = filterGT a bs
 
+smallerEq :: [Int] -> Int -> Bool
+smallerEq [] _     = True
+smallerEq (x:xs) y = x <= y && smallerEq xs y 
+
+bigger :: [Int] -> Int -> Bool
+bigger [] _     = True
+bigger (x:xs) y = x > y && bigger xs y 
+
+prop_small y xs = bool $ smallerEq (filterLEq y xs) y
+
+prop_bigg y xs = bool $ bigger (filterGT y xs) y
+
 
 -- QuickSort
 prop_QSortSorts xs = ordered (qsort xs) === True

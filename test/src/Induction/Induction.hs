@@ -57,17 +57,17 @@ printResult th =
         --printStr 0 . show =<< (outputLevel . params <$> get)
         printStr 1 "== Summary =="
         printStr 1 ""
-        printStr 1 "= Proved without induction ="
+        printStr 1 $ "= Proved without induction (" ++ show (length notInd) ++ ") ="
         mapM_ putLemma notInd
         printStr 1 ""
-        printStr 1 "= Proved with induction ="
+        printStr 1 $ "= Proved with induction (" ++ show (length ind) ++ ") ="
         mapM_ putLemma ind
         -- printStr 0 $ show $ mapM_ name ls
         printStr 1 ""
-        printStr 1 "= Could not prove ="
+        printStr 1 $ "= Could not prove ("    ++ show (length (fst . theoryGoals $ th)) ++ ") ="
         mapM_ printUnproven (fst . theoryGoals $ th)
     where printUnproven f = do
-            let userProp = getUserProperty f
+            let userProp    = getUserProperty f
             let outLevel    = if (isNothing userProp) then 2 else 1
             let nameL       = fromJust $ join $ lookup (if (outLevel==1) then "source" else "name") (fm_attrs f)
             printStr outLevel
