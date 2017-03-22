@@ -1,5 +1,8 @@
 module Utils where
 
+
+import Data.List (sort, subsequences)
+
 -- 'case of' for monadic bool
 mcase :: (Monad m) => m Bool -> m a -> m a -> m a
 mcase mbool t f = do
@@ -19,4 +22,5 @@ splitLine :: Char -> String -> [String]
 splitLine _ [] = []
 splitLine c xs = takeWhile (c /= ) xs : splitLine c (dropWhile (c /= ) xs)
 
-
+comb :: Int -> [a] -> [[a]]
+comb m =  filter ((==m) . length) . subsequences

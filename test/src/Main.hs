@@ -38,7 +38,7 @@ import           Parser.Params         (InputFile (..), Params (..),
                                         TheoremProver (..), TipSpec(..), parseParams)
 import           Process               (readTheory, run_process, run_process')
 import           Prover                (Prover (..), eprover, z3)
-import           Utils                 (mcase)
+import           Utils                 (mcase, comb)
 import           Benchmarks            (writeResult, writeInterrupt)
 
 import                     System.Exit
@@ -238,9 +238,9 @@ loop_conj theory curr num continue
         liftIO $ catch (fst <$> runStateT (runTP $ -- test next conjecture 
             let
                 -- pick a conjecture
-                th0      = selectConjecture curr theory
+                th      = selectConjecture curr theory
                 -- the formula matching the current conjecture
-                formula = head . fst $ theoryGoals th0
+                formula = head . fst $ theoryGoals th
                 -- lookup up unique name of formual
                 f_name  = fromMaybe "no name"  $ join $ lookup "name" (fm_attrs formula)
                 -- turn formula into printable form
@@ -248,7 +248,6 @@ loop_conj theory curr num continue
             in do
                 liftIO $ removeContentInFolder (out_path "")
                 nbrVar  <- inductionSize <$> getInduction
-                let th = th0
                 -- clean temporary state
                 modify (\s -> s{axioms = [], ind=Nothing})
                 mcase (prove th) -- Test if solvable without induction
@@ -257,7 +256,7 @@ loop_conj theory curr num continue
                         addLemma f_name -- add formula to proved lemmas
                         -- go to next conjecture
                         loop_conj (provedConjecture curr theory) curr (num-1) True)
-                    (mcase (loop_ind th 0 (nbrVar th)) -- Attempt induction
+                    (mcase ( loop_ind th (combVars params (nbrVar th)) ) -- Attempt induction
                             (do -- Proved using induction
                                 --fail "hello"
                                 printStr 3 $ "| " ++ f_name  ++  "  -- I | " ++ formulaPrint
@@ -278,27 +277,27 @@ loop_conj theory curr num continue
                         when (benchmarks params) $ writeInterrupt lemmas "error")
                     fail "User interupted execution" )
     where runTP (TP a) = a
+          combVars par nbr = comb (nbrInduct par) [0..nbr-1]
 
 -- Trying to prove a conjecture, looping over all variables in the conjecture
-loop_ind :: Name a => Theory a -> Int -> Int -> TP a Bool
-loop_ind theory num tot
-    | num >= tot = return False -- tested all variables, unable to prove
-    | otherwise  = do
+loop_ind :: Name a => Theory a -> [[Int]] -> TP a Bool
+loop_ind theory [] = return False -- tested all variables, unable to prove
+loop_ind theory (x:xs) = do
 
-        --prepare theory for induction on variable/application 'num'
+        --prepare theory for induction on variables/application in x 
         indPass <- inductionPass <$> getInduction
-        let ind_theory = freshPass (indPass [num]) theory
+        let ind_theory = freshPass (indPass x) theory
 
         prep <- prepare <$> getProver
-        liftIO $ printTheories prep ind_theory 0 (out_path ("Theory" ++ show num))
+        liftIO $ printTheories prep ind_theory 0 (out_path ("Theory" ++ show x))
         --(return . show . ppTheory' . head . tff [SkolemiseConjecture])
 
         printStr 3 "-----------------------------------------"
-        mcase (proveAll ind_theory)     -- try induction on one variable
+        mcase (proveAll ind_theory)     -- try induction 
             (do -- proves using induction on 'num'
-                modify (\s -> s{ind = Just num}) -- add variable used
+                modify (\s -> s{ind = Just x}) -- add variables used
                 return True)
-            (loop_ind theory (num+1) tot)   -- unable to prove, try next variable
+            (loop_ind theory xs)   -- unable to prove, try next variable
 
 
 printTheories :: Name a => (Theory a -> IO String) -> [Theory a] -> Int -> String -> IO ()

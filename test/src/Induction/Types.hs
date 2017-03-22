@@ -30,7 +30,7 @@ data Name a => IndState a = IndState
   ,  prover :: Prover a
   ,  induct :: Induction a
   ,  lemmas :: [Lemma]
-  ,  ind    :: Maybe Int
+  ,  ind    :: Maybe [Int]
   ,  axioms :: [String]
   }
 
@@ -41,7 +41,7 @@ newtype Name a => TP a b = TP (StateT (IndState a) IO b)
 data Lemma = Lemma
     { lemmaName :: String
     , hLemmas   :: [String]
-    , indVar    :: Maybe Int
+    , indVar    :: Maybe [Int]
     } deriving (Show,Read)
 
 getInduction :: Name a => TP a (Induction a)
@@ -60,7 +60,7 @@ getHelpLemmas name = lemmas =<< getLemmas
                     Nothing -> fail "Lemma not found"
                     Just l  -> return $ hLemmas l
 
-getVar :: Name a => TP a (Maybe Int)
+getVar :: Name a => TP a (Maybe [Int])
 getVar = ind <$> get
 
 getLemmas :: Name a => TP a [Lemma]
