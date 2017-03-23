@@ -36,16 +36,29 @@ prop_ordSub x xs = ordered (x:xs) ==> ordered (xs)
  
 --prop_small2 y x xs = ordered (y:x:xs) ==> y <= x
 
-prop_ppOrd x xs = ordered xs && smallerEq xs x ==> ordered (xs++x) 
+prop_ppOrd x xs     = (ordered xs && smallerEq xs x) === ordered (xs++[x]) 
+prop_ppOrd2 x xs    = (ordered xs && bigger xs x) ==> ordered (x:xs) 
+
+--prop_sqf x xs = bool $ smallerEq (qsort (filterLEq x xs)) x
+--prop_bqf x xs = bool $ bigger (qsort (filterGT x xs)) x
+
+prop_countSmall xs x = count x (filterLEq x xs) === count x xs
+prop_countBig xs x = count x (filterGT x xs) === 0
+
+prop_countcount x as bs = count x as + count x bs === count x (as ++ bs) 
+prop_p xs x = count x (filterLEq x xs ++ filterGT x xs) === count x xs
+
+prop_p2 xs x = count x (filterLEq x xs ++ [x] ++ filterGT x xs) === count x (x:xs)
+
+prop_qcons xs x = smallerEq xs x ==> (qsort (x:xs) === x:qsort xs)
 
 prop_smallSort x xs = smallerEq xs x === smallerEq (qsort xs) x
-prop_biggSort x xs = bigger xs x === bigger (qsort xs) x 
-
+prop_biggSort x xs  = bigger xs x === bigger (qsort xs) x 
 
 -- QuickSort
 prop_QSortSorts xs = ordered (qsort xs) === True
 prop_filterOrd x xs = ordered xs === ordered ((filterLEq x xs)++(filterGT x xs))
-prop_filterCount x xs = count x xs === count x ((filterLEq x xs)++(filterGT x xs))
+--prop_filterCount x xs = count x xs === count x ((filterLEq x xs)++(filterGT x xs))
 prop_QSortCount x xs = count x (qsort xs) === count x xs
 --prop_QSortPermutes xs = qsort xs `isPermutation` xs === True
 --prop_QSortIsSort xs = qsort xs === sort xs
