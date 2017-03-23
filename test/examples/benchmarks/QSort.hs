@@ -31,9 +31,21 @@ prop_small y xs = bool $ smallerEq (filterLEq y xs) y
 
 prop_bigg y xs = bool $ bigger (filterGT y xs) y
 
+prop_ordSub x xs = ordered (x:xs) ==> ordered (xs)
+--prop_biggSub x1 x2 xs = ordered (x1:x2:xs) ==> x1==x2 || 
+ 
+--prop_small2 y x xs = ordered (y:x:xs) ==> y <= x
+
+prop_ppOrd x xs = ordered xs && smallerEq xs x ==> ordered (xs++x) 
+
+prop_smallSort x xs = smallerEq xs x === smallerEq (qsort xs) x
+prop_biggSort x xs = bigger xs x === bigger (qsort xs) x 
+
 
 -- QuickSort
 prop_QSortSorts xs = ordered (qsort xs) === True
+prop_filterOrd x xs = ordered xs === ordered ((filterLEq x xs)++(filterGT x xs))
+prop_filterCount x xs = count x xs === count x ((filterLEq x xs)++(filterGT x xs))
 prop_QSortCount x xs = count x (qsort xs) === count x xs
 --prop_QSortPermutes xs = qsort xs `isPermutation` xs === True
 --prop_QSortIsSort xs = qsort xs === sort xs
