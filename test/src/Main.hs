@@ -5,6 +5,7 @@ import           Control.Monad.State   (get, join, liftIO, modify, runStateT, fi
 import           Control.Exception     (Exception, SomeException, catch, throw)
 import           Control.Monad.Error   (catchError)
 import           Data.Maybe            (fromMaybe)
+import           Data.List             (find)
 import           System.FilePath.Posix (splitFileName,
                                         takeBaseName,
                                         takeDirectory,
@@ -30,7 +31,7 @@ import qualified Tip.Pretty.SMT.Mod as SMT (ppTheory)
 import           Constants             (out_path, prop_file, tip_file, out_smt)
 import           Induction.Induction   (addLemma, getIndType, nextTimeout,
                                         printResult, printStr, runProver)
-import           Induction.Types       (IndState (..), Induction (..), TP (..),
+import           Induction.Types       (IndState (..), Induction (..), TP (..), Lemma(..),
                                         getInduction,
                                         getProver,
                                         getLemmas)
@@ -96,7 +97,7 @@ runMain params preQS = do
 
         -- TODO better error handling
         runStateT 
-            (runTP $ induct (renameLemmas theory'))
+            (runTP $ induct (renameLemmas theory') start)
             (initState params)
 
         return Nothing)
@@ -116,12 +117,14 @@ runMain params preQS = do
         where -- count the number of conjectures in the theory
             numConj th = length $ fst $ theoryGoals th
             -- induction loop
-            induct theory = do
+            induct theory start = do
                 pstr <- show <$> getProver
                 printStr 4 pstr
                 th <- loop_conj theory 0 (numConj theory) False
                 printResult th
-                when (benchmarks params) $ writeResult preQS
+                end <- liftIO getCurrentTime
+                let diff = diffUTCTime end start
+                when (benchmarks params) $ writeResult diff preQS
             runTP (TP a) = a
 
 {- Run tipspec depending on choosen parameters.
@@ -243,6 +246,10 @@ loop_conj theory curr num continue
                 formula = head . fst $ theoryGoals th
                 -- lookup up unique name of formual
                 f_name  = fromMaybe "no name"  $ join $ lookup "name" (fm_attrs formula)
+                f_source = join $ lookup "source" (fm_attrs formula)
+                f_s = case f_source of
+                    Nothing -> f_name
+                    Just a -> a
                 -- turn formula into printable form
                 formulaPrint = getFormula formula
             in do
@@ -252,8 +259,8 @@ loop_conj theory curr num continue
                 modify (\s -> s{axioms = [], ind=Nothing})
                 mcase (prove th) -- Test if solvable without induction
                     (do -- Proved without induction
-                        printStr 3 $ "| " ++ f_name  ++  "  -- P | " ++ formulaPrint
-                        addLemma f_name -- add formula to proved lemmas
+                        printStr 3 $ "| " ++ f_s  ++  "  -- P | " ++ formulaPrint
+                        addLemma f_name formulaPrint f_source-- add formula to proved lemmas
                         -- go to next conjecture
                         loop_conj (provedConjecture curr theory) curr (num-1) True)
                     (do
@@ -262,16 +269,16 @@ loop_conj theory curr num continue
                         mcase ( loop_ind th indVars ) -- Attempt induction
                             (do -- Proved using induction
                                 --fail "hello"
-                                printStr 3 $ "| " ++ f_name  ++  "  -- I | " ++ formulaPrint
+                                printStr 3 $ "| " ++ f_s  ++  "  -- I | " ++ formulaPrint
                                 --fail $ "printout"
-                                addLemma f_name -- add formula to proved lemmas
+                                addLemma f_name formulaPrint f_source-- add formula to proved lemmas
                                 -- -- go to next conjecture
                                 loop_conj (provedConjecture curr theory) curr (num-1) True)
                             -- Unable to prove with current theory
                             -- try next conjecture
                             (do
 
-                                printStr 3 $ "| " ++ f_name  ++  "  -- U | " ++ formulaPrint
+                                printStr 3 $ "| " ++ f_s  ++  "  -- U | " ++ formulaPrint
                                 loop_conj theory (curr + 1) num continue))
                 ) (state) 
             ) (\e -> do 
@@ -356,6 +363,14 @@ prove th = do
         -- check the output from the Prover by using
         -- the Provers parse function
         (proved, ax) <- liftIO =<< (parseOut <$> getProver) <*> pure [prob, ep]
+        
+        lemmas <- getLemmas
+        ax' <- mapM (\ln -> case find (\(Lemma n _ _ _) -> n==ln) lemmas of
+                        Nothing -> return ln --fail "WTF!!!"
+                        Just l -> return $ case lemmaSource l of
+                                    Nothing -> ln
+                                    Just s -> s) ax
+
         -- add auxilliary lemmas to temporary state
-        when proved $ modify (\s -> s{axioms = axioms s ++ ax})
+        when proved $ modify (\s -> s{axioms = axioms s ++ ax'})
         return proved

@@ -34,7 +34,7 @@ createProperties th e = es --freshFrom es th
                     zipWithM (createProperty e) fIds funcs
 
 -- Create sub properties and their hypotheses
-createAsserts :: Name a => Theory a -> Expr a -> Fresh [(Property a,[Expr a])]
+createAsserts :: Name a => Theory a -> Expr a -> Fresh [(Property a,[(Expr a, Expr a)])]
 createAsserts theory expr = createProperties theory expr >>= \p -> zip p <$> mapM createApps p
 
 -- Returns the goal of the property as a formula
@@ -74,18 +74,24 @@ applicativeInduction split (l:ls) theory' = do
         else applicativeNoSplit (snd $ propExpr !! l) prop newTheory 
    
 
-applicativeNoSplit :: Name a => [Expr a] -> Property a -> Theory a -> Fresh [Theory a]
+applicativeNoSplit :: Name a => [(Expr a, Expr a)] -> Property a -> Theory a -> Fresh [Theory a]
 applicativeNoSplit hyp prop theory = do
 
     -- Create forall quantifier for each pattern
     -- TODO : remove the quantifiers not needed
-    let hyps = map (mkQuant Forall (propQnts prop)) hyp
-
+    --let hyps = map (mkQuant Forall (propQnts prop)) (map (\(a1,a2) -> a1 ==> a2) hyp)
+    
     -- create one hypothesis consisting of all possible pattern matching cases
-    let hypExpr = ors $ hyps
+    let collectedExprs = collectHyp hyp 
+    let colQuant = map (\(req,exs) -> ands $ req:map quantify exs) collectedExprs
 
+    --let cases = ors (map fst hyp)
+
+    --fail $ "hypExrP: " ++ (show $ ppExpr hypExpr)
     -- List the free local variables in the hypExpr
-    let freeVars = nub $ free hypExpr
+    let freeVars =  concatMap free (map fst collectedExprs)
+
+    let hypExpr = ors $ colQuant
 
     --Create new globals for all the free variables
     listFree <- mapM  createFreshGlobal freeVars
@@ -94,6 +100,10 @@ applicativeNoSplit hyp prop theory = do
     let lcls = (map Lcl freeVars)
     let gbls = (map (\gg -> Gbl gg :@: []) listFree)
     hypExpr' <- updateRef' (zip lcls gbls) hypExpr
+    --cases' <- updateRef' (zip lcls gbls) cases
+
+    --fail $ "fail" ++ (show $ map ppExpr lcls)
+    --fail $ "freeVars: " ++ (show $ map ppExpr gbls)
     
     -- create signatures for all new global variables
     let sigsFree =  map createSig (listFree ++ propGblBody prop)
@@ -103,7 +113,7 @@ applicativeNoSplit hyp prop theory = do
 
     -- create the goal
     goal <- createGoal prop
-
+    --fail $ "fail" ++ (show $ map (ppExpr . Lcl) (free hypExpr'))
     -- update the theory with the new assumptions, signatures and goal
     return $  [theory{thy_asserts =  thy_asserts theory ++ [exprs hypExpr'] ++ [goal], thy_sigs =  varDefs ++ thy_sigs theory}]
 
@@ -113,12 +123,12 @@ applicativeNoSplit hyp prop theory = do
             createSig = (\g -> Signature (gbl_name g) [] (gbl_type g))
 
 
-applicativeSplit :: Name a => [Expr a] -> Property a -> Theory a -> Fresh [Theory a]
+applicativeSplit :: Name a => [(Expr a, Expr a)] -> Property a -> Theory a -> Fresh [Theory a]
 applicativeSplit hyp prop theory = do 
 
     -- Create forall quantifier for each pattern
     -- TODO : remove the quantifiers not needed
-    let hyps = map (mkQuant Forall (propQnts prop)) hyp 
+    let hyps = map (mkQuant Forall (propQnts prop)) (map (\(a1,a2) -> a1 ==> a2) hyp) 
 
     -- Find free variables in each case
     let freeVars = map free hyps
@@ -153,3 +163,13 @@ applicativeSplit hyp prop theory = do
             createLcls lcls = map Lcl lcls
             createGbls gbls = map (\gg -> Gbl gg :@: []) gbls
             newTheory th hypothesis signatures = th{thy_asserts =  thy_asserts th ++ [exprs hypothesis], thy_sigs =  signatures ++ thy_sigs th}
+
+
+collectHyp :: Name a => [(Expr a , Expr a)] -> [(Expr a,[Expr a])]
+collectHyp es = map (\a -> (a,getfist a)) fist
+    where 
+        fist = nub (map fst es)
+        getfist req = map snd $ filter (\(req',ans)->req==req') es
+
+quantify :: Name a => Expr a -> Expr a
+quantify expr = mkQuant Forall (free expr) expr

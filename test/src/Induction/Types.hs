@@ -39,9 +39,11 @@ newtype Name a => TP a b = TP (StateT (IndState a) IO b)
     deriving (Functor, Applicative, Monad, MonadIO, MonadState (IndState a))
 
 data Lemma = Lemma
-    { lemmaName :: String
-    , hLemmas   :: [String]
-    , indVar    :: Maybe [Int]
+    { lemmaName   :: String
+    , lemmaSource :: Maybe String
+    , hLemmas     :: [String]
+    , indVar      :: Maybe [Int]
+    , formula     :: String
     } deriving (Show,Read)
 
 getInduction :: Name a => TP a (Induction a)

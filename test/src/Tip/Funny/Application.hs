@@ -2,7 +2,7 @@ module Tip.Funny.Application where
 
 import           Control.Monad      (foldM, zipWithM)
 
-import           Tip.Core           (ands, neg, ors, (/\), (===))
+import           Tip.Core           (ands, neg, ors, (/\), (===), bool)
 import           Tip.Fresh          (Fresh, Name)
 import           Tip.Funny.Property (Property (..))
 import           Tip.Funny.Utils    (updateRef')
@@ -13,7 +13,7 @@ import           Tip.Types          (Builtin (..), Case (..), Expr (..),
 import           Tip.Mod             (universe)
 import           Data.List           (nub)
 
-createApps :: Name a => Property a -> Fresh [Expr a]
+createApps :: Name a => Property a -> Fresh [(Expr a, Expr a)]
 createApps p =
     let
         f = propFunc p
@@ -27,7 +27,7 @@ createApps p =
         --fail $ show $ ((ppExpr  renamedExpr) : (map (ppExpr) outp)) ++ (map (\p' -> ppExpr (Gbl p' :@: [])) (propGlobals p)
 
 
-mExpr :: Name a => [(Expr a, Expr a)] -> Property a -> Expr a -> Fresh [Expr a]
+mExpr :: Name a => [(Expr a, Expr a)] -> Property a -> Expr a -> Fresh [(Expr a,Expr a)]
 mExpr exprs p (Match m cs)        =
     do
         inM <- mExpr exprs p m
@@ -38,9 +38,11 @@ mExpr exprs p (Match m cs)        =
                 do
                     expr <- mExpr (l:exprs) p e
                     let containsMatch = not $ null [0 | (Match _ _) <- universe e]
-                    return (case expr of
-                        [] -> [ands (map (uncurry (===)) (l:exprs))]
-                        xs -> if(containsMatch) then xs else [ands (nub xs)])) lhs rhs
+                    (case expr of
+                        [] -> do 
+                                exx <- foldReqs (l:exprs)
+                                return [(exx, bool True)]  --  [(ands (map (uncurry (===)) (l:exprs)), bool True)]
+                        xs -> return xs)) lhs rhs --if(containsMatch) then xs else [ands (nub xs)])) lhs rhs
         return (inM ++ concat allMatches)
 mExpr exprs p (Builtin g :@: ls)  = concat <$> mapM (mExpr exprs p) ls
 mExpr exprs p g@(Gbl g1 :@: ls)      =
@@ -56,7 +58,7 @@ mExpr exprs p (Lam ls e) = mExpr exprs p e
 mExpr _ _ e = fail $ "Cannot handle let, letrec or quantifier in expression in: "
                         ++ show (SMT.ppExpr  e)
 
-gblExpr :: Name a => [(Expr a, Expr a)] -> Property a -> Expr a -> Fresh (Maybe (Expr a))
+gblExpr :: Name a => [(Expr a, Expr a)] -> Property a -> Expr a -> Fresh (Maybe (Expr a, Expr a))
 gblExpr reqs p (Gbl g :@: rhsArgs)
     | gbl_name g == func_name (propFunc p) =
         do
@@ -65,7 +67,7 @@ gblExpr reqs p (Gbl g :@: rhsArgs)
             --let prop' = foldedReq /\ prop
             --let propArgs = free prop'
             --let freeVars = nub propArgs
-            return . Just $ foldedReq /\ prop --(mkQuant Forall freeVars prop')
+            return $ Just (foldedReq, prop) --(mkQuant Forall freeVars prop')
     | otherwise = return Nothing
 
 foldReqs :: Name a => [(Expr a,Expr a)] -> Fresh (Expr a)

@@ -58,8 +58,39 @@
         (++ (qsort (filterLEq y xs))
           (++ (cons y (as nil (list Int))) (qsort (filterGT y xs)))))))
 (assert-not
+  :source Sort.prop_QSortCount
+  (forall ((x Int) (xs (list Int)))
+    (= (count x (qsort xs)) (count x xs))))
+(assert-not
+  :source Sort.prp_pp
+  (par (a)
+    (forall ((a1 (list a)) (b (list a)) (c (list a)))
+      (= (++ (++ a1 b) c) (++ a1 (++ b c))))))
+(assert-not
+  :source Sort.prop_countcount
+  (forall ((x Int) (bs (list Int)) (cs (list Int)))
+    (= (+ (count x bs) (count x cs)) (count x (++ bs cs)))))
+(assert-not
+  :source Sort.p_tmpNil
+  (forall ((y Int))
+    (= (count y (as nil (list Int)))
+      (count y (qsort (as nil (list Int)))))))
+(assert-not
+  :source Sort.p_tmp
+  (forall ((y Int) (x Int) (xs (list Int)))
+    (= (count y (cons x xs))
+      (+
+        (+ (count y (filterLEq x xs))
+          (count y (cons x (as nil (list Int)))))
+        (count y (filterGT x xs))))))
+(assert-not
   :source Sort.prop_small
   (forall ((y Int) (xs (list Int))) (smallerEq (filterLEq y xs) y)))
+(assert-not
+  :source Sort.countpp
+  (forall ((x Int))
+    (= (count x (as nil (list Int)))
+      (count x (qsort (as nil (list Int)))))))
 (assert-not
   :source Sort.prop_bigg
   (forall ((y Int) (xs (list Int))) (bigger (filterGT y xs) y)))
@@ -68,10 +99,19 @@
   (forall ((x Int) (xs (list Int)))
     (=> (ordered (cons x xs)) (ordered xs))))
 (assert-not
+  :source Sort.prop_small2
+  (forall ((y Int) (x Int) (xs (list Int)))
+    (=> (ordered (cons y (cons x xs))) (<= y x))))
+(assert-not
   :source Sort.prop_ppOrd
   (forall ((x Int) (xs (list Int)))
-    (= (and (ordered xs) (smallerEq xs x))
+    (=> (and (ordered xs) (smallerEq xs x))
       (ordered (++ xs (cons x (as nil (list Int))))))))
+(assert-not
+  :source Sort.prop_ppOrd1
+  (forall ((x Int) (xs (list Int)))
+    (=> (ordered (++ xs (cons x (as nil (list Int)))))
+      (and (ordered xs) (smallerEq xs x)))))
 (assert-not
   :source Sort.prop_ppOrd2
   (forall ((x Int) (xs (list Int)))
@@ -91,10 +131,6 @@
 (assert-not
   :source Sort.prop_countBig
   (forall ((xs (list Int)) (x Int)) (= (count x (filterGT x xs)) 0)))
-(assert-not
-  :source Sort.prop_countcount
-  (forall ((x Int) (bs (list Int)) (cs (list Int)))
-    (= (+ (count x bs) (count x cs)) (count x (++ bs cs)))))
 (assert-not
   :source Sort.prop_p
   (forall ((xs (list Int)) (x Int))
@@ -120,14 +156,48 @@
   (forall ((x Int) (xs (list Int)))
     (= (bigger xs x) (bigger (qsort xs) x))))
 (assert-not
-  :source Sort.prop_QSortSorts
-  (forall ((xs (list Int))) (ordered (qsort xs))))
+  :source Sort.prop_sesese
+  (forall ((bs (list Int)) (cs (list Int)) (x Int))
+    (=> (and (smallerEq bs x) (smallerEq cs x))
+      (smallerEq (++ bs cs) x))))
+(assert-not
+  :source |Sort.prop_sesese'|
+  (forall ((bs (list Int)) (cs (list Int)) (x Int))
+    (=> (smallerEq (++ bs cs) x)
+      (and (smallerEq bs x) (smallerEq cs x)))))
+(assert-not
+  :source Sort.prop_seseseb
+  (forall ((bs (list Int)) (cs (list Int)) (x Int))
+    (=> (and (bigger bs x) (bigger cs x)) (bigger (++ bs cs) x))))
+(assert-not
+  :source |Sort.prop_seseseb'|
+  (forall ((bs (list Int)) (cs (list Int)) (x Int))
+    (=> (bigger (++ bs cs) x) (and (bigger bs x) (bigger cs x)))))
+(assert-not
+  :source Sort.p_countSort
+  (par (t t1)
+    (forall ((x Int) (y t) (ys t1))
+      (= (count x (qsort (cons x (as nil (list Int)))))
+        (count x (cons x (as nil (list Int))))))))
+(assert-not
+  :source Sort.p_count1
+  (forall ((x Int) (y Int) (ys (list Int)))
+    (=> (= x y) (= (count x (cons y ys)) (+ 1 (count x ys))))))
+(assert-not
+  :source Sort.p_countSort1
+  (forall ((x Int) (y Int) (ys (list Int)))
+    (=> (= x y)
+      (= (count x (qsort (cons y ys))) (+ 1 (count x (qsort ys)))))))
+(assert-not
+  :source |Sort.p_countSort1'|
+  (forall ((x Int) (y Int) (ys (list Int)))
+    (=> (distinct x y)
+      (= (count x (qsort (cons y ys))) (count x (qsort ys))))))
 (assert-not
   :source Sort.prop_filterOrd
   (forall ((x Int) (xs (list Int)))
     (= (ordered xs) (ordered (++ (filterLEq x xs) (filterGT x xs))))))
 (assert-not
-  :source Sort.prop_QSortCount
-  (forall ((x Int) (xs (list Int)))
-    (= (count x (qsort xs)) (count x xs))))
+  :source Sort.prop_QSortSorts
+  (forall ((xs (list Int))) (ordered (qsort xs))))
 (check-sat)

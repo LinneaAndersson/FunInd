@@ -11,9 +11,13 @@ import           Data.List              (nub)
 import           Parser.Params          (Params(..))
 import           Induction.Types        (params,Lemma(..))
 
+data Name a => Result a = Result
+  {  lemmas :: [Lemma]
+  ,  time   :: String
+  }
 
-writeResult :: Name a => FilePath -> TP a ()
-writeResult fp = do
+writeResult :: Name a => String -> FilePath -> TP a ()
+writeResult time fp = do
     dateU <- liftIO $ getCurrentTime 
     let date = formatTime defaultTimeLocale (iso8601DateFormat Nothing) dateU
     params <- params <$> get
@@ -34,7 +38,7 @@ writeResult fp = do
 
     let provedNub = map (\l -> l{hLemmas = nub $ hLemmas l}) proved     
 
-    let res = show provedNub
+    let res = show (time, provedNub)
 
     liftIO $ writeFile file res
 

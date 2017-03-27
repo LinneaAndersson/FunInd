@@ -29,8 +29,8 @@ structuralInd :: Name a => Induction a
 structuralInd = Ind (length . fst . forallView . fm_body . head . fst . theoryGoals) induction
 
 
-addLemma :: Name a => String -> TP a ()
-addLemma name = modify (\s ->  s{lemmas = Lemma name (axioms s) (ind s):lemmas s})
+addLemma :: Name a => String -> String -> Maybe String -> TP a ()
+addLemma name formula source = modify (\s ->  s{lemmas = Lemma name source (axioms s) (ind s) formula:lemmas s})
 
 -- run the choosen prover on the file given by the filepath
 runProver :: Name a => FilePath -> TP a String
@@ -105,7 +105,8 @@ printResult th =
                                 then do
                                     let hFormula = lookupFormula a thy_f
                                     maybe (fail "error: Could not find formula") getFormula hFormula
-                                else a))) $
+                                else 
+                                    a))) $
                     nub $ filter (nameL /=) (hLemmas l)
 
 
