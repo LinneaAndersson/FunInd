@@ -129,7 +129,7 @@ applicativeSplit hyp prop theory = do
     let colQuant = map (\(req,exs) -> ands $ req:map quantify exs) collectedExprs
 
     -- List the free variables in the pattern matching cases (global variables)
-    let freeVars =  concatMap free (map fst collectedExprs)
+    let freeVars = map free (map fst collectedExprs)
 
     -- Create new globals for each case
     listFree <- mapM (mapM createFreshGlobal) freeVars
