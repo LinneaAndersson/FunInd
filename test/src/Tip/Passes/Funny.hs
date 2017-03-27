@@ -77,20 +77,16 @@ applicativeInduction split (l:ls) theory' = do
 applicativeNoSplit :: Name a => [(Expr a, Expr a)] -> Property a -> Theory a -> Fresh [Theory a]
 applicativeNoSplit hyp prop theory = do
 
-    -- Create forall quantifier for each pattern
-    -- TODO : remove the quantifiers not needed
-    --let hyps = map (mkQuant Forall (propQnts prop)) (map (\(a1,a2) -> a1 ==> a2) hyp)
-    
-    -- create one hypothesis consisting of all possible pattern matching cases
+    -- collect all hypotheses for each pattern matching case
     let collectedExprs = collectHyp hyp 
+    
+    -- add quantifier for each hypothesis
     let colQuant = map (\(req,exs) -> ands $ req:map quantify exs) collectedExprs
 
-    --let cases = ors (map fst hyp)
-
-    --fail $ "hypExrP: " ++ (show $ ppExpr hypExpr)
-    -- List the free local variables in the hypExpr
+    -- List the free variables in the pattern matching cases (global variables)
     let freeVars =  concatMap free (map fst collectedExprs)
 
+    -- create one hypothesis consisting of all possible pattern matching cases
     let hypExpr = ors $ colQuant
 
     --Create new globals for all the free variables
@@ -126,18 +122,20 @@ applicativeNoSplit hyp prop theory = do
 applicativeSplit :: Name a => [(Expr a, Expr a)] -> Property a -> Theory a -> Fresh [Theory a]
 applicativeSplit hyp prop theory = do 
 
-    -- Create forall quantifier for each pattern
-    -- TODO : remove the quantifiers not needed
-    let hyps = map (mkQuant Forall (propQnts prop)) (map (\(a1,a2) -> a1 ==> a2) hyp) 
+    -- collect all hypotheses for each pattern matching case
+    let collectedExprs = collectHyp hyp 
+    
+    -- add quantifier for each hypothesis
+    let colQuant = map (\(req,exs) -> ands $ req:map quantify exs) collectedExprs
 
-    -- Find free variables in each case
-    let freeVars = map free hyps
+    -- List the free variables in the pattern matching cases (global variables)
+    let freeVars =  concatMap free (map fst collectedExprs)
 
     -- Create new globals for each case
     listFree <- mapM (mapM createFreshGlobal) freeVars
 
     --Update the hypothesises with new globals
-    hyps' <- mapM updateRef'' $ zip3 freeVars listFree hyps
+    hyps' <- mapM updateRef'' $ zip3 freeVars listFree colQuant
 
     --Create signatures for the new globals
     let sigsFree = map (\lF -> map createSig (lF ++ propGblBody prop)) listFree
