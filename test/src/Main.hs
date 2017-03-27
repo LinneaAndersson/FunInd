@@ -124,7 +124,7 @@ runMain params preQS = do
                 printResult th
                 end <- liftIO getCurrentTime
                 let diff = diffUTCTime end start
-                when (benchmarks params) $ writeResult diff preQS
+                when (benchmarks params) $ writeResult (show diff) preQS
             runTP (TP a) = a
 
 {- Run tipspec depending on choosen parameters.
@@ -365,7 +365,7 @@ prove th = do
         (proved, ax) <- liftIO =<< (parseOut <$> getProver) <*> pure [prob, ep]
         
         lemmas <- getLemmas
-        ax' <- mapM (\ln -> case find (\(Lemma n _ _ _) -> n==ln) lemmas of
+        ax' <- mapM (\ln -> case find (\(Lemma n _ _ _ _) -> n==ln) lemmas of
                         Nothing -> return ln --fail "WTF!!!"
                         Just l -> return $ case lemmaSource l of
                                     Nothing -> ln
