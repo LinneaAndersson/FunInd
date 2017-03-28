@@ -11,7 +11,7 @@ import           Control.Monad.Error ( MonadError)
 import           Data.List           (find)
 
 import           Tip.Fresh           (Fresh (..), Name)
-import           Tip.Types           (Theory (..))
+import           Tip.Types           (Theory (..), Formula(..))
 
 import           Parser.Params       (Params (..))
 import           Prover              (Prover (..))
@@ -23,6 +23,7 @@ import           Prover              (Prover (..))
 data Name a => Induction a = Ind
     {   inductionSize :: Theory a -> Int
     ,   inductionPass :: [Int] -> Theory a -> Fresh [Theory a]
+    ,   printVar      :: Theory a -> [Int] -> Formula a -> String
     }
 
 data Name a => IndState a = IndState

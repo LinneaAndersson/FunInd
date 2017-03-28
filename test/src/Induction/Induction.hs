@@ -11,9 +11,11 @@ import           Tip.Fresh           (Name)
 import           Tip.Funny.Utils     (findApps)
 import           Tip.Passes          (induction)
 import           Tip.Passes.Funny    (applicativeInduction)
-import           Tip.Types           (Formula (..), Theory (..))
+import           Tip.Types           (Formula (..), Theory (..), Head(..), Expr(..), Local(..))
+import           Tip.Pretty.SMT      (ppExpr)
+import           Tip.Pretty          (ppVar)
 
-import           Induction.Types     (Induction (..), Lemma (..), TP (..),
+import           Induction.Types     (Induction (..), Lemma (..), TP (..), getInduction,
                                       axioms, getLemmas, getProver, ind, lemmas,
                                       params)
 import           Parser.Params       (IndType (..), Params (..))
@@ -23,11 +25,20 @@ import           Utils               (mwhen)
 
 
 applicativeInd :: Name a => Bool -> Induction a
-applicativeInd b =  Ind (\th0 -> length $ findApps (thy_funcs th0) (fm_body $ head . fst $ theoryGoals th0)) (applicativeInduction b)
+applicativeInd b =  Ind (\th0 -> length $ findApps (thy_funcs th0) (fm_body $ head . fst $ theoryGoals th0)) 
+                        (applicativeInduction b)
+                        withIndex
+    where
+          withIndex th i formula = "--- Proved with application " ++ (show i) ++ ": " ++ (withArgs $ findApps (thy_funcs th) (fm_body formula) !! (head i))
+          withArgs ((Gbl a :@: ls), gbln) = "'" ++ (show $ ppVar gbln) ++ "' with args " ++ (show $ map (ppExpr) ls) 
 
 structuralInd :: Name a => Induction a
-structuralInd = Ind (length . fst . forallView . fm_body . head . fst . theoryGoals) induction
-
+structuralInd = Ind (length . fst . forallView . fm_body . head . fst . theoryGoals) 
+                    induction
+                    withIndex
+    where
+          withIndex _ i formula = "--- Proved with variables" ++ ": " ++ (show $ map (vars formula !!) i)
+          vars = map (ppVar . lcl_name) . fst . forallView . fm_body
 
 addLemma :: Name a => String -> String -> Maybe String -> TP a ()
 addLemma name formula source = modify (\s ->  s{lemmas = Lemma name source (axioms s) (ind s) formula:lemmas s})
@@ -96,8 +107,11 @@ printResult th =
                 -- If proved with induction, show which variable was used
                 case indVar l of
                     Nothing -> return ()
-                    Just i  -> printStr outLevel
-                                        $ "--- Proved with index: " ++ show i -- ++ (show $ getFormulaVar formula i)
+                    Just i  -> do
+                                strify <- printVar <$> getInduction
+                                printStr outLevel 
+                                            $ strify th i formula
+                                       
                 -- Print all auxiliary lemmas used in the proof
                 userLevel <- outputLevel <$> (params <$> get)
                 mapM_ (\a -> printStr outLevel
@@ -108,7 +122,6 @@ printResult th =
                                 else 
                                     a))) $
                     nub $ filter (nameL /=) (hLemmas l)
-
 
 -- check if a lemma was proved using induction
 isInductive :: Lemma -> Bool

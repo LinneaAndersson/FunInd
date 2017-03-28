@@ -88,9 +88,6 @@ addReq' ls (e:es) =
         eLoc = [ (e', le)  | e'@(Lcl le)<-locals' e]
         diff = [ (e,i) | (e,i) <- eLoc, e `notElem` map fst ls]
 
-
-
-
 createProp :: Name a =>[Local a] -> Fresh (Expr a)
 createProp ls = (\name -> Gbl (Global name pType []) :@: lcls) <$> gName
     where
