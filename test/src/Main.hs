@@ -15,7 +15,9 @@ import           Tip.Mod               (renameLemmas)
 
 import           Constants             (out_path, prop_file, out_smt)
 import           Induction.Induction   (getIndType, printResult, printStr)
+import           Induction.Proof       (loop_conj)
 import           Induction.Types       (IndState (..), TP (..), getProver)
+
 import           Parser.Params         (InputFile (..), Params (..),
                                         TheoremProver (..), TipSpec(..), parseParams)
 import           IO.Output             (debug, runTipSpec)
@@ -23,7 +25,7 @@ import           IO.Process            (readTheory, run_process)
 
 import           Prover                (Prover (..), eprover, z3)
 import           Benchmarks            (writeResult)
-import           Proof                 (loop_conj)
+
 
 main :: IO()
 main = do
