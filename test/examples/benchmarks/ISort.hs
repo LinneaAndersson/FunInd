@@ -32,3 +32,4 @@ count x [] = 0
 count x (y:ys)
   | x == y = 1 + count x ys
   | otherwise = count x ys
+

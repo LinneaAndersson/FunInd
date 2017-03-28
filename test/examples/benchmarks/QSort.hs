@@ -38,18 +38,20 @@ count x (y:ys)
   | x == y = 1 + count x ys
   | otherwise = count x ys
 
-prop_QSortCount x xs = count x (qsort xs) === count x xs
-
 prp_pp a b c = (a ++ b) ++ c === a ++ (b ++c) 
 prop_countcount x as bs = count x as + count x bs === count x (as ++ bs) 
 
 p_tmpNil y = count y [] === count y (qsort [])
 p_tmp y x xs = count y (x:xs) ===  count y (filterLEq x xs) + count y [x] + count y (filterGT x xs) 
 
+prop_QSortCount x xs = count x (qsort xs) === count x xs
+{-
+
+-}
 --p_tmp2 y x xs = count y (filterLEq x xs) + count y [x] + count y (filterGT x xs) === count y (qsort (filterLEq x xs)) + count y [x] + count y (qsort(filterGT x xs))  
 
 
-
+{-
 
 prop_small y xs = bool $ smallerEq (filterLEq y xs) y
 countpp x = count x [] === count x (qsort []) 
@@ -57,8 +59,9 @@ countpp x = count x [] === count x (qsort [])
 prop_bigg y xs = bool $ bigger (filterGT y xs) y
 
 prop_ordSub x xs = ordered (x:xs) ==> ordered (xs)
+-}
 --prop_biggSub x1 x2 xs = ordered (x1:x2:xs) ==> x1==x2 || 
- 
+{- 
 prop_small2 y x xs = ordered (y:x:xs) ==> y <= x
 
 prop_ppOrd x xs     = (ordered xs && smallerEq xs x) ==> ordered (xs++[x]) 
@@ -70,10 +73,10 @@ prop_bqf x xs = bool $ bigger (qsort (filterGT x xs)) x
 
 prop_countSmall xs x = count x (filterLEq x xs) === count x xs
 prop_countBig xs x = count x (filterGT x xs) === 0
-
+-}
 --prp_pp a b c = (a ++ b) ++ c === a ++ (b ++) 
 --prop_countcount x as bs = count x as + count x bs === count x (as ++ bs) 
-
+{-
 prop_p xs x = count x (filterLEq x xs ++ filterGT x xs) === count x xs
 
 prop_p2 xs x = count x (filterLEq x xs ++ [x] ++ filterGT x xs) === count x (x:xs)
@@ -97,8 +100,8 @@ p_countSort1' x y ys = x/=y ==> (count x (qsort (y:ys))== (count x (qsort ys)))
 
 
 prop_filterOrd x xs = ordered xs === ordered ((filterLEq x xs)++(filterGT x xs))
-
-prop_QSortSorts xs = ordered (qsort xs) === True
+-}
+prop_QSortSorts xs = bool $ ordered (qsort xs)
 {-
 prop_QSortPermutes xs = qsort xs `isPermutation` xs === True
 prop_QSortIsSort xs = qsort xs === sort xs

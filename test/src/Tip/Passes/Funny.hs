@@ -79,15 +79,9 @@ applicativeNoSplit hyp prop theory = do
 
     -- collect all hypotheses for each pattern matching case
     let collectedExprs = collectHyp hyp 
-    
-    -- add quantifier for each hypothesis
-    let colQuant = map (\(req,exs) -> ands $ req:map quantify exs) collectedExprs
-
+   
     -- List the free variables in the pattern matching cases (global variables)
     let freeVars =  concatMap free (map fst collectedExprs)
-
-    -- create one hypothesis consisting of all possible pattern matching cases
-    let hypExpr = ors $ colQuant
 
     --Create new globals for all the free variables
     listFree <- mapM  createFreshGlobal freeVars
@@ -95,11 +89,17 @@ applicativeNoSplit hyp prop theory = do
     -- update the expression with the new globals
     let lcls = (map Lcl freeVars)
     let gbls = (map (\gg -> Gbl gg :@: []) listFree)
-    hypExpr' <- updateRef' (zip lcls gbls) hypExpr
-    --cases' <- updateRef' (zip lcls gbls) cases
+    hypExprs <- mapM (\(req,exprs) -> do
+                        lhs <- updateRef' (zip lcls gbls) req
+                        rhs <- mapM (updateRef' (zip lcls gbls)) exprs
+                        return (lhs,rhs)
+                     ) collectedExprs --hypExpr
 
-    --fail $ "fail" ++ (show $ map ppExpr lcls)
-    --fail $ "freeVars: " ++ (show $ map ppExpr gbls)
+    -- add quantifier for each hypothesis
+    let colQuant = map (\(req,exs) -> ands $ req:map quantify exs) hypExprs
+
+    -- create one hypothesis consisting of all possible pattern matching cases
+    let hypExpr' = ors $ colQuant
     
     -- create signatures for all new global variables
     let sigsFree =  map createSig (listFree ++ propGblBody prop)
@@ -124,9 +124,6 @@ applicativeSplit hyp prop theory = do
 
     -- collect all hypotheses for each pattern matching case
     let collectedExprs = collectHyp hyp 
-    
-    -- add quantifier for each hypothesis
-    let colQuant = map (\(req,exs) -> ands $ req:map quantify exs) collectedExprs
 
     -- List the free variables in the pattern matching cases (global variables)
     let freeVars = map free (map fst collectedExprs)
@@ -135,7 +132,14 @@ applicativeSplit hyp prop theory = do
     listFree <- mapM (mapM createFreshGlobal) freeVars
 
     --Update the hypothesises with new globals
-    hyps' <- mapM updateRef'' $ zip3 freeVars listFree colQuant
+    updExprs <- mapM (\(f,l,(req,exprs)) -> do
+                        lhs <- updateRef'' (f,l,req)
+                        rhs <- mapM (\e -> updateRef'' (f,l,e)) exprs
+                        return (lhs,rhs)
+                     ) $ zip3 freeVars listFree collectedExprs
+
+    -- add quantifier for each hypothesis
+    let hyps' = map (\(req,exs) -> ands $ req:map quantify exs) updExprs
 
     --Create signatures for the new globals
     let sigsFree = map (\lF -> map createSig (lF ++ propGblBody prop)) listFree
