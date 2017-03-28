@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 module Main where
 
 import           Control.Monad.State   (get, join, liftIO, modify, runStateT, filterM,
@@ -237,24 +238,31 @@ loop_conj theory curr num continue
     | otherwise  = do
         state <- get
         params <- params <$> get 
-        lemmas <- getLemmas       
-        (the,state) <- liftIO $ catch (runStateT (runTP $ -- test next conjecture 
+        lemmas <- getLemmas
+        -- test a conjecture within a catch statement to enable writting results
+        -- even with progrm failure       
+        (theory',state) <- liftIO $ catch (runStateT (runTP $ -- test next conjecture 
             let
                 -- pick a conjecture
-                th      = selectConjecture curr theory
+                th          = selectConjecture curr theory
                 -- the formula matching the current conjecture
-                formula = head . fst $ theoryGoals th
+                formula     = head . fst $ theoryGoals th
                 -- lookup up unique name of formual
-                f_name  = fromMaybe "no name"  $ join $ lookup "name" (fm_attrs formula)
-                f_source = join $ lookup "source" (fm_attrs formula)
-                f_s = case f_source of
+                f_name      = fromMaybe "no name"  $ join $ lookup "name" (fm_attrs formula)
+                -- check if formula have a source name
+                f_source    = join $ lookup "source" (fm_attrs formula)
+                -- print name
+                f_s         = case f_source of
                     Nothing -> f_name
                     Just a -> a
                 -- turn formula into printable form
                 formulaPrint = getFormula formula
             in do
+                -- clean output directory
                 liftIO $ removeContentInFolder (out_path "")
+
                 nbrVar  <- inductionSize <$> getInduction
+
                 -- clean temporary state
                 modify (\s -> s{axioms = [], ind=Nothing})
                 mcase (prove th) -- Test if solvable without induction
@@ -268,27 +276,24 @@ loop_conj theory curr num continue
                         printStr 4 $ unlines ["", "= Indices to induct on =", " " ++ show indVars,""]
                         mcase ( loop_ind th indVars ) -- Attempt induction
                             (do -- Proved using induction
-                                --fail "hello"
                                 printStr 3 $ "| " ++ f_s  ++  "  -- I | " ++ formulaPrint
-                                --fail $ "printout"
                                 addLemma f_name formulaPrint f_source-- add formula to proved lemmas
                                 -- -- go to next conjecture
                                 loop_conj (provedConjecture curr theory) curr (num-1) True)
-                            -- Unable to prove with current theory
-                            -- try next conjecture
                             (do
-
+                                -- Unable to prove with current theory
+                                -- try next conjecture
                                 printStr 3 $ "| " ++ f_s  ++  "  -- U | " ++ formulaPrint
                                 loop_conj theory (curr + 1) num continue))
                 ) (state) 
             ) (\e -> do 
+                    -- check for user interrupt, write interrupted state
                     when (show (e :: SomeException) == "user interrupt") ( do
-                        --putStrLn $ "User interruption! -- " ++ (show (e :: SomeException) )
                         when (benchmarks params) $ writeInterrupt lemmas "error"
                         fail "^C pressed")
                     throw e)
-        put state
-        return the
+        put state -- add processed state when no error was encountered
+        return theory'
     where runTP (TP a) = a
 
 -- Trying to prove a conjecture, looping over all variables in the conjecture
@@ -303,35 +308,37 @@ loop_ind theory (x:xs) = do
 
         prep <- prepare <$> getProver
         liftIO $ printTheories prep ind_theory 0 (out_path ("Theory" ++ show x))
-        --(return . show . ppTheory' . head . tff [SkolemiseConjecture])
 
         printStr 3 "-----------------------------------------"
         mcase (proveAll ind_theory)     -- try induction 
-            (do -- proves using induction on 'num'
-                modify (\s -> s{ind = Just x}) -- add variables used
+            (do -- proves using induction on x
+                modify (\s -> s{ind = Just x}) -- store variables used
                 return True)
             (loop_ind theory xs)   -- unable to prove, try next variable
 
 
+-- write all theories to files
 printTheories :: Name a => (Theory a -> IO String) -> [Theory a] -> Int -> String -> IO ()
 printTheories _ [] _ _              = return ()
 printTheories prep (t:ts) i s       =
     do
         createDirectoryIfMissing False s
-        prob <- prep t {-show . ppTheory' . tff [SkolemiseConjecture] . last $ ind_theory-}
+        prob <- prep t
         writeFile (s ++ "/problem" ++ show i) prob
         printTheories prep ts (i+1) s
 
-
+-- recreate a folder
 removeContentInFolder :: String -> IO ()
 removeContentInFolder s = do
     removeDirectoryRecursive s
     createDirectory s
 
+-- print if outlevel >= given int
 talk :: Int -> Params -> String -> IO ()
 talk i p = when (outputLevel p >= i) .
                 putStrLn
 
+-- print if debug is on
 debug :: Params -> String -> IO ()
 debug = talk 4
 
@@ -348,10 +355,6 @@ proveAll (th:ths) = mcase (prove th)
 -- TODO Do something proper about multi-theories
 prove :: Name a => Theory a -> TP a Bool
 prove th = do
-    {-let goal' = head $ passes th -- prepare conjecture using various passes
-        goal''  = ppTheory' goal' -- turn conjecture into printable format
-    in do -}
-        --liftIO $ writeFile (out_path "goal.smt2") $ show $ goal''
 
         -- retrieve the preparation function from the Prover
         -- and apply it to the goal
@@ -360,16 +363,19 @@ prove th = do
 
         -- run prover on the problem
         ep <- runProver $ out_path "problem"
+
         -- check the output from the Prover by using
         -- the Provers parse function
         (proved, ax) <- liftIO =<< (parseOut <$> getProver) <*> pure [prob, ep]
         
+        -- get lemma names
         lemmas <- getLemmas
-        ax' <- mapM (\ln -> case find (\(Lemma n _ _ _ _) -> n==ln) lemmas of
+        ax' <- mapM (\ln -> 
+                    case find (\Lemma{..} -> lemmaName==ln) lemmas of
                         Nothing -> return ln --fail "WTF!!!"
-                        Just l -> return $ case lemmaSource l of
-                                    Nothing -> ln
-                                    Just s -> s) ax
+                        Just l  -> return $ case lemmaSource l of
+                                Nothing -> ln
+                                Just s -> s) ax
 
         -- add auxilliary lemmas to temporary state
         when proved $ modify (\s -> s{axioms = axioms s ++ ax'})
