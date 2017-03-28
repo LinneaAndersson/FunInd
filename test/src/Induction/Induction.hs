@@ -19,7 +19,7 @@ import           Induction.Types     (Induction (..), Lemma (..), TP (..), getIn
                                       axioms, getLemmas, getProver, ind, lemmas,
                                       params)
 import           Parser.Params       (IndType (..), Params (..))
-import           Process             (run_process1)
+import           IO.Process             (run_process1)
 import           Prover              (Prover (..))
 import           Utils               (mwhen)
 
