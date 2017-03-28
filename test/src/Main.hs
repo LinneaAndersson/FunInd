@@ -47,14 +47,22 @@ import                     System.Exit
 
 main :: IO()
 main = do
-    let mrun = \a c -> do
+
+    -- Function to run the prover on one file at a time, 
+    -- attempting to prove all conjectures
+    let mrun a c = do
             m <- runMain a{inputFile = SMT  c} c
             return (m , c)
+
+    -- Run the prover and collect errors, if any
     listError <- join $ (\(a,b) -> mapM (mrun a) b) <$> preProcess
-    mapM_ (\(e,file) -> 
-        case e of
-            Nothing -> return ()
-            Just er -> putStrLn $ "Error in File -- " ++ file ++ " -- " ++ er) (listError)
+
+    -- Check for errors
+    mapM_   (\(err, file) -> 
+                case err of
+                    Nothing -> return ()
+                    Just er -> putStrLn $ "Error in File -- " ++ file ++ " -- " ++ er)
+            listError
     return ()
 
 preProcess :: IO (Params,[FilePath])
@@ -63,16 +71,17 @@ preProcess = do
     -- parse input parameters: inout file and verbosity flags
     params <- parseParams
 
-    when (outputLevel params >= 4) $ putStrLn $ show params
+    debug params $ show params
 
     -- Check where to put file
-    let filePath = (case tipspec params of
-            No              -> out_path ""
-            Yes f           -> f ++ "/"
-            UseExisting f   -> f ++ "/")
+    let filePath =
+            case tipspec params of
+                No              -> out_path ""
+                Yes f           -> f ++ "/"
+                UseExisting f   -> f ++ "/"
     
-    -- check file extension
-    (,) params <$> checkInputFile params (out_smt) (inputFile params)
+    -- Check file extension
+    (,) params <$> checkInputFile params out_smt (inputFile params)
 
 runMain :: Params -> FilePath -> IO (Maybe String)
 runMain params preQS = do
@@ -103,28 +112,38 @@ runMain params preQS = do
 
         return Nothing)
             (\e -> do
-            putStrLn $ ">>>>>>>>>>>>> ERROR : " ++ (show (e :: SomeException))
+            putStrLn $ ">>>>>>>>>>>>> ERROR : " ++ show (e :: SomeException)
             return $ Just (show (e :: SomeException))
             )
 
-
+    -- calculate finishing time
     end <- getCurrentTime
     let diff = diffUTCTime end start
 
+    -- print time taken
     when (outputLevel params > 0) $ do
         putStrLn ""
-        putStrLn $  "Time taken: " ++ (show diff) ++ "sec"
+        putStrLn $  "Time taken: " ++ show diff ++ "sec"
     return Nothing
         where -- count the number of conjectures in the theory
             numConj th = length $ fst $ theoryGoals th
             -- induction loop
             induct theory start = do
+
+                -- print prover if debug mode
                 pstr <- show <$> getProver
                 printStr 4 pstr
+
+                -- loop through all conjectures and attempt
+                -- to prove them
                 th <- loop_conj theory 0 (numConj theory) False
                 printResult th
+
+                -- calculate finishing time
                 end <- liftIO getCurrentTime
                 let diff = diffUTCTime end start
+
+                -- write benchmarks
                 when (benchmarks params) $ writeResult (show diff) preQS
             runTP (TP a) = a
 
@@ -140,7 +159,7 @@ runTipSpec params file = do
 
     -- separate path and name of input file
     let path = takeDirectory file
-    let name = takeBaseName file
+        name = takeBaseName file
 
     -- check params regarding tipspec
     case tipspec params of
@@ -199,16 +218,16 @@ checkInputFile params fp (HS f)       = do
     -- into smt2 (tip-format).
     let (path, file) = splitFileName f
     tip_string <- run_process "tip-ghc" path [file]
-    let fileName = (fp ++ (takeBaseName file) ++ ".smt")
+    let fileName = fp ++ takeBaseName file ++ ".smt"
     writeFile fileName tip_string
     return [fileName]
 checkInputFile _ fp (SMT f)          = do 
-    let fileName = fp ++ (takeFileName f)
+    let fileName = fp ++ takeFileName f
     writeFile fileName <$> readFile f
     return [fileName]
 checkInputFile params fp (Unrecognized f) = do
     files <- getDirectoryContents f
-    debug params $ "FILENAME " ++ f ++ (head $ files)
+    debug params $ "FILENAME " ++ f ++ head files
     concat <$> mapM getFiles files
         where
            getFiles file = 
@@ -232,16 +251,17 @@ loop_conj theory curr num continue
     | curr >= num = -- tested all conjectures
         if continue -- check whether to loop again
             then loop_conj theory 0 num False   -- continue
-            else mcase (nextTimeout)
+            else mcase nextTimeout
                     (loop_conj theory 0 num False)
                     (return theory)       -- done
     | otherwise  = do
-        state <- get
+        state  <- get
         params <- params <$> get 
         lemmas <- getLemmas
+
         -- test a conjecture within a catch statement to enable writting results
         -- even with progrm failure       
-        (theory',state) <- liftIO $ catch (runStateT (runTP $ -- test next conjecture 
+        (theory', state) <- liftIO $ catch (runStateT (runTP $ -- test next conjecture 
             let
                 -- pick a conjecture
                 th          = selectConjecture curr theory
@@ -252,9 +272,8 @@ loop_conj theory curr num continue
                 -- check if formula have a source name
                 f_source    = join $ lookup "source" (fm_attrs formula)
                 -- print name
-                f_s         = case f_source of
-                    Nothing -> f_name
-                    Just a -> a
+                f_s         = fromMaybe f_name f_source
+
                 -- turn formula into printable form
                 formulaPrint = getFormula formula
             in do
@@ -285,7 +304,7 @@ loop_conj theory curr num continue
                                 -- try next conjecture
                                 printStr 3 $ "| " ++ f_s  ++  "  -- U | " ++ formulaPrint
                                 loop_conj theory (curr + 1) num continue))
-                ) (state) 
+                ) state 
             ) (\e -> do 
                     -- check for user interrupt, write interrupted state
                     when (show (e :: SomeException) == "user interrupt") ( do
@@ -298,10 +317,11 @@ loop_conj theory curr num continue
 
 -- Trying to prove a conjecture, looping over all variables in the conjecture
 loop_ind :: Name a => Theory a -> [[Int]] -> TP a Bool
-loop_ind theory [] = return False -- tested all variables, unable to prove
-loop_ind theory (x:xs) = do
+loop_ind theory []      = return False -- tested all variables, unable to prove
+loop_ind theory (x:xs)  = do
 
         printStr 4 $ unwords [" Induction on indices", show x ]
+
         --prepare theory for induction on variables/application in x 
         indPass <- inductionPass <$> getInduction
         let ind_theory = freshPass (indPass x) theory
@@ -314,17 +334,20 @@ loop_ind theory (x:xs) = do
             (do -- proves using induction on x
                 modify (\s -> s{ind = Just x}) -- store variables used
                 return True)
-            (loop_ind theory xs)   -- unable to prove, try next variable
+            (loop_ind theory xs) -- unable to prove, try next variable
 
 
 -- write all theories to files
 printTheories :: Name a => (Theory a -> IO String) -> [Theory a] -> Int -> String -> IO ()
-printTheories _ [] _ _              = return ()
-printTheories prep (t:ts) i s       =
+printTheories _ [] _ _          = return ()
+printTheories prep (t:ts) i s   =
     do
         createDirectoryIfMissing False s
+
+        -- format and write a theory to file 
         prob <- prep t
         writeFile (s ++ "/problem" ++ show i) prob
+
         printTheories prep ts (i+1) s
 
 -- recreate a folder
@@ -371,11 +394,9 @@ prove th = do
         -- get lemma names
         lemmas <- getLemmas
         ax' <- mapM (\ln -> 
-                    case find (\Lemma{..} -> lemmaName==ln) lemmas of
+                    case find (\Lemma{..} -> lemmaName == ln) lemmas of
                         Nothing -> return ln --fail "WTF!!!"
-                        Just l  -> return $ case lemmaSource l of
-                                Nothing -> ln
-                                Just s -> s) ax
+                        Just l  -> return $ fromMaybe ln (lemmaSource l)) ax
 
         -- add auxilliary lemmas to temporary state
         when proved $ modify (\s -> s{axioms = axioms s ++ ax'})
