@@ -286,7 +286,7 @@ loop_conj theory curr num continue
                         --putStrLn $ "User interruption! -- " ++ (show (e :: SomeException) )
                         when (benchmarks params) $ writeInterrupt lemmas "error"
                         fail "^C pressed")
-                    fail (show e) )
+                    throw e)
         put state
         return the
     where runTP (TP a) = a
