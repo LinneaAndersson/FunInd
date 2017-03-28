@@ -94,7 +94,7 @@ applicativeNoSplit hyp prop theory = do
     let collectedExprs = group hyp 
    
     -- List the free variables in the pattern matching cases (global variables)
-    let freeVars =  concatMap free (map fst collectedExprs)
+    let freeVars = concatMap free (map fst collectedExprs)
 
     --Create new globals for all the free variables
     listFree <- mapM  createFreshGlobal freeVars
@@ -124,7 +124,9 @@ applicativeNoSplit hyp prop theory = do
     goal <- createGoal prop
     --fail $ "fail" ++ (show $ map (ppExpr . Lcl) (free hypExpr'))
     -- update the theory with the new assumptions, signatures and goal
-    return $  [theory{thy_asserts =  thy_asserts theory ++ [exprs hypExpr'] ++ [goal], thy_sigs =  varDefs ++ thy_sigs theory}]
+    return $ [theory{thy_asserts =  thy_asserts theory 
+                                    ++ [exprs hypExpr'] ++ [goal], 
+                     thy_sigs    =  varDefs ++ thy_sigs theory}]
 
         where
             exprs = Formula Assert [("Assert",Nothing)] []

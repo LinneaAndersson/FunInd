@@ -29,7 +29,9 @@ applicativeInd b =  Ind (\th0 -> length $ findApps (thy_funcs th0) (fm_body $ he
                         (applicativeInduction b)
                         withIndex
     where
-          withIndex th i formula = "--- Proved with application " ++ (show i) ++ ": " ++ (withArgs $ findApps (thy_funcs th) (fm_body formula) !! (head i))
+          withIndex th i formula = "--- Proved with application " 
+                                    ++ (show i) ++ ": " 
+                                    ++ (withArgs $ findApps (thy_funcs th) (fm_body formula) !! (head i))
           withArgs ((Gbl a :@: ls), gbln) = "'" ++ (show $ ppVar gbln) ++ "' with args " ++ (show $ map (ppExpr) ls) 
 
 structuralInd :: Name a => Induction a
