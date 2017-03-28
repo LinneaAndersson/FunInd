@@ -16,11 +16,11 @@ import           Data.List           (nub)
 createApps :: Name a => Property a -> Fresh [(Expr a, Expr a)]
 createApps p =
     let
-        f = propFunc p
-        fBody = func_body f
-        fArgs = map Lcl $ func_args f
-        glbs = map (\g -> Gbl g :@: []) $ propGlobals p
-        expr = propBody p
+        f       = propFunc p
+        fBody   = func_body f
+        fArgs   = map Lcl $ func_args f
+        glbs    = map (\g -> Gbl g :@: []) $ propGlobals p
+        expr    = propBody p
     in do
         renamedExpr <- updateRef' (zip fArgs glbs) fBody
         mExpr [] p renamedExpr
@@ -76,7 +76,6 @@ foldReqs list =
         i   = init list
         ri  = reverse i
     in foldM (\e _ -> foldM (\e' l -> updateRef' [l] e' ) e ri) (uncurry (===) exp) i
-
 
 getCaseReqs :: Name a => Expr a -> [(Expr a,Expr a)] -> Case a -> Fresh [(Expr a, Expr a)]
 getCaseReqs m cs (Case Default e)           = fail "default case " --return $ (m, ors (map (neg . snd) cs)) : cs

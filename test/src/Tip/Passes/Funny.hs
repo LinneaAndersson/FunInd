@@ -106,7 +106,7 @@ applicativeNoSplit hyp prop theory = do
                         lhs <- updateRef' (zip lcls gbls) req
                         rhs <- mapM (updateRef' (zip lcls gbls)) exprs
                         return (lhs,rhs)
-                     ) collectedExprs --hypExpr
+                     ) collectedExprs
 
     -- add quantifier for each hypothesis
     let colQuant = map (\(req,exs) -> ands $ req:map quantifyAll exs) hypExprs
@@ -122,14 +122,14 @@ applicativeNoSplit hyp prop theory = do
 
     -- create the goal
     goal <- createGoal prop
-    --fail $ "fail" ++ (show $ map (ppExpr . Lcl) (free hypExpr'))
+
     -- update the theory with the new assumptions, signatures and goal
     return $ [theory{thy_asserts =  thy_asserts theory 
                                     ++ [exprs hypExpr'] ++ [goal], 
                      thy_sigs    =  varDefs ++ thy_sigs theory}]
 
         where
-            exprs = Formula Assert [("Assert",Nothing)] []
+            exprs = Formula Assert [("Assert", Nothing)] []
             createFreshGlobal = (\pt -> freshGlobal (PolyType [] [] (lcl_type pt)) [])
             createSig = (\g -> Signature (gbl_name g) [] (gbl_type g))
 
@@ -173,13 +173,15 @@ applicativeSplit hyp prop theory = do
     return $ zipWith (newTheory nTheory) hyps' varDefs
 
         where
-            exprs = Formula Assert [("Assert",Nothing)] []
+            exprs = Formula Assert [("Assert", Nothing)] []
             createFreshGlobal = (\pt -> freshGlobal (PolyType [] [] (lcl_type pt)) [])
             createSig = (\g -> Signature (gbl_name g) [] (gbl_type g))
             updateRef'' (lcls,gbls,expr) = updateRef' (zip  (createLcls lcls) (createGbls gbls)) expr
             createLcls lcls = map Lcl lcls
             createGbls gbls = map (\gg -> Gbl gg :@: []) gbls
-            newTheory th hypothesis signatures = th{thy_asserts =  thy_asserts th ++ [exprs hypothesis], thy_sigs =  signatures ++ thy_sigs th}
+            newTheory th hypothesis signatures = th{thy_asserts =  thy_asserts th ++ [exprs hypothesis], 
+                                                    thy_sigs    =  signatures ++ thy_sigs th}
 
+-- Forall quantify all free variables in an expression
 quantifyAll :: Name a => Expr a -> Expr a
 quantifyAll expr = mkQuant Forall (free expr) expr
