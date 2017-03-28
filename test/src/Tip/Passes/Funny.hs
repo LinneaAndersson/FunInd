@@ -3,35 +3,47 @@ module Tip.Passes.Funny where
 
 import           Control.Monad         (zipWithM, when)
 import           Data.List             (find, nub)
-import           Data.Maybe            (catMaybes)
+import           Data.Maybe            (catMaybes, isNothing, fromJust)
 
 import           Tip.Core              hiding (freshArgs)
 import           Tip.Fresh             (Fresh, Name)
 import           Tip.Funny.Application (createApps)
-import           Tip.Funny.Property    (Property (..), createProperty, freshIds)
+import           Tip.Funny.Property    as Prop (Property (..), createProperty, freshIds)
 import           Tip.Funny.Utils       (findApps, updateRef')
 import           Tip.Mod               (freshGlobal)
 import           Tip.Passes            (StandardPass (..),
                                         deleteConjecture, runPasses)
 import           Tip.Types             (Expr (..), Formula (..), Quant (..),
                                         Role (..), Signature (..), Theory (..))
+import Utils (group)
 
 import Tip.Pretty.SMT
 
 
 --Returns The "sub"-properties of the property
 createProperties :: Name a =>  Theory a -> Expr a -> Fresh [Property a]
-createProperties th e = es --freshFrom es th
-    where
-        es = do
-            let apps = findApps (thy_funcs th) e
-            let mFuncs = map (\aps -> find ((==) (snd aps) . func_name) (thy_funcs th)) apps
-            if Nothing `elem` mFuncs then
-                fail "Could not find function"
-                else do
-                    let funcs = catMaybes mFuncs
-                    fIds <- freshIds (map fst apps)
-                    zipWithM (createProperty e) fIds funcs
+createProperties th e = do
+    let apps = findApps (thy_funcs th) e
+    let mFuncs = map (\aps -> find ((snd aps ==) . func_name) (thy_funcs th)) apps
+    if Nothing `elem` mFuncs then
+        fail "Could not find function"
+        else do
+            let funcs = catMaybes mFuncs
+            fIds <- Prop.freshIds (map fst apps)
+            zipWithM (Prop.createProperty e) fIds funcs
+
+
+--Returns a "sub"-property of the property specifed by an index
+createProperty :: Name a =>  Theory a -> Expr a -> Int -> Fresh (Property a)
+createProperty th e i = do
+    let app = findApps (thy_funcs th) e !! i
+    let func = find ((snd app ==) . func_name) (thy_funcs th)
+    if isNothing func then
+        fail "Could not find function"
+        else do
+            fIds <- Prop.freshIds [fst app]
+            Prop.createProperty e (head fIds) (fromJust func)
+
 
 -- Create sub properties and their hypotheses
 createAsserts :: Name a => Theory a -> Expr a -> Fresh [(Property a,[(Expr a, Expr a)])]
@@ -52,7 +64,8 @@ createSignatures prop = map (\g -> Signature (gbl_name g) [] (gbl_type g)) (prop
 
 
 applicativeInduction :: Name a => Bool -> [Int] -> Theory a -> Fresh [Theory a]
-applicativeInduction split (l:ls) theory' = do
+applicativeInduction _      []      _ = fail "No induction indices"
+applicativeInduction split  (l:ls)  theory' = do
     theory <- head <$> runPasses [TypeSkolemConjecture, Monomorphise False,LetLift] theory'    
 
     -- Get the goal expression from the theory
@@ -78,7 +91,7 @@ applicativeNoSplit :: Name a => [(Expr a, Expr a)] -> Property a -> Theory a -> 
 applicativeNoSplit hyp prop theory = do
 
     -- collect all hypotheses for each pattern matching case
-    let collectedExprs = collectHyp hyp 
+    let collectedExprs = group hyp 
    
     -- List the free variables in the pattern matching cases (global variables)
     let freeVars =  concatMap free (map fst collectedExprs)
@@ -96,7 +109,7 @@ applicativeNoSplit hyp prop theory = do
                      ) collectedExprs --hypExpr
 
     -- add quantifier for each hypothesis
-    let colQuant = map (\(req,exs) -> ands $ req:map quantify exs) hypExprs
+    let colQuant = map (\(req,exs) -> ands $ req:map quantifyAll exs) hypExprs
 
     -- create one hypothesis consisting of all possible pattern matching cases
     let hypExpr' = ors $ colQuant
@@ -123,7 +136,7 @@ applicativeSplit :: Name a => [(Expr a, Expr a)] -> Property a -> Theory a -> Fr
 applicativeSplit hyp prop theory = do 
 
     -- collect all hypotheses for each pattern matching case
-    let collectedExprs = collectHyp hyp 
+    let collectedExprs = group hyp 
 
     -- List the free variables in the pattern matching cases (global variables)
     let freeVars = map free (map fst collectedExprs)
@@ -139,7 +152,7 @@ applicativeSplit hyp prop theory = do
                      ) $ zip3 freeVars listFree collectedExprs
 
     -- add quantifier for each hypothesis
-    let hyps' = map (\(req,exs) -> ands $ req:map quantify exs) updExprs
+    let hyps' = map (\(req,exs) -> ands $ req:map quantifyAll exs) updExprs
 
     --Create signatures for the new globals
     let sigsFree = map (\lF -> map createSig (lF ++ propGblBody prop)) listFree
@@ -161,17 +174,10 @@ applicativeSplit hyp prop theory = do
             exprs = Formula Assert [("Assert",Nothing)] []
             createFreshGlobal = (\pt -> freshGlobal (PolyType [] [] (lcl_type pt)) [])
             createSig = (\g -> Signature (gbl_name g) [] (gbl_type g))
-            updateRef'' (lcls,gbls,expr)= updateRef' (zip  (createLcls lcls) (createGbls gbls)) expr
+            updateRef'' (lcls,gbls,expr) = updateRef' (zip  (createLcls lcls) (createGbls gbls)) expr
             createLcls lcls = map Lcl lcls
             createGbls gbls = map (\gg -> Gbl gg :@: []) gbls
             newTheory th hypothesis signatures = th{thy_asserts =  thy_asserts th ++ [exprs hypothesis], thy_sigs =  signatures ++ thy_sigs th}
 
-
-collectHyp :: Name a => [(Expr a , Expr a)] -> [(Expr a,[Expr a])]
-collectHyp es = map (\a -> (a,getfist a)) fist
-    where 
-        fist = nub (map fst es)
-        getfist req = map snd $ filter (\(req',ans)->req==req') es
-
-quantify :: Name a => Expr a -> Expr a
-quantify expr = mkQuant Forall (free expr) expr
+quantifyAll :: Name a => Expr a -> Expr a
+quantifyAll expr = mkQuant Forall (free expr) expr

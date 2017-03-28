@@ -100,8 +100,6 @@ createProp ls = (\name -> Gbl (Global name pType []) :@: lcls) <$> gName
         pType = PolyType [] gArgs t
         lcls = map Lcl ls
 
-
-
 -- convert first Expr to a funny property over second Expr
 freshIds :: Name a =>[Expr a] -> Fresh [[(Expr a, a)]]
 freshIds = mapM (p . unzip . freshArgs)
