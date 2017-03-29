@@ -4,7 +4,7 @@
 module Tip.Mod where
 
 
-import qualified Data.Generics.Geniplate as G   (UniverseBi, universe)
+import qualified Data.Generics.Geniplate as G   (UniverseBi, universe, universeBi)
 import           Control.Monad                  (join)
 import           Data.Maybe                     (isJust, fromMaybe)
 import           Text.PrettyPrint               (Doc(..), vcat)
@@ -83,6 +83,9 @@ locals' = map Lcl . locals
 
 universe :: G.UniverseBi a a => a -> [a]
 universe = G.universe
+
+universeBi :: G.UniverseBi a b => a -> [b]
+universeBi = G.universeBi
 
 freshGlobal :: (PrettyVar a, Name a) => PolyType a -> [Type a] -> Fresh (Global a)
 freshGlobal pt t =
