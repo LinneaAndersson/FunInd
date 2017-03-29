@@ -14,37 +14,37 @@ updateRef :: Name a => [(Expr a, Local a)] -> Expr a -> Fresh (Expr a)
 updateRef = updateRef' . map (\(e,l) -> (e,Lcl l))
 
 updateRef' :: Name a => [(Expr a, Expr a)] -> Expr a -> Fresh (Expr a)
-updateRef' ls local@(Lcl _)  = return $ fromMaybe local (lookup local ls)
-updateRef' ls gbl@(a :@: ts)    =
+updateRef' ls local@(Lcl _) = return $ fromMaybe local (lookup local ls)
+updateRef' ls gbl@(a :@: ts) =
     case lookup gbl ls of
         Nothing ->
             do
                 updated <- mapM (updateRef' ls) ts
                 return (a :@: updated)
         Just l' -> return l'
-updateRef' ls m@(Match e cs)  =
+updateRef' ls m@(Match e cs) =
     case lookup m ls of
         Nothing ->
             do
-                eUp <- updateRef' ls e
-                listUp <- mapM (updateCase ls) cs
+                eUp     <- updateRef' ls e
+                listUp  <- mapM (updateCase ls) cs
                 return $ Match eUp listUp
         Just l' -> return l'
 updateRef' ls (Quant t dn lcls expr) = do
-    fVar <- mapM (\l -> fresh >>= \i -> return $ Local i (lcl_type l)  ) lcls
-    expr' <- updateRef (zip (map Lcl lcls) fVar) expr
+    fVar    <- mapM (\l -> fresh >>= \i -> return $ Local i (lcl_type l)  ) lcls
+    expr'   <- updateRef (zip (map Lcl lcls) fVar) expr
     Quant t dn fVar <$> updateRef' ls expr'
-updateRef' ls (Lam lcls expr)   = do
-    fVar <- mapM (\l -> fresh >>= \i -> return $ Local i (lcl_type l)  ) lcls
-    expr' <- updateRef (zip (map Lcl lcls) fVar) expr
+updateRef' ls (Lam lcls expr) = do
+    fVar    <- mapM (\l -> fresh >>= \i -> return $ Local i (lcl_type l)  ) lcls
+    expr'   <- updateRef (zip (map Lcl lcls) fVar) expr
     Lam fVar <$> (updateRef' ls expr')
 updateRef' ls (Let lcl eLcl expr) = do
-    fVar <-  fresh >>= \i -> return $ Local i (lcl_type lcl)
+    fVar    <-  fresh >>= \i -> return $ Local i (lcl_type lcl)
     lclExpr <- updateRef [(Lcl lcl,fVar)] expr
-    exprU <- updateRef' ls lclExpr
-    eLcLU <- updateRef' ls eLcl
+    exprU   <- updateRef' ls lclExpr
+    eLcLU   <- updateRef' ls eLcl
     return (Let fVar eLcLU exprU)
-updateRef' ls a                 = fail $ "Expression not supported in updateRef' : " ++ (show $ SMT.ppExpr a) 
+updateRef' ls a = fail $ "Expression not supported in updateRef' : " ++ (show $ SMT.ppExpr a) 
 
 updateCase :: Name a => [(Expr a, Expr a)] -> Case a -> Fresh (Case a)
 updateCase ls (Case (ConPat con lcls) rhs) = do 
@@ -72,4 +72,4 @@ findApps fs e = funId $ filter (\(Gbl g :@: _ ) -> isFunc (gbl_name g) fs) (glob
         funId = map (\gbl@(Gbl g :@: ls) -> (gbl, gbl_name g))
 
 isFunc :: Name a => a -> [Function a] -> Bool
-isFunc i = any ((==) i . func_name)
+isFunc i = any ((i ==) . func_name)

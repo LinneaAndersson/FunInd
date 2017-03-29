@@ -17,7 +17,7 @@ import           Tip.Types          (Theory)
 import           Tip.Fresh          (Name)
 
 import           Constants          (out_path)
-import           Process            (jukebox_hs)
+import           IO.Process            (jukebox_hs)
 import qualified Tip.Pretty.SMT.Mod as SMT    (ppTheory)
 
 type Flag = String

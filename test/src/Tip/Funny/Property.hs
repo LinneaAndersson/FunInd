@@ -74,9 +74,9 @@ addReq el newL =
             do
                 upRefs <- updateRef locals e
                 return (upRefs,i)) exps
-        let eqExpr = map (\(a,b)-> Lcl b === a) newEs
-        let andExpr = ands eqExpr
-        let fA = andExpr --mkQuant Forall newL andExpr
+        let eqExpr  = map (\(a,b)-> Lcl b === a) newEs
+            andExpr = ands eqExpr
+            fA = andExpr --mkQuant Forall newL andExpr
         return fA
 
 addReq' :: Name a =>[(Expr a, Local a)] -> [Expr a] -> Fresh [Local a]
@@ -85,17 +85,17 @@ addReq' ls (e:es) =
     do req <- addReq' (diff ++ ls) es
        return $ map snd diff ++ req
     where
-        eLoc = [ (e', le)  | e'@(Lcl le)<-locals' e]
-        diff = [ (e,i) | (e,i) <- eLoc, e `notElem` map fst ls]
+        eLoc = [ (e', le)   | e'@(Lcl le) <- locals' e]
+        diff = [ (e,i)      | (e,i) <- eLoc, e `notElem` map fst ls]
 
 createProp :: Name a =>[Local a] -> Fresh (Expr a)
 createProp ls = (\name -> Gbl (Global name pType []) :@: lcls) <$> gName
     where
-        t = BuiltinType Boolean
+        t     = BuiltinType Boolean
         gName = freshNamed "prop"
         gArgs = map lcl_type ls
         pType = PolyType [] gArgs t
-        lcls = map Lcl ls
+        lcls  = map Lcl ls
 
 -- convert first Expr to a funny property over second Expr
 freshIds :: Name a =>[Expr a] -> Fresh [[(Expr a, a)]]

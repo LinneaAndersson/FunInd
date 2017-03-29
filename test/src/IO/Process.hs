@@ -1,5 +1,5 @@
 {-# LANGUAGE TupleSections #-}
-module Process where
+module IO.Process where
 
 import           Jukebox.Options    (parser, runPar)
 import           Jukebox.Toolbox    (toFofBox)
