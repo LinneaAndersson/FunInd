@@ -17,6 +17,7 @@ insert x (y:xs) | x <= y    = x : y : xs
 --------------------------------------------------------------------------------
 
 -- Insertion sort
+prop_countcount x as bs = count x as + count x bs === count x (as ++ bs) 
 prop_ISortSorts xs = ordered (isort xs) === True
 prop_ISortCount x xs = count x (isort xs) === count x xs
 
