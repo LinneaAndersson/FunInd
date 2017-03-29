@@ -124,8 +124,7 @@ applicativeNoSplit hyp prop theory = do
     goal <- createGoal prop
 
     -- update the theory with the new assumptions, signatures and goal
-    return $ [theory{thy_asserts =  thy_asserts theory 
-                                    ++ [exprs hypExpr'] ++ [goal], 
+    return $ [theory{thy_asserts =  [exprs hypExpr'] ++ thy_asserts theory ++ [goal], 
                      thy_sigs    =  varDefs ++ thy_sigs theory}]
 
         where

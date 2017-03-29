@@ -92,7 +92,9 @@ z3 = P {name = "z3",
         z3PrePasses = runPasses [TypeSkolemConjecture, 
             Monomorphise  False, SimplifyGently, LambdaLift, 
             AxiomatizeLambdas, Monomorphise False, SimplifyGently, CollapseEqual,
-            RemoveAliases, SimplifyGently , AxiomatizeFuncdefs2, RemoveMatch, SkolemiseConjecture, NegateConjecture] 
+            RemoveAliases, SimplifyGently , 
+            AxiomatizeFuncdefs2, 
+            RemoveMatch, SkolemiseConjecture, NegateConjecture] 
         pout :: [String] -> IO (Bool,[String])
         pout [prob, out] = 
             if "unsat" `isInfixOf` out 
