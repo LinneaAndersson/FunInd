@@ -29,6 +29,17 @@
     (match y
       (case nil 0)
       (case (cons z ys) (ite (= x z) (+ 1 (count x ys)) (count x ys)))))
+(define-fun-rec
+  (par (a)
+    (++ :source Prelude.++
+       ((x (list a)) (y (list a))) (list a)
+       (match x
+         (case nil y)
+         (case (cons z xs) (cons z (++ xs y)))))))
+(assert-not
+  :source ISort.prop_countcount
+  (forall ((x Int) (bs (list Int)) (cs (list Int)))
+    (= (+ (count x bs) (count x cs)) (count x (++ bs cs)))))
 (assert-not
   :source ISort.prop_ISortSorts
   (forall ((xs (list Int))) (ordered (isort xs))))

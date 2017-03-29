@@ -29,6 +29,17 @@
     (match y
       (case nil 0)
       (case (cons z ys) (ite (= x z) (+ 1 (count x ys)) (count x ys)))))
+(define-fun-rec
+  (par (a)
+    (++ :source Prelude.++
+       ((x (list a)) (y (list a))) (list a)
+       (match x
+         (case nil y)
+         (case (cons z xs) (cons z (++ xs y)))))))
+(assert-not
+  :source ISort.prop_countcount
+  (forall ((x Int) (bs (list Int)) (cs (list Int)))
+    (= (+ (count x bs) (count x cs)) (count x (++ bs cs)))))
 (assert-not
   :source ISort.prop_ISortSorts
   (forall ((xs (list Int))) (ordered (isort xs))))
@@ -41,18 +52,33 @@
   (forall ((xs (list Int))) (= (ordered (isort xs)) (ordered xs))))
 (assert-not
   :speculated-lemma
+  (par (x) (forall ((y (list x))) (= (++ y (as nil (list x))) y))))
+(assert-not
+  :speculated-lemma
+  (par (x) (forall ((y (list x))) (= (++ (as nil (list x)) y) y))))
+(assert-not
+  :speculated-lemma
+  (par (x)
+    (forall ((y (list x)) (z (list x)) (x2 (list x)))
+      (= (++ (++ y z) x2) (++ y (++ z x2))))))
+(assert-not
+  :speculated-lemma
+  (par (x)
+    (forall ((y x) (z (list x)) (x2 (list x)))
+      (= (cons y (++ z x2)) (++ (cons y z) x2)))))
+(assert-not
+  :speculated-lemma
   (forall ((x Int)) (= (count x (as nil (list Int))) 0)))
-(assert-not
-  :speculated-lemma
-  (forall ((x (list Int)) (y Int)) (= (<= y (count y x)) (<= y 0))))
-(assert-not
-  :speculated-lemma
-  (forall ((x Int) (y Int) (z (list Int)))
-    (= (<= (+ y x) y) (<= x (count y z)))))
 (assert-not
   :speculated-lemma
   (forall ((x Int) (y (list Int)))
     (= (+ 1 (count x y)) (count x (cons x y)))))
+(assert-not
+  :speculated-lemma
+  (forall ((x Int) (y (list Int))) (= (<= 0 (count x y)) true)))
+(assert-not
+  :speculated-lemma
+  (forall ((x (list Int))) (= (<= (count 1 x) 1) true)))
 (assert-not
   :speculated-lemma
   (forall ((x (list Int))) (= (count 0 (cons 1 x)) (count 0 x))))
@@ -61,8 +87,8 @@
   (forall ((x (list Int))) (= (count 1 (cons 0 x)) (count 1 x))))
 (assert-not
   :speculated-lemma
-  (forall ((x Int) (y (list Int)) (z Int))
-    (= (<= (count z y) z) (<= (count x y) z))))
+  (forall ((x Int) (y (list Int)))
+    (= (<= x (count 1 y)) (<= x (count x y)))))
 (assert-not
   :speculated-lemma
   (forall ((x Int) (y Int))
@@ -70,16 +96,20 @@
       (count x (cons y (as nil (list Int)))))))
 (assert-not
   :speculated-lemma
+  (forall ((x Int) (y (list Int)) (z Int))
+    (= (<= z (count x (cons x y))) (<= z 1))))
+(assert-not
+  :speculated-lemma
   (forall ((x Int) (y Int) (z Int) (x2 (list Int)))
     (= (<= (+ x (count z x2)) y) (<= x (+ y (count z x2))))))
 (assert-not
   :speculated-lemma
-  (forall ((x Int) (y (list Int)) (z Int))
-    (= (<= (count x y) (+ z z)) (<= (count x y) z))))
+  (forall ((x Int) (y (list Int)))
+    (= (count x (cons (+ x x) y)) (count x (cons 0 y)))))
 (assert-not
   :speculated-lemma
   (forall ((x Int) (y (list Int)))
-    (= (count x (cons (+ x x) y)) (count x (cons 0 y)))))
+    (= (count (+ x (count x y)) y) 0)))
 (assert-not
   :speculated-lemma
   (forall ((x Int) (y Int))
@@ -88,54 +118,7 @@
 (assert-not
   :speculated-lemma
   (forall ((x Int) (y (list Int)))
-    (= (count x (cons (+ x 1) y)) (count x y))))
-(assert-not
-  :speculated-lemma
-  (forall ((x Int) (y (list Int)))
     (= (count 0 (cons (+ x x) y)) (count 0 (cons x y)))))
-(assert-not
-  :speculated-lemma
-  (forall ((x Int) (y (list Int)))
-    (= (count 1 (cons (+ x x) y)) (count 1 y))))
-(assert-not
-  :speculated-lemma
-  (forall ((x Int) (y (list Int)))
-    (= (count (+ x x) (cons 1 y)) (count (+ x x) y))))
-(assert-not
-  :speculated-lemma
-  (forall ((x Int) (y (list Int)))
-    (= (count (+ x 1) (cons x y)) (count (+ x 1) y))))
-(assert-not
-  :speculated-lemma
-  (forall ((x (list Int)))
-    (= (count (count (count 0 x) x) x) (count 0 x))))
-(assert-not
-  :speculated-lemma
-  (forall ((x Int) (y (list Int)))
-    (= (count x (cons 1 (cons 0 y))) (count x (cons 0 (cons 1 y))))))
-(assert-not
-  :speculated-lemma
-  (forall ((x Int) (y (list Int)))
-    (= (count 0 (cons x (cons 0 y))) (+ 1 (count 0 (cons x y))))))
-(assert-not
-  :speculated-lemma
-  (forall ((x Int) (y (list Int)))
-    (= (count 0 (cons x (cons 1 y))) (count 0 (cons x y)))))
-(assert-not
-  :speculated-lemma
-  (forall ((x Int) (y (list Int)))
-    (= (count 1 (cons x (cons 0 y))) (count 1 (cons x y)))))
-(assert-not
-  :speculated-lemma
-  (forall ((x Int) (y (list Int)))
-    (= (count 1 (cons x (cons 1 y))) (+ 1 (count 1 (cons x y))))))
-(assert-not
-  :speculated-lemma
-  (forall ((x (list Int))) (= (count (+ 1 (count 1 x)) x) 0)))
-(assert-not
-  :speculated-lemma
-  (forall ((x (list Int)))
-    (= (count (count (+ 1 1) x) x) (count 0 x))))
 (assert-not
   :speculated-lemma
   (forall ((x Int) (y Int) (z (list Int)))
@@ -143,15 +126,11 @@
 (assert-not
   :speculated-lemma
   (forall ((x Int) (y Int) (z Int) (x2 (list Int)))
-    (= (<= x (+ y (count y x2))) (<= x (+ y (count z x2))))))
-(assert-not
-  :speculated-lemma
-  (forall ((x Int) (y Int) (z (list Int)))
-    (= (count x (cons 0 (cons y z))) (count x (cons y (cons 0 z))))))
+    (= (<= x (+ y (count x x2))) (<= x (+ y (count z x2))))))
 (assert-not
   :speculated-lemma
   (forall ((x Int) (y (list Int)))
-    (= (count (+ x x) (cons x y)) (count (+ x x) y))))
+    (= (count (+ x x) (cons 0 y)) (count (+ x x) (cons x y)))))
 (assert-not
   :speculated-lemma
   (forall ((x Int))
@@ -201,19 +180,82 @@
     (= (ordered (insert x y)) (ordered y))))
 (assert-not
   :speculated-lemma
+  (forall ((x (list Int)) (y (list Int)))
+    (= (isort (++ y x)) (isort (++ x y)))))
+(assert-not
+  :speculated-lemma
+  (forall ((x (list Int)) (y (list Int)))
+    (= (isort (++ x (isort y))) (isort (++ x y)))))
+(assert-not
+  :speculated-lemma
+  (forall ((x (list Int)))
+    (= (ordered (++ x (isort x))) (ordered (++ x x)))))
+(assert-not
+  :speculated-lemma
+  (forall ((x (list Int)))
+    (= (ordered (++ (isort x) x)) (ordered (++ x x)))))
+(assert-not
+  :speculated-lemma
+  (forall ((x (list Int)))
+    (= (ordered (++ x (++ x x))) (ordered (++ x x)))))
+(assert-not
+  :speculated-lemma
+  (forall ((x Int) (y (list Int)))
+    (= (ordered (++ (insert x y) y)) (ordered (++ (cons x y) y)))))
+(assert-not
+  :speculated-lemma
   (forall ((x Int) (y (list Int)))
     (= (ordered (cons x (insert x y))) (ordered (cons x (cons x y))))))
 (assert-not
   :speculated-lemma
-  (forall ((x Int) (y Int) (z Int) (x2 (list Int)))
-    (= (count x (cons y (insert z x2)))
-      (count x (cons y (cons z x2))))))
+  (forall ((x (list Int)))
+    (= (ordered (++ (isort x) (isort x))) (ordered (++ x x)))))
+(assert-not
+  :speculated-lemma
+  (forall ((x Int) (y (list Int)) (z (list Int)))
+    (= (+ (count x y) (count x z)) (count x (++ y z)))))
+(assert-not
+  :speculated-lemma
+  (forall ((x Int) (y (list Int)) (z (list Int)))
+    (= (count (count x (++ y y)) z) (count (count x y) z))))
 (assert-not
   :speculated-lemma
   (forall ((x Int) (y (list Int)))
-    (= (count (+ x (count x y)) y) 0)))
+    (= (count (count (+ x x) y) y) (count (count x y) y))))
+(assert-not
+  :speculated-lemma
+  (forall ((x (list Int)) (y Int) (z (list Int)))
+    (= (insert y (++ x (cons y z))) (++ (insert y x) (cons y z)))))
+(assert-not
+  :speculated-lemma
+  (forall ((x Int) (y (list Int)) (z (list Int)))
+    (= (insert x (++ (insert x y) z)) (++ (insert x (insert x y)) z))))
 (assert-not
   :speculated-lemma
   (forall ((x Int) (y (list Int)) (z (list Int)))
     (= (insert 0 (cons (count x y) z)) (cons 0 (cons (count x y) z)))))
+(assert-not
+  :speculated-lemma
+  (forall ((x Int) (y (list Int)))
+    (= (ordered (++ (cons x y) (isort y)))
+      (ordered (++ (cons x y) y)))))
+(assert-not
+  :speculated-lemma
+  (forall ((x Int) (y (list Int)))
+    (= (ordered (++ (insert x y) (isort y)))
+      (ordered (++ (cons x y) y)))))
+(assert-not
+  :speculated-lemma
+  (forall ((x Int) (y (list Int)))
+    (= (ordered (++ (isort y) (cons x y)))
+      (ordered (++ y (cons x y))))))
+(assert-not
+  :speculated-lemma
+  (forall ((x Int) (y (list Int)))
+    (= (ordered (++ (isort y) (insert x y)))
+      (ordered (++ y (insert x y))))))
+(assert-not
+  :speculated-lemma
+  (forall ((x Int) (y Int) (z (list Int)) (x2 (list Int)))
+    (= (count (+ y (count x z)) x2) (count (+ y (count y z)) x2))))
 (check-sat)

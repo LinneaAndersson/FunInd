@@ -38,7 +38,6 @@ count x (y:ys)
   | x == y = 1 + count x ys
   | otherwise = count x ys
 
-prp_pp a b c = (a ++ b) ++ c === a ++ (b ++c) 
 prop_countcount x as bs = count x as + count x bs === count x (as ++ bs) 
 
 p_tmpNil y = count y [] === count y (qsort [])
