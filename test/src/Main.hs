@@ -9,9 +9,9 @@ import           System.FilePath.Posix (splitFileName,
 import           System.Directory      (getDirectoryContents)
 import           Data.Time             (getCurrentTime,diffUTCTime)
 
-import           Tip.Core              (theoryGoals)
+import           Tip.Core              (theoryGoals,Builtin(..),Head(..),Expr(..))
 import           Tip.Fresh             (Name)
-import           Tip.Mod               (renameLemmas)
+import           Tip.Mod               (renameLemmas,universeBi)
 
 import           Constants             (out_path, prop_file, out_smt)
 import           Induction.Induction   (getIndType, printResult, printStr)
@@ -86,7 +86,7 @@ runMain params preQS = do
         theory_qs <- readTheory prop_file
 
         let theory' = theory_qs
-
+    
         -- TODO better error handling
         runStateT 
             (runTP $ induct (renameLemmas theory') start)
