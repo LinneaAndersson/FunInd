@@ -39,4 +39,7 @@ collect :: Eq a => [(a, b)] -> a -> [b]
 collect kv key = map snd $ filter ((key ==) . fst) kv
 
 
-
+deleteAt :: Int -> [a] -> [a]
+deleteAt _ []     = []
+deleteAt 0 (x:xs) = xs
+deleteAt n (x:xs) = x : deleteAt (n-1) xs 
