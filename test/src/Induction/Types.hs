@@ -44,9 +44,9 @@ newtype Name a => TP a b = TP (StateT (IndState a) IO b)
 data Lemma = Lemma
     { lemmaName   :: String
     , lemmaSource :: Maybe String
-    , hLemmas     :: [String]
-    , indVar      :: Maybe [Int]
+    , hLemmas     :: [(Maybe [Int], [String])]
     , formula     :: String
+    , status      :: Bool 
     } deriving (Show,Read)
 
 getInduction :: Name a => TP a (Induction a)
@@ -63,7 +63,7 @@ getHelpLemmas name = lemmas =<< getLemmas
   where
     lemmas ls = case find ((==) name . lemmaName) ls of
                     Nothing -> fail "Lemma not found"
-                    Just l  -> return $ hLemmas l
+                    Just l  -> return . snd . head $ hLemmas l
 
 getVar :: Name a => TP a (Maybe [Int])
 getVar = ind <$> get

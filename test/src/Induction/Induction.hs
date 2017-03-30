@@ -38,7 +38,12 @@ structuralInd = Ind (length . fst . forallView . fm_body . head . fst . theoryGo
           vars = map (ppVar . lcl_name) . fst . forallView . fm_body
 
 addLemma :: Name a => String -> String -> Maybe String -> TP a ()
-addLemma name formula source = modify (\s ->  s{lemmas = Lemma name source (axioms s) (ind s) formula:lemmas s})
+addLemma name formula source = modify (\s ->  s{lemmas = update (newLemma s) (lemmas s)})
+    where 
+        newLemma s = Lemma name source [(ind s, axioms s)] formula True
+        update l ls = case partition (\a -> lemmaName l == lemmaName a) ls of
+                        ([], _)    -> l:ls
+                        ([l'],ls') -> l'{hLemmas = hLemmas l ++ hLemmas l'}:ls'
 
 -- run the choosen prover on the file given by the filepath
 runProver :: Name a => FilePath -> TP a String
@@ -102,7 +107,7 @@ printResult th =
                         $ fromMaybe nameL userProp
                             ++  " " ++ getFormula formula
                 -- If proved with induction, show which variable was used
-                case indVar l of
+                case getVar l of
                     Nothing -> return ()
                     Just i  -> do
                                 strify <- printVar <$> getInduction
@@ -118,11 +123,19 @@ printResult th =
                                     maybe (fail "error: Could not find formula") getFormula hFormula
                                 else 
                                     a))) $
-                    nub $ filter (nameL /=) (hLemmas l)
+                    nub $ filter (nameL /=) (getHelpLemmas l)
 
 -- check if a lemma was proved using induction
 isInductive :: Lemma -> Bool
-isInductive = isJust . indVar
+isInductive = isJust . fst . head . hLemmas
+
+-- get induction variable
+getVar :: Lemma -> Maybe [Int]
+getVar = fst . head . hLemmas
+
+-- get help lemmas
+getHelpLemmas :: Lemma -> [String]
+getHelpLemmas = snd . head . hLemmas 
 
 -- print if given int is less then the verbosity level
 printStr :: Name a => Int -> String -> TP a ()
