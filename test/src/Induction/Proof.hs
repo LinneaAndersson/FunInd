@@ -17,6 +17,7 @@ import Tip.Fresh (Name)
 import Tip.Formula (getFormula)
 import Tip.Passes (StandardPass(..),provedConjecture,selectConjecture, runPasses, freshPass)
 import Tip.Types (Theory(..), Formula(..))
+import Tip.Pretty.SMT as SMT
 
 import Benchmarks (writeInterrupt)
 import Constants (out_path)
@@ -58,6 +59,7 @@ loop_conj theory curr num continue
                 -- turn formula into printable form
                 formulaPrint = getFormula formula
             in do
+
                 -- clean output directory
                 liftIO $ removeContentInFolder (out_path "")
 

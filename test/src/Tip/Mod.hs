@@ -57,14 +57,14 @@ renameLemmas th = th{thy_asserts = new_asserts th}
 tff :: (PrettyVar a, Name a) => [StandardPass]-> Theory a -> [Theory a]
 tff p = freshPass (runPasses $ p ++
         [ TypeSkolemConjecture
-          , Monomorphise False
+          --, Monomorphise False
           , LambdaLift
           , AxiomatizeLambdas
           , SimplifyGently
           , CollapseEqual
           , RemoveAliases
           , SimplifyGently
-          , Monomorphise False
+          --, Monomorphise False
           , IfToBoolOp
           , CommuteMatch
           , SimplifyGently

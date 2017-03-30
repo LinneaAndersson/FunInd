@@ -9,7 +9,7 @@ import           Tip.Core              hiding (freshArgs)
 import           Tip.Fresh             (Fresh, Name)
 import           Tip.Funny.Application (createApps)
 import           Tip.Funny.Property    as Prop (Property (..), createProperty, freshIds)
-import           Tip.Funny.Utils       (findApps, updateRef')
+import           Tip.Funny.Utils       (findApps, updateRef',quantifyAll)
 import           Tip.Mod               (freshGlobal)
 import           Tip.Passes            (StandardPass (..),
                                         deleteConjecture, runPasses)
@@ -181,6 +181,4 @@ applicativeSplit hyp prop theory = do
             newTheory th hypothesis signatures = th{thy_asserts =  thy_asserts th ++ [exprs hypothesis], 
                                                     thy_sigs    =  signatures ++ thy_sigs th}
 
--- Forall quantify all free variables in an expression
-quantifyAll :: Name a => Expr a -> Expr a
-quantifyAll expr = mkQuant Forall (free expr) expr
+

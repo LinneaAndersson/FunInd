@@ -10,8 +10,10 @@ import           System.Directory      (getDirectoryContents)
 import           Data.Time             (getCurrentTime,diffUTCTime)
 
 import           Tip.Core              (theoryGoals,Builtin(..),Head(..),Expr(..))
-import           Tip.Fresh             (Name)
+import           Tip.Fresh             (Name,freshPass)
 import           Tip.Mod               (renameLemmas,universeBi)
+import           Tip.Pretty.SMT as SMT
+import           Tip.Passes.ReplacePrelude (replacePrelude)
 
 import           Constants             (out_path, prop_file, out_smt)
 import           Induction.Induction   (getIndType, printResult, printStr)
@@ -85,8 +87,8 @@ runMain params preQS = do
         -- parsing tip qith quickspec to theory
         theory_qs <- readTheory prop_file
 
-        let theory' = theory_qs
-    
+        let theory' = freshPass (replacePrelude) theory_qs
+        
         -- TODO better error handling
         runStateT 
             (runTP $ induct (renameLemmas theory') start)
@@ -119,6 +121,7 @@ runMain params preQS = do
                 -- loop through all conjectures and attempt
                 -- to prove them
                 th <- loop_conj theory 0 (numConj theory) False
+
                 printResult th
 
                 -- calculate finishing time

@@ -2,11 +2,11 @@ module Tip.Funny.Utils where
 
 import           Data.Maybe (fromMaybe)
 
-import           Tip.Core   (exprType)
+import           Tip.Core   (exprType,free,mkQuant, Quant(..))
 import           Tip.Fresh  (Fresh, Name, fresh)
 import           Tip.Mod    (globals')
 import           Tip.Types  (Case (..), Pattern(..), Expr (..), Function (..), Global (..),
-                             Head (..), Local (..))
+                             Head (..), Local (..), Role(..))
 
 import qualified Tip.Pretty.SMT as SMT
 
@@ -73,3 +73,7 @@ findApps fs e = funId $ filter (\(Gbl g :@: _ ) -> isFunc (gbl_name g) fs) (glob
 
 isFunc :: Name a => a -> [Function a] -> Bool
 isFunc i = any ((i ==) . func_name)
+
+-- Forall quantify all free variables in an expression
+quantifyAll :: Name a => Expr a -> Expr a
+quantifyAll expr = mkQuant Forall (free expr) expr
