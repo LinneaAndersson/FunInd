@@ -9,8 +9,7 @@ import           Tip.Formula         (getFormula, getUserProperty,
                                       lookupFormula)
 import           Tip.Fresh           (Name)
 import           Tip.Funny.Utils     (findApps)
-import           Tip.Passes          (induction)
-import           Tip.Passes.Funny    (applicativeInduction)
+import           Tip.Passes          (induction,selectConjecture, provedConjecture)
 import           Tip.Types           (Formula (..), Theory (..), Head(..), Expr(..), Local(..))
 import           Tip.Pretty.SMT      (ppExpr)
 import           Tip.Pretty          (ppVar)
@@ -18,26 +17,22 @@ import           Tip.Pretty          (ppVar)
 import           Induction.Types     (Induction (..), Lemma (..), TP (..), getInduction,
                                       axioms, getLemmas, getProver, ind, lemmas,
                                       params)
+import           Induction.Application (applicationInd)
+
 import           Parser.Params       (IndType (..), Params (..))
 import           IO.Process             (run_process1)
 import           Prover              (Prover (..))
 import           Utils               (mwhen)
 
 
-applicativeInd :: Name a => Bool -> Induction a
-applicativeInd b =  Ind (\th0 -> length $ findApps (thy_funcs th0) (fm_body $ head . fst $ theoryGoals th0)) 
-                        (applicativeInduction b)
-                        withIndex
-    where
-          withIndex th i formula = "--- Proved with application " 
-                                    ++ (show i) ++ ": " 
-                                    ++ (withArgs $ findApps (thy_funcs th) (fm_body formula) !! (head i))
-          withArgs ((Gbl a :@: ls), gbln) = "'" ++ (show $ ppVar gbln) ++ "' with args " ++ (show $ map (ppExpr) ls) 
+
 
 structuralInd :: Name a => Induction a
 structuralInd = Ind (length . fst . forallView . fm_body . head . fst . theoryGoals) 
                     induction
                     withIndex
+                    (\i t -> [selectConjecture i t])
+                    provedConjecture
     where
           withIndex _ i formula = "--- Proved with variables" ++ ": " ++ (show $ map (vars formula !!) i)
           vars = map (ppVar . lcl_name) . fst . forallView . fm_body
@@ -137,7 +132,7 @@ printStr i s = mwhen ((i <=) <$> (outputLevel . params <$> get))
 getIndType :: Name a => Params -> Induction a
 getIndType p = case indType p of
     Structural  -> structuralInd
-    Applicative -> applicativeInd (splitCases p)
+    Application -> applicationInd (splitCases p)
 
 nextTimeout :: Name a => TP a Bool
 nextTimeout = do

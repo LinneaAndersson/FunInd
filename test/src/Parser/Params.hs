@@ -53,7 +53,7 @@ instance Show InputFile where
     show (HS fp)            = fp
     show (SMT fp)           = fp
 
-data IndType = Structural | Applicative
+data IndType = Structural | Application
     deriving Show
 
 type Timeouts = [Int]
@@ -139,4 +139,4 @@ parseInputFile = fun <$> strArgument (metavar "FILENAME" <> help "File to proces
 parseIndType :: Parser IndType
 parseIndType =
     flag'    Structural      (long "structural-induction" <> help "Prove using structural induction")
-    <|> flag Applicative Applicative  (long "applicative-induction" <> help "Prove using applicative induction (default)")
+    <|> flag Application Application  (long "application-induction" <> help "Prove using application induction (default)")
