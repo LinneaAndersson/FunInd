@@ -35,6 +35,7 @@ data Name a => IndState a = IndState
   ,  lemmas :: [Lemma]
   ,  ind    :: Maybe [Int]
   ,  axioms :: [String]
+  ,  loopNbr:: Int
   }
 
 -- Prover/IO instance
@@ -57,6 +58,10 @@ getProver = prover <$> get
 
 getAxioms :: Name a => TP a [String]
 getAxioms = axioms <$> get
+
+getLoopNbr :: Name a => TP a Int
+getLoopNbr = loopNbr <$> get
+
 
 getHelpLemmas :: Name a => String -> TP a [String]
 getHelpLemmas name = lemmas =<< getLemmas

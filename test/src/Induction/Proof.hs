@@ -8,7 +8,7 @@ import Control.Exception (Exception, SomeException, catch, throw)
 import Control.Monad.State (modify, put, get, when, liftIO, join, runStateT)
 
 import Induction.Induction (printStr, runProver, addLemma, nextTimeout)
-import Induction.Types (TP(..), IndState(..), Lemma(..), Induction(..), getLemmas, getProver, getInduction)
+import Induction.Types (TP(..), IndState(..), Lemma(..), Induction(..), getLemmas, getProver, getInduction, getLoopNbr)
 
 import Parser.Params (Params(..))
 
@@ -27,64 +27,44 @@ import Utils (mcase, subsets)
 -- Looping through all conjectures and try to prove them
 -- If provable with structural induction, they are put into the theory as proven lemmas
 -- If during one loop none is proved, do not continue
-loop_conj :: Name a => Theory a -> Int -> Int -> Bool -> TP a (Theory a)
-loop_conj theory curr num continue
-    | curr >= num = -- tested all conjectures
-        if continue -- check whether to loop again
-            then loop_conj theory 0 num False   -- continue
-            else mcase nextTimeout
-                    (loop_conj theory 0 num False)
-                    (return theory)       -- done
-    | otherwise  = do
+loop_conj :: Name a => Theory a -> TP a (Theory a)
+loop_conj theory =  do
+    let count = length . fst $ theoryGoals theory
+    loopNbr <- getLoopNbr
+    liftIO $ putStrLn (show loopNbr)
+    liftIO $ putStrLn (show count)
+    if ((loopNbr <= count) && (count /= 0)) then do
         state  <- get
         params <- params <$> get 
         lemmas <- getLemmas
+        select <- selectConj <$> getInduction
+        proved <- provedConj <$> getInduction
 
         -- test a conjecture within a catch statement to enable writting results
         -- even with progrm failure       
-        (theory', state) <- liftIO $ catch (runStateT (runTP $ -- test next conjecture 
-            let
-                -- pick a conjecture
-                th          = selectConjecture curr theory
-                -- the formula matching the current conjecture
-                formula     = head . fst $ theoryGoals th
-                -- lookup up unique name of formual
-                f_name      = fromMaybe "no name"  $ join $ lookup "name" (fm_attrs formula)
-                -- check if formula have a source name
-                f_source    = join $ lookup "source" (fm_attrs formula)
-                -- print name
-                f_s         = fromMaybe f_name f_source
+        (theory', state) <- liftIO $ catch (runStateT (runTP $ do -- test next conjecture 
+            
+            -- pick a conjecture
+            ths <- select theory
 
-                -- turn formula into printable form
-                formulaPrint = getFormula formula
-            in do
-                -- clean output directory
-                liftIO $ removeContentInFolder (out_path "")
+            mcase (loop_conj2 ths)
+                (do
+                    --fail "proved"
+                    pTheory <- proved theory
+                    let count' = length . fst $ theoryGoals pTheory                    
+                    if (count' < count) then do
+                        liftIO $ putStrLn "resetting!!"
+                        resetLoop
+                        else do
+                            liftIO $ putStrLn "incloop"
+                            incLoop
+            
+                    loop_conj pTheory)
+                (do
+                    incLoop
+                    let (gs, as) = theoryGoals theory
+                    loop_conj theory{thy_asserts = init gs ++ head gs:as})
 
-                nbrVar  <- inductionSize <$> getInduction
-
-                -- clean temporary state
-                modify (\s -> s{axioms = [], ind=Nothing})
-                mcase (prove th) -- Test if solvable without induction
-                    (do -- Proved without induction
-                        printStr 3 $ "| " ++ f_s  ++  "  -- P | " ++ formulaPrint
-                        addLemma f_name formulaPrint f_source-- add formula to proved lemmas
-                        -- go to next conjecture
-                        loop_conj (provedConjecture curr theory) curr (num-1) True)
-                    (do
-                        let indVars = subsets (nbrInduct params) (nbrVar th)
-                        printStr 4 $ unlines ["", "= Indices to induct on =", " " ++ show indVars,""]
-                        mcase ( loop_ind th indVars ) -- Attempt induction
-                            (do -- Proved using induction
-                                printStr 3 $ "| " ++ f_s  ++  "  -- I | " ++ formulaPrint
-                                addLemma f_name formulaPrint f_source-- add formula to proved lemmas
-                                -- -- go to next conjecture
-                                loop_conj (provedConjecture curr theory) curr (num-1) True)
-                            (do
-                                -- Unable to prove with current theory
-                                -- try next conjecture
-                                printStr 3 $ "| " ++ f_s  ++  "  -- U | " ++ formulaPrint
-                                loop_conj theory (curr + 1) num continue))
                 ) state 
             ) (\e -> do 
                     -- check for user interrupt, write interrupted state
@@ -94,7 +74,58 @@ loop_conj theory curr num continue
                     throw e)
         put state -- add processed state when no error was encountered
         return theory'
-    where runTP (TP a) = a
+        else
+            return theory
+    where 
+        runTP (TP a) = a
+        incLoop      = modify (\s -> s{loopNbr = (loopNbr s) + 1})
+        resetLoop    = modify (\s -> s{loopNbr = 0})
+
+loop_conj2 :: Name a => [Theory a] -> TP a (Bool)
+loop_conj2 []       = return False
+loop_conj2 (th:ths) = 
+   let
+        -- the formula matching the current conjecture
+        formula     = head . fst . theoryGoals $ th
+        -- lookup up unique name of formual
+        f_name      = fromMaybe "no name"  $ join $ lookup "name" (fm_attrs formula)
+        -- check if formula have a source name
+        f_source    = join $ lookup "source" (fm_attrs formula)
+        -- print name
+        f_s         = fromMaybe f_name f_source
+
+        -- turn formula into printable form
+        formulaPrint = getFormula formula
+    in do
+        params <- params <$> get 
+
+        -- clean output directory
+        liftIO $ removeContentInFolder (out_path "")
+
+        nbrVar  <- inductionSize <$> getInduction
+
+        -- clean temporary state
+        modify (\s -> s{axioms = [], ind=Nothing})
+        mcase (prove th) -- Test if solvable without induction
+            (do -- Proved without induction
+                printStr 3 $ "| " ++ f_s  ++  "  -- P | " ++ formulaPrint
+                addLemma f_name formulaPrint f_source-- add formula to proved lemmas
+                -- go to next conjecture
+                return True)
+            (do
+                let indVars = subsets (nbrInduct params) (nbrVar th)
+                printStr 4 $ unlines ["", "= Indices to induct on =", " " ++ show indVars,""]
+                mcase ( loop_ind th indVars ) -- Attempt induction
+                    (do -- Proved using induction
+                        printStr 3 $ "| " ++ f_s  ++  "  -- I | " ++ formulaPrint
+                        addLemma f_name formulaPrint f_source-- add formula to proved lemmas
+                        -- go to next conjecture
+                        return True)
+                    (do
+                        -- Unable to prove with current theory
+                        -- try next conjecture
+                        printStr 3 $ "| " ++ f_s  ++  "  -- U | " ++ formulaPrint
+                        loop_conj2 ths))
 
 -- Trying to prove a conjecture, looping over all variables in the conjecture
 loop_ind :: Name a => Theory a -> [[Int]] -> TP a Bool

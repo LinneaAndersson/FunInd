@@ -118,7 +118,7 @@ runMain params preQS = do
 
                 -- loop through all conjectures and attempt
                 -- to prove them
-                th <- loop_conj theory 0 (numConj theory) False
+                th <- loop_conj theory
                 printResult th
 
                 -- calculate finishing time
@@ -134,7 +134,7 @@ initState :: Name a => Params -> IndState a
 initState par = IndState par
     (selectProver par)
     (getIndType par)
-    [] Nothing []
+    [] Nothing [] 0
 
 -- When the input file is in haskell we need to run tip-ghc
 -- to convert it to smt2
