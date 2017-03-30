@@ -24,8 +24,8 @@ data Name a => Induction a = Ind
     {   inductionSize :: Theory a -> Int
     ,   inductionPass :: [Int] -> Theory a -> Fresh [Theory a]
     ,   printVar      :: Theory a -> [Int] -> Formula a -> String
-    ,   selectConj    :: Int -> Theory a -> [Theory a]
-    ,   provedConj    :: Int -> Theory a -> Theory a 
+    ,   selectConj    :: Theory a -> TP a [Theory a]
+    ,   provedConj    :: Theory a -> TP a (Theory a) 
     }
 
 data Name a => IndState a = IndState

@@ -31,8 +31,8 @@ structuralInd :: Name a => Induction a
 structuralInd = Ind (length . fst . forallView . fm_body . head . fst . theoryGoals) 
                     induction
                     withIndex
-                    (\i t -> [selectConjecture i t])
-                    provedConjecture
+                    (\t -> return [selectConjecture 0 t])
+                    (return . provedConjecture 0)
     where
           withIndex _ i formula = "--- Proved with variables" ++ ": " ++ (show $ map (vars formula !!) i)
           vars = map (ppVar . lcl_name) . fst . forallView . fm_body
