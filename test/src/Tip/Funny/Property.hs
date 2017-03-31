@@ -10,12 +10,20 @@ import           Tip.Types       (BuiltinType (..), Expr (..), Function (..),
                                   Global (..), Head (..), Local (..),
                                   PolyType (..), Type (..))
 
+-- Example : \forall x . y = qsort x => ordered y 
 data Name a => Property a = Prop
-    { propInp     :: [Local a]
-    , propQnts    :: [Local a]
-    , propGblBody :: [Global a]
+    { 
+        -- The variables repr. the expression we are doing induction over : y
+      propInp     :: [Local a] 
+        -- The variables representing the quantifiers : x
+    , propQnts    :: [Local a] 
+        -- the Globals for propQnts
+    , propGblQnts :: [Global a]
+        -- The expression for the property : \forall x . y = qsort x => ordered y 
     , propBody    :: Expr a
+        -- The function we are doing induction over : ordered 
     , propFunc    :: Function a
+        -- The Globals for propInp
     , propGlobals :: [Global a]
     }
     deriving Show
@@ -24,10 +32,10 @@ createProperty :: Name a => Expr a -> [(Expr a, a)] -> Function a -> Fresh (Prop
 createProperty e ids func = do
     (input, qnts, body) <- createPropExpr e ids
     gbls <- mapM (\pt -> freshGlobal (PolyType [] [] (lcl_type pt)) []) input
-    gblBody <- mapM (\pt -> freshGlobal (PolyType [] [] (lcl_type pt)) []) qnts
+    gblQnts <- mapM (\pt -> freshGlobal (PolyType [] [] (lcl_type pt)) []) qnts
     --lcls <- mapM freshLocal $ polytype_args (gbl_type name)
     --fail $ show $ map (\gg -> ppExpr $ Gbl gg :@: []) gbls ++ ([ppExpr body]) ++ (map (ppExpr . Lcl) qnts)
-    return $ Prop input qnts gblBody body func gbls
+    return $ Prop input qnts gblQnts body func gbls
 
 
 -- Create one application property

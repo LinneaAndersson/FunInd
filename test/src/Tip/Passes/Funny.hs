@@ -52,7 +52,7 @@ createAsserts theory expr = createProperties theory expr >>= \p -> zip p <$> map
 -- Returns the goal of the property as a formula
 createGoal :: Name a => Property a  -> Fresh (Formula a)
 createGoal prop = do
-    let        constants = map (\p' -> Gbl p' :@: []) (propGlobals prop ++ propGblBody prop)
+    let        constants = map (\p' -> Gbl p' :@: []) (propGlobals prop ++ propGblQnts prop)
     let        lcls = map Lcl (propInp prop ++ propQnts prop)
     propE      <- updateRef'  (zip lcls constants) (propBody prop)
     return $   Formula Prove [("goal", Nothing)] [] propE 
@@ -115,7 +115,7 @@ applicativeNoSplit hyp prop theory = do
     let hypExpr' = ors $ colQuant
     
     -- create signatures for all new global variables
-    let sigsFree =  map createSig (listFree ++ propGblBody prop)
+    let sigsFree =  map createSig (listFree ++ propGblQnts prop)
 
     -- all the global signatures
     let varDefs = createSignatures prop ++ sigsFree
@@ -156,7 +156,7 @@ applicativeSplit hyp prop theory = do
     let hyps' = map (\(req,exs) -> ands $ req:map quantifyAll exs) updExprs
 
     --Create signatures for the new globals
-    let sigsFree = map (\lF -> map createSig (lF ++ propGblBody prop)) listFree
+    let sigsFree = map (\lF -> map createSig (lF ++ propGblQnts prop)) listFree
 
     -- all the global signatures
     let varDefs = map (++ createSignatures prop) sigsFree

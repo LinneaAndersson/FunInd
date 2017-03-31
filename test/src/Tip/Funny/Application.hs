@@ -64,10 +64,7 @@ gblExpr reqs p (Gbl g :@: rhsArgs)
         do
             prop <- updateRef' (zip (map Lcl (propInp p)) rhsArgs) (propBody p)
             foldedReq <- foldReqs reqs
-            --let prop' = foldedReq /\ prop
-            --let propArgs = free prop'
-            --let freeVars = nub propArgs
-            return $ Just (foldedReq, prop) --(mkQuant Forall freeVars prop')
+            return $ Just (foldedReq, prop) 
     | otherwise = return Nothing
 
 foldReqs :: Name a => [(Expr a,Expr a)] -> Fresh (Expr a)

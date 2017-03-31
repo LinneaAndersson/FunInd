@@ -65,7 +65,9 @@ printResult th =
     do  -- fetch and partition proved lemmas by if they were proved with or
         -- without induction
         ls <- getLemmas
-        let (ind, notInd) = partition isInductive $ reverse ls
+        let (ind', notInd') = partition isInductive $ reverse ls
+        let ind = filter status ind' --only the ones that are really proven
+        let notInd = filter status notInd' -- only the ones that are really proven
 
         --printStr 0 . show =<< (outputLevel . params <$> get)
         printStr 1 "== Summary =="

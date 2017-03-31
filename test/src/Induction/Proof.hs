@@ -63,7 +63,7 @@ loop_conj theory =  do
                 (do
                     incLoop
                     let (gs, as) = theoryGoals theory
-                    loop_conj theory{thy_asserts = init gs ++ head gs:as})
+                    loop_conj theory{thy_asserts = tail gs ++ head gs:as})
 
                 ) state 
             ) (\e -> do 
