@@ -11,7 +11,7 @@ import           Tip.Types       (BuiltinType (..), Expr (..), Function (..),
                                   PolyType (..), Type (..))
 
 -- Example : \forall x . y = qsort x => ordered y 
-data Name a => Property a = Prop
+data Name a => SubProperty a = SubProp
     { 
         -- The variables repr. the expression we are doing induction over : y
       propInp     :: [Local a] 
@@ -28,17 +28,17 @@ data Name a => Property a = Prop
     }
     deriving Show
 
-createProperty :: Name a => Expr a -> [(Expr a, a)] -> Function a -> Fresh (Property a)
-createProperty e ids func = do
+createSubProperty :: Name a => Expr a -> [(Expr a, a)] -> Function a -> Fresh (SubProperty a)
+createSubProperty e ids func = do
     (input, qnts, body) <- createPropExpr e ids
     gbls <- mapM (\pt -> freshGlobal (PolyType [] [] (lcl_type pt)) []) input
     gblQnts <- mapM (\pt -> freshGlobal (PolyType [] [] (lcl_type pt)) []) qnts
     --lcls <- mapM freshLocal $ polytype_args (gbl_type name)
     --fail $ show $ map (\gg -> ppExpr $ Gbl gg :@: []) gbls ++ ([ppExpr body]) ++ (map (ppExpr . Lcl) qnts)
-    return $ Prop input qnts gblQnts body func gbls
+    return $ SubProp input qnts gblQnts body func gbls
 
 
--- Create one application property
+-- Create one application SubProperty
 createPropExpr :: Name a => Expr a -> [(Expr a, a)] -> Fresh ([Local a], [Local a], Expr a)
 createPropExpr e ids =
     do
@@ -63,11 +63,11 @@ createPropExpr e ids =
         req <- addReq subst newLocals1
         let reqImpBody = req ==> body
 
-        -- Let property equal body
+        -- Let SubProperty equal body
         let pEqB = reqImpBody
         -- Add last forall
 
-        -- get global from property
+        -- get global from SubProperty
         --let (Gbl _ :@: ts) = prop
 
         return (map snd subst , newLocals1++newLocals2, pEqB)
@@ -105,7 +105,7 @@ createProp ls = (\name -> Gbl (Global name pType []) :@: lcls) <$> gName
         pType = PolyType [] gArgs t
         lcls  = map Lcl ls
 
--- convert first Expr to a funny property over second Expr
+-- convert first Expr to a funny SubProperty over second Expr
 freshIds :: Name a =>[Expr a] -> Fresh [[(Expr a, a)]]
 freshIds = mapM (p . unzip . freshArgs)
     where p (as, bs) = zip as <$> sequence bs

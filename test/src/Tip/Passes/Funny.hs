@@ -8,7 +8,7 @@ import           Data.Maybe            (catMaybes, isNothing, fromJust)
 import           Tip.Core              hiding (freshArgs)
 import           Tip.Fresh             (Fresh, Name)
 import           Tip.Funny.Application (createApps)
-import           Tip.Funny.Property    as Prop (Property (..), createProperty, freshIds)
+import           Tip.Funny.Property    as Prop (SubProperty (..), createSubProperty, freshIds)
 import           Tip.Funny.Utils       (findApps, updateRef')
 import           Tip.Mod               (freshGlobal)
 import           Tip.Passes            (StandardPass (..),
@@ -20,8 +20,8 @@ import Utils (group)
 import Tip.Pretty.SMT
 
 
---Returns The "sub"-properties of the property
-createProperties :: Name a =>  Theory a -> Expr a -> Fresh [Property a]
+--Returns The "sub"-properties of the SubProperty
+createProperties :: Name a =>  Theory a -> Expr a -> Fresh [SubProperty a]
 createProperties th e = do
     let apps = findApps (thy_funcs th) e
     let mFuncs = map (\aps -> find ((snd aps ==) . func_name) (thy_funcs th)) apps
@@ -30,27 +30,27 @@ createProperties th e = do
         else do
             let funcs = catMaybes mFuncs
             fIds <- Prop.freshIds (map fst apps)
-            zipWithM (Prop.createProperty e) fIds funcs
+            zipWithM (Prop.createSubProperty e) fIds funcs
 
 
 --Returns a "sub"-property of the property specifed by an index
-createProperty :: Name a =>  Theory a -> Expr a -> Int -> Fresh (Property a)
-createProperty th e i = do
+createSubProperty :: Name a =>  Theory a -> Expr a -> Int -> Fresh (SubProperty a)
+createSubProperty th e i = do
     let app = findApps (thy_funcs th) e !! i
     let func = find ((snd app ==) . func_name) (thy_funcs th)
     if isNothing func then
         fail "Could not find function"
         else do
             fIds <- Prop.freshIds [fst app]
-            Prop.createProperty e (head fIds) (fromJust func)
+            Prop.createSubProperty e (head fIds) (fromJust func)
 
 
 -- Create sub properties and their hypotheses
-createAsserts :: Name a => Theory a -> Expr a -> Fresh [(Property a,[(Expr a, Expr a)])]
+createAsserts :: Name a => Theory a -> Expr a -> Fresh [(SubProperty a,[(Expr a, Expr a)])]
 createAsserts theory expr = createProperties theory expr >>= \p -> zip p <$> mapM createApps p
 
--- Returns the goal of the property as a formula
-createGoal :: Name a => Property a  -> Fresh (Formula a)
+-- Returns the goal of the SubProperty as a formula
+createGoal :: Name a => SubProperty a  -> Fresh (Formula a)
 createGoal prop = do
     let        constants = map (\p' -> Gbl p' :@: []) (propGlobals prop ++ propGblQnts prop)
     let        lcls = map Lcl (propInp prop ++ propQnts prop)
@@ -59,7 +59,7 @@ createGoal prop = do
 
 -- Returns signatures for the input arguments of the application we are
 -- making induction over
-createSignatures :: Name a => Property a -> [Signature a]
+createSignatures :: Name a => SubProperty a -> [Signature a]
 createSignatures prop = map (\g -> Signature (gbl_name g) [] (gbl_type g)) (propGlobals prop)
 
 
@@ -75,7 +75,7 @@ applicativeInduction split  (l:ls)  theory' = do
     let         newTheory = deleteConjecture 0 theory
 
     --Create all application properties and the goals for each of its "pattern matching cases"
--- TODO : only make one property!!!  
+-- TODO : only make one SubSubProperty!!!  
     propExpr    <-  createAsserts newTheory goalExpr
 
     -- update references from locals to constants in the hypotheses
@@ -87,7 +87,7 @@ applicativeInduction split  (l:ls)  theory' = do
         else applicativeNoSplit (snd $ propExpr !! l) prop newTheory 
    
 
-applicativeNoSplit :: Name a => [(Expr a, Expr a)] -> Property a -> Theory a -> Fresh [Theory a]
+applicativeNoSplit :: Name a => [(Expr a, Expr a)] -> SubProperty a -> Theory a -> Fresh [Theory a]
 applicativeNoSplit hyp prop theory = do
 
     -- collect all hypotheses for each pattern matching case
@@ -133,7 +133,7 @@ applicativeNoSplit hyp prop theory = do
             createSig = (\g -> Signature (gbl_name g) [] (gbl_type g))
 
 
-applicativeSplit :: Name a => [(Expr a, Expr a)] -> Property a -> Theory a -> Fresh [Theory a]
+applicativeSplit :: Name a => [(Expr a, Expr a)] -> SubProperty a -> Theory a -> Fresh [Theory a]
 applicativeSplit hyp prop theory = do 
 
     -- collect all hypotheses for each pattern matching case

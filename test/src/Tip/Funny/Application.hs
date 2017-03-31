@@ -4,7 +4,7 @@ import           Control.Monad      (foldM, zipWithM)
 
 import           Tip.Core           (ands, neg, ors, (/\), (===), bool)
 import           Tip.Fresh          (Fresh, Name)
-import           Tip.Funny.Property (Property (..))
+import           Tip.Funny.Property (SubProperty (..))
 import           Tip.Funny.Utils    (updateRef')
 import qualified Tip.Pretty.SMT as SMT  (ppExpr)
 import           Tip.Types          (Builtin (..), Case (..), Expr (..),
@@ -13,7 +13,7 @@ import           Tip.Types          (Builtin (..), Case (..), Expr (..),
 import           Tip.Mod             (universe)
 import           Data.List           (nub)
 
-createApps :: Name a => Property a -> Fresh [(Expr a, Expr a)]
+createApps :: Name a => SubProperty a -> Fresh [(Expr a, Expr a)]
 createApps p =
     let
         f       = propFunc p
@@ -27,7 +27,7 @@ createApps p =
         --fail $ show $ ((ppExpr  renamedExpr) : (map (ppExpr) outp)) ++ (map (\p' -> ppExpr (Gbl p' :@: [])) (propGlobals p)
 
 
-mExpr :: Name a => [(Expr a, Expr a)] -> Property a -> Expr a -> Fresh [(Expr a,Expr a)]
+mExpr :: Name a => [(Expr a, Expr a)] -> SubProperty a -> Expr a -> Fresh [(Expr a,Expr a)]
 mExpr exprs p (Match m cs)        =
     do
         inM <- mExpr exprs p m
@@ -58,7 +58,7 @@ mExpr exprs p (Lam ls e) = mExpr exprs p e
 mExpr _ _ e = fail $ "Cannot handle let, letrec or quantifier in expression in: "
                         ++ show (SMT.ppExpr  e)
 
-gblExpr :: Name a => [(Expr a, Expr a)] -> Property a -> Expr a -> Fresh (Maybe (Expr a, Expr a))
+gblExpr :: Name a => [(Expr a, Expr a)] -> SubProperty a -> Expr a -> Fresh (Maybe (Expr a, Expr a))
 gblExpr reqs p (Gbl g :@: rhsArgs)
     | gbl_name g == func_name (propFunc p) =
         do
