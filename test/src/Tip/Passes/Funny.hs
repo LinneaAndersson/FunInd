@@ -9,7 +9,7 @@ import           Tip.Core              hiding (freshArgs)
 import           Tip.Fresh             (Fresh, Name)
 import           Tip.Funny.Application (createApps)
 import           Tip.Funny.Property    as Prop (Property(..), SubProperty (..), createSubProperty, freshIds)
-import           Tip.Funny.Utils       (findApps, updateRef')
+import           Tip.Funny.Utils       (findApps, updateRef',quantifyAll)
 import           Tip.Mod               (freshGlobal)
 import           Tip.Passes            (StandardPass (..),
                                         deleteConjecture, runPasses)
@@ -36,7 +36,7 @@ getProperties th = mapM (getProperty th) (fst $ theoryGoals th)
 
 
 
---Returns The "sub"-properties of the property
+--Returns The "sub"-properties of the property represented by the expression
 createSubProperties :: Name a =>  Theory a -> Expr a -> Fresh [SubProperty a]
 createSubProperties th e = do
     let apps = findApps (thy_funcs th) e
