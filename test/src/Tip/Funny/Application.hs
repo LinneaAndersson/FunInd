@@ -24,7 +24,6 @@ createApps p =
     in do
         renamedExpr <- updateRef' (zip fArgs glbs) fBody
         mExpr [] p renamedExpr
-        --fail $ show $ ((ppExpr  renamedExpr) : (map (ppExpr) outp)) ++ (map (\p' -> ppExpr (Gbl p' :@: [])) (propGlobals p)
 
 
 mExpr :: Name a => [(Expr a, Expr a)] -> SubProperty a -> Expr a -> Fresh [(Expr a,Expr a)]

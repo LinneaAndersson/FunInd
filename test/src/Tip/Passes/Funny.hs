@@ -77,9 +77,9 @@ createSignatures prop = map (\g -> Signature (gbl_name g) [] (gbl_type g)) (prop
 
 
 
-applicativeInduction :: Name a => Bool -> [Int] -> Theory a -> Fresh [Theory a]
-applicativeInduction _      []      _ = fail "No induction indices"
-applicativeInduction split  (l:ls)  theory' = do
+applicativeInduction :: Name a =>  Bool -> [Property a] -> [Int] -> Theory a -> Fresh [Theory a]
+applicativeInduction _ _      []      _ = fail "No induction indices"
+applicativeInduction split ps (l:ls)  theory' = do
     theory <- head <$> runPasses [TypeSkolemConjecture, Monomorphise False,LetLift] theory'    
 
     -- Get the goal expression from the theory

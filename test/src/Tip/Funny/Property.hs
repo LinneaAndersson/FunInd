@@ -122,8 +122,11 @@ freshArgs expr@(Gbl a :@: ts) = map rName ts
         rName (Lcl a) = (Lcl a, refresh (lcl_name a))
         rName e       = (e, freshNamed "x")
 
+-- returns all subproperties related to a function
 functionSProps :: Name a => Function a -> Property a -> [SubProperty a]
 functionSProps f = filter ((f ==) . propFunc ) . subProps
 
+
+-- returns all subproperties among alll properties related to a function
 functionSubProperties :: Name a => Function a -> [Property a] -> [SubProperty a]
 functionSubProperties f = concatMap (functionSProps f)

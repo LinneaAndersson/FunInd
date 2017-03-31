@@ -147,7 +147,7 @@ printStr i s = mwhen ((i <=) <$> (outputLevel . params <$> get))
 getIndType :: Name a => Params -> Induction a
 getIndType p = case indType p of
     Structural  -> structuralInd
-    Application -> applicationInd (splitCases p)
+    Application -> applicationInd (splitCases p) []
 
 nextTimeout :: Name a => TP a Bool
 nextTimeout = do
