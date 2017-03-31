@@ -10,6 +10,12 @@ import           Tip.Types       (BuiltinType (..), Expr (..), Function (..),
                                   Global (..), Head (..), Local (..),
                                   PolyType (..), Type (..))
 
+
+data Name a => Property a = Prop
+    { lemmaName :: String
+    , subProps  :: [SubProperty]
+    }
+
 -- Example : \forall x . y = qsort x => ordered y 
 data Name a => SubProperty a = SubProp
     { 

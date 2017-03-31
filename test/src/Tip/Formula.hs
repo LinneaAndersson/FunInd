@@ -23,6 +23,13 @@ lookupFormula s (f:fs)
 getFormulaVar :: Name a => Formula a -> Int -> String
 getFormulaVar f i = varStr $ lcl_name $ fst (forallView $ fm_body f) !! i
 
+-- Returns the formulas name or "no name" if not found
+getFormulaName :: Name a => Formula a -> String
+getFormulaName f = 
+    case join $ lookup "name" $ fm_attrs f of
+        Nothing -> "no name"
+        Just a  -> a
+ 
 -- TODO rename function?
 -- remove formula from Maytbe AND format it
 getFormula :: Name a => Formula a -> String
