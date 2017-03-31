@@ -8,21 +8,32 @@ import           Data.Maybe            (catMaybes, isNothing, fromJust)
 import           Tip.Core              hiding (freshArgs)
 import           Tip.Fresh             (Fresh, Name)
 import           Tip.Funny.Application (createApps)
-import           Tip.Funny.Property    as Prop (SubProperty (..), createSubProperty, freshIds)
+import           Tip.Funny.Property    as Prop (Property(..), SubProperty (..), createSubProperty, freshIds)
 import           Tip.Funny.Utils       (findApps, updateRef')
 import           Tip.Mod               (freshGlobal)
 import           Tip.Passes            (StandardPass (..),
                                         deleteConjecture, runPasses)
 import           Tip.Types             (Expr (..), Formula (..), Quant (..),
                                         Role (..), Signature (..), Theory (..))
+import           Tip.Formula            (getFormulaName)
 import Utils (group)
 
 import Tip.Pretty.SMT
 
+-- Returns the property represented by the formula
+getProperty :: Name a => Theory a -> Formula a -> Fresh (Property a)
+getProperty th f = do 
+    subProps <- createSubProperties th (fm_body f)
+    return $ Prop (getFormulaName f) subProps      
 
---Returns The "sub"-properties of the SubProperty
-createProperties :: Name a =>  Theory a -> Expr a -> Fresh [SubProperty a]
-createProperties th e = do
+
+-- Returns a list with all properties in the theory
+getProperties :: Name a => Theory a -> Fresh [Property a]
+getProperties th = mapM (getProperty th) (fst $ theoryGoals th) 
+
+--Returns The "sub"-properties of the property
+createSubProperties :: Name a =>  Theory a -> Expr a -> Fresh [SubProperty a]
+createSubProperties th e = do
     let apps = findApps (thy_funcs th) e
     let mFuncs = map (\aps -> find ((snd aps ==) . func_name) (thy_funcs th)) apps
     if Nothing `elem` mFuncs then
@@ -33,21 +44,11 @@ createProperties th e = do
             zipWithM (Prop.createSubProperty e) fIds funcs
 
 
---Returns a "sub"-property of the property specifed by an index
-createSubProperty :: Name a =>  Theory a -> Expr a -> Int -> Fresh (SubProperty a)
-createSubProperty th e i = do
-    let app = findApps (thy_funcs th) e !! i
-    let func = find ((snd app ==) . func_name) (thy_funcs th)
-    if isNothing func then
-        fail "Could not find function"
-        else do
-            fIds <- Prop.freshIds [fst app]
-            Prop.createSubProperty e (head fIds) (fromJust func)
 
 
 -- Create sub properties and their hypotheses
 createAsserts :: Name a => Theory a -> Expr a -> Fresh [(SubProperty a,[(Expr a, Expr a)])]
-createAsserts theory expr = createProperties theory expr >>= \p -> zip p <$> mapM createApps p
+createAsserts theory expr = createSubProperties theory expr >>= \p -> zip p <$> mapM createApps p
 
 -- Returns the goal of the SubProperty as a formula
 createGoal :: Name a => SubProperty a  -> Fresh (Formula a)

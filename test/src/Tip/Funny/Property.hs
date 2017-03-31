@@ -13,7 +13,7 @@ import           Tip.Types       (BuiltinType (..), Expr (..), Function (..),
 
 data Name a => Property a = Prop
     { lemmaName :: String
-    , subProps  :: [SubProperty]
+    , subProps  :: [SubProperty a]
     }
 
 -- Example : \forall x . y = qsort x => ordered y 
