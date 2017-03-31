@@ -73,3 +73,5 @@ findApps fs e = funId $ filter (\(Gbl g :@: _ ) -> isFunc (gbl_name g) fs) (glob
 
 isFunc :: Name a => a -> [Function a] -> Bool
 isFunc i = any ((i ==) . func_name)
+
+

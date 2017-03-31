@@ -20,6 +20,7 @@ import Utils (group)
 
 import Tip.Pretty.SMT
 
+
 -- Returns the property represented by the formula
 getProperty :: Name a => Theory a -> Formula a -> Fresh (Property a)
 getProperty th f = do 
@@ -27,9 +28,13 @@ getProperty th f = do
     return $ Prop (getFormulaName f) subProps      
 
 
+
 -- Returns a list with all properties in the theory
 getProperties :: Name a => Theory a -> Fresh [Property a]
 getProperties th = mapM (getProperty th) (fst $ theoryGoals th) 
+
+
+
 
 --Returns The "sub"-properties of the property
 createSubProperties :: Name a =>  Theory a -> Expr a -> Fresh [SubProperty a]
@@ -50,6 +55,10 @@ createSubProperties th e = do
 createAsserts :: Name a => Theory a -> Expr a -> Fresh [(SubProperty a,[(Expr a, Expr a)])]
 createAsserts theory expr = createSubProperties theory expr >>= \p -> zip p <$> mapM createApps p
 
+
+
+
+
 -- Returns the goal of the SubProperty as a formula
 createGoal :: Name a => SubProperty a  -> Fresh (Formula a)
 createGoal prop = do
@@ -58,10 +67,14 @@ createGoal prop = do
     propE      <- updateRef'  (zip lcls constants) (propBody prop)
     return $   Formula Prove [("goal", Nothing)] [] propE 
 
+
+
 -- Returns signatures for the input arguments of the application we are
 -- making induction over
 createSignatures :: Name a => SubProperty a -> [Signature a]
 createSignatures prop = map (\g -> Signature (gbl_name g) [] (gbl_type g)) (propGlobals prop)
+
+
 
 
 applicativeInduction :: Name a => Bool -> [Int] -> Theory a -> Fresh [Theory a]
@@ -87,6 +100,9 @@ applicativeInduction split  (l:ls)  theory' = do
         then applicativeSplit   (snd $ propExpr !! l) prop newTheory         
         else applicativeNoSplit (snd $ propExpr !! l) prop newTheory 
    
+
+
+
 
 applicativeNoSplit :: Name a => [(Expr a, Expr a)] -> SubProperty a -> Theory a -> Fresh [Theory a]
 applicativeNoSplit hyp prop theory = do
@@ -132,6 +148,9 @@ applicativeNoSplit hyp prop theory = do
             exprs = Formula Assert [("Assert", Nothing)] []
             createFreshGlobal = (\pt -> freshGlobal (PolyType [] [] (lcl_type pt)) [])
             createSig = (\g -> Signature (gbl_name g) [] (gbl_type g))
+
+
+
 
 
 applicativeSplit :: Name a => [(Expr a, Expr a)] -> SubProperty a -> Theory a -> Fresh [Theory a]
@@ -181,7 +200,3 @@ applicativeSplit hyp prop theory = do
             createGbls gbls = map (\gg -> Gbl gg :@: []) gbls
             newTheory th hypothesis signatures = th{thy_asserts =  thy_asserts th ++ [exprs hypothesis], 
                                                     thy_sigs    =  signatures ++ thy_sigs th}
-
--- Forall quantify all free variables in an expression
-quantifyAll :: Name a => Expr a -> Expr a
-quantifyAll expr = mkQuant Forall (free expr) expr
