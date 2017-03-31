@@ -9,6 +9,7 @@ import           Tip.Formula         (getFormula, getUserProperty,
                                       lookupFormula)
 import           Tip.Fresh           (Name)
 import           Tip.Funny.Utils     (findApps)
+import qualified Tip.Funny.Property as Prop (Property(..))
 import           Tip.Passes          (induction,selectConjecture, provedConjecture)
 import           Tip.Types           (Formula (..), Theory (..), Head(..), Expr(..), Local(..))
 import           Tip.Pretty.SMT      (ppExpr)
@@ -144,10 +145,10 @@ printStr :: Name a => Int -> String -> TP a ()
 printStr i s = mwhen ((i <=) <$> (outputLevel . params <$> get))
                 (liftIO $ putStrLn s)
 
-getIndType :: Name a => Params -> Induction a
-getIndType p = case indType p of
+getIndType :: Name a => [Prop.Property a] -> Params -> Induction a
+getIndType ps p = case indType p of
     Structural  -> structuralInd
-    Application -> applicationInd (splitCases p) []
+    Application -> applicationInd (splitCases p) ps
 
 nextTimeout :: Name a => TP a Bool
 nextTimeout = do

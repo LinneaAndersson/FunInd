@@ -54,7 +54,7 @@ instance Show InputFile where
     show (SMT fp)           = fp
 
 data IndType = Structural | Application
-    deriving Show
+    deriving (Show, Eq)
 
 type Timeouts = [Int]
 
