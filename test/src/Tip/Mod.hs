@@ -56,10 +56,9 @@ renameLemmas th = th{thy_asserts = new_asserts th}
 -- The passes needed to convert the theory into tff format
 tff :: (PrettyVar a, Name a) => [StandardPass]-> Theory a -> [Theory a]
 tff p = freshPass (runPasses $ p ++
-        [ --TypeSkolemConjecture
-          --, Monomorphise False
---          , 
-            LambdaLift
+        [ TypeSkolemConjecture
+          , Monomorphise False
+          , LambdaLift
           , AxiomatizeLambdas
           , SimplifyGently
           , CollapseEqual

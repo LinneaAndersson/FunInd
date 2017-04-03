@@ -49,7 +49,6 @@ eprover = P {name = "eproof",
              flags = ["--tstp-in", "--auto", "--full-deriv"],
              prepare = \i ->
                     do
-                        putStrLn $ show $ SMT.ppTheory [] i
                         let str = show . ppTheoryTFF . head . tff [IntToNat, SortsToNat, SkolemiseConjecture] $ i
                         writeFile (out_path "prepared") str
                         jukebox_hs str,
