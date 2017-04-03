@@ -6,16 +6,16 @@ import           Data.List             (find, nub)
 import           Data.Maybe            (catMaybes, isNothing, fromJust)
 
 import           Tip.Core              hiding (freshArgs)
-import           Tip.Fresh             (Fresh, Name)
+import           Tip.Fresh             (Fresh, Name, freshPass)
 import           Tip.Funny.Application (createApps)
-import           Tip.Funny.Property    as Prop (Property(..), SubProperty (..), createSubProperty, freshIds)
+import           Tip.Funny.Property    as Prop (Property(..), SubProperty (..), createSubProperty, freshIds, findProperty)
 import           Tip.Funny.Utils       (findApps, updateRef',quantifyAll)
 import           Tip.Mod               (freshGlobal)
-import           Tip.Passes            (StandardPass (..),
+import           Tip.Passes            (StandardPass (..), selectConjecture,
                                         deleteConjecture, runPasses)
 import           Tip.Types             (Expr (..), Formula (..), Quant (..),
                                         Role (..), Signature (..), Theory (..))
-import           Tip.Formula            (getFormulaName)
+import           Tip.Formula            (getFormulaName, getFormula)
 import Utils (group)
 
 import Tip.Pretty.SMT
@@ -51,9 +51,11 @@ createSubProperties th e = do
 
 
 
--- Create sub properties and their hypotheses
-createAsserts :: Name a => Theory a -> Expr a -> Fresh [(SubProperty a,[(Expr a, Expr a)])]
-createAsserts theory expr = createSubProperties theory expr >>= \p -> zip p <$> mapM createApps p
+-- Create sub properties and their hypotheses of the ith property
+createAsserts :: Name a => Theory a -> SubProperty a -> [Property a] -> Fresh (SubProperty a,[(Expr a, Expr a)])
+createAsserts theory subProp allProps =  do
+    apps <- createApps subProp allProps
+    return (subProp, apps)
 
 
 
@@ -77,31 +79,50 @@ createSignatures prop = map (\g -> Signature (gbl_name g) [] (gbl_type g)) (prop
 
 
 
-applicativeInduction :: Name a =>  Bool -> [Property a] -> [Int] -> Theory a -> Fresh [Theory a]
-applicativeInduction _ _      []      _ = fail "No induction indices"
-applicativeInduction split ps (l:ls)  theory' = do
-    theory <- head <$> runPasses [TypeSkolemConjecture, Monomorphise False,LetLift] theory'    
+applicativeInduction :: Name a => Bool -> Bool -> [Int] -> Theory a -> Fresh [Theory a]
+applicativeInduction _ _     []      _              = fail "No induction indices"
+applicativeInduction mutually split (l:ls)  theory' = do
+    let old = head . fst . theoryGoals $ selectConjecture 0 theory'
+    theory_all <- head <$> runPasses [TypeSkolemConjecture, Monomorphise False, LetLift] theory'    
+
+    allPs <- getProperties theory_all
 
     -- Get the goal expression from the theory
-    let         goalExpr = fm_body . head . fst . theoryGoals $ theory
+    let         goalFormula = old
 
-    -- Remove the original goal from the theory
+    (ps,subProp) <- case Prop.findProperty goalFormula allPs of
+                        Nothing -> fail $ "could not find property among :" ++ (show allPs)
+                        Just a  -> if mutually then do
+                                                let sp = subProps a
+                                                when (length sp <= l ) $ end goalFormula old sp l
+                                                return (allPs, sp !! l)
+                                               else do
+                                                let sp = subProps a
+                                                when (length sp <= l ) $ end goalFormula old sp l
+                                                return ([a], sp !! l)
+
+    -- Remove all conjectures from the theory
+    let theory = selectConjecture 0 theory_all
     let         newTheory = deleteConjecture 0 theory
 
     --Create all application properties and the goals for each of its "pattern matching cases"
 -- TODO : only make one SubSubProperty!!!  
-    propExpr    <-  createAsserts newTheory goalExpr
+    propExpr    <-  createAsserts newTheory subProp ps
 
     -- update references from locals to constants in the hypotheses
-    let         prop = fst $ propExpr !! l
+    let         prop = fst propExpr 
 
     -- Create new theories
     if split 
-        then applicativeSplit   (snd $ propExpr !! l) prop newTheory         
-        else applicativeNoSplit (snd $ propExpr !! l) prop newTheory 
-   
-
-
+        then applicativeSplit   (snd propExpr) prop newTheory        
+        else applicativeNoSplit (snd propExpr) prop newTheory 
+            where end gf old sps i = 
+                    fail $ unlines 
+                        ["",
+                        "goal = " ++ getFormula gf,
+                        "Old = " ++ getFormula old,
+                        "length sps = " ++ (show $ length sps),
+                        "i = " ++ show i]
 
 
 applicativeNoSplit :: Name a => [(Expr a, Expr a)] -> SubProperty a -> Theory a -> Fresh [Theory a]

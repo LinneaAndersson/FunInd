@@ -13,8 +13,6 @@ import           Tip.Core              (theoryGoals,Builtin(..),Head(..),Expr(..
 import           Tip.Fresh             (Name,freshPass)
 import           Tip.Mod               (renameLemmas,universeBi)
 
-import           Tip.Passes.Funny      (getProperties) 
-import qualified Tip.Funny.Property as Prop (Property(..))       
 
 import           Constants             (out_path, prop_file, out_smt)
 import           Induction.Induction   (getIndType, printResult, printStr)
@@ -88,16 +86,12 @@ runMain params preQS = do
         -- parsing tip qith quickspec to theory
         theory_qs <- readTheory prop_file
 
-        let theory' = theory_qs
-        
-        let prop = if indType params == Application then
-                        freshPass getProperties theory'
-                        else []
+        let theory' = renameLemmas theory_qs
     
         -- TODO better error handling
         runStateT 
-            (runTP $ induct (renameLemmas theory') start)
-            (initState prop params)
+            (runTP $ induct theory' start)
+            (initState params)
 
         return Nothing)
             (\e -> do
@@ -137,10 +131,10 @@ runMain params preQS = do
             runTP (TP a) = a
 
 -- create the initial state from the given parameters
-initState :: Name a => [Prop.Property a] -> Params -> IndState a
-initState ps par = IndState par
+initState :: Name a => Params -> IndState a
+initState par = IndState par
     (selectProver par)
-    (getIndType ps par)
+    (getIndType par)
     [] Nothing [] 0
 
 -- When the input file is in haskell we need to run tip-ghc

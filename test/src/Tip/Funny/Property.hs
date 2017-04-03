@@ -8,13 +8,17 @@ import           Tip.Funny.Utils (createLocal, isLocal, removeQuant, updateRef)
 import           Tip.Mod         (freshGlobal, locals')
 import           Tip.Types       (BuiltinType (..), Expr (..), Function (..),
                                   Global (..), Head (..), Local (..),
-                                  PolyType (..), Type (..))
+                                  PolyType (..), Type (..), Formula(..))
+import           Tip.Formula     (getFormulaName)
 
 
 data Name a => Property a = Prop
     { lemmaName :: String
     , subProps  :: [SubProperty a]
-    }
+    } 
+
+instance Name a => Show (Property a) where
+    show p = lemmaName p
 
 -- Example : \forall x . y = qsort x => ordered y 
 data Name a => SubProperty a = SubProp
@@ -33,6 +37,8 @@ data Name a => SubProperty a = SubProp
     , propGlobals :: [Global a]
     }
     deriving Show
+
+
 
 createSubProperty :: Name a => Expr a -> [(Expr a, a)] -> Function a -> Fresh (SubProperty a)
 createSubProperty e ids func = do
@@ -123,10 +129,16 @@ freshArgs expr@(Gbl a :@: ts) = map rName ts
         rName e       = (e, freshNamed "x")
 
 -- returns all subproperties related to a function
-functionSProps :: Name a => Function a -> Property a -> [SubProperty a]
-functionSProps f = filter ((f ==) . propFunc ) . subProps
+functionSProps :: Name a => Global a -> Property a -> [SubProperty a]
+functionSProps g = filter ((gbl_name g ==) . func_name . propFunc ) . subProps
 
 
 -- returns all subproperties among alll properties related to a function
-functionSubProperties :: Name a => Function a -> [Property a] -> [SubProperty a]
-functionSubProperties f = concatMap (functionSProps f)
+functionSubProperties :: Name a => Global a -> [Property a] -> [SubProperty a]
+functionSubProperties g = concatMap (functionSProps g)
+
+findProperty :: Name a => Formula a -> [Property a] -> Maybe (Property a)
+findProperty f []       = Nothing 
+findProperty f (p:ps)   = if lemmaName p == getFormulaName f then 
+                                Just p 
+                                else findProperty f ps

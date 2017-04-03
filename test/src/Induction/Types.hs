@@ -20,11 +20,13 @@ import           Prover              (Prover (..))
 --type TheoremProverT s m a = StateT s m a
     --deriving (Functor, Applicative, Monad, MonadIO, MonadState s, MonadTrans)
 
+type IndPass a = [Int] -> Theory a -> Fresh [Theory a]
+
 data Name a => Induction a = Ind
     {   inductionSize :: Theory a -> Int
-    ,   inductionPass :: [Int] -> Theory a -> Fresh [Theory a]
+    ,   inductionPass :: [IndPass a]
     ,   printVar      :: Theory a -> [Int] -> Formula a -> String
-    ,   selectConj    :: Theory a -> TP a [Theory a]
+    ,   selectConj    :: Theory a -> TP a (Theory a)
     ,   provedConj    :: Theory a -> TP a (Theory a) 
     }
 

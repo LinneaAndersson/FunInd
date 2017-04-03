@@ -30,9 +30,9 @@ import           Utils               (mwhen)
 
 structuralInd :: Name a => Induction a
 structuralInd = Ind (length . fst . forallView . fm_body . head . fst . theoryGoals) 
-                    induction
+                    [induction]
                     withIndex
-                    (\t -> return [selectConjecture 0 t])
+                    (return . selectConjecture 0)
                     (return . provedConjecture 0)
     where
           withIndex _ i formula = "--- Proved with variables" ++ ": " ++ (show $ map (vars formula !!) i)
@@ -145,10 +145,10 @@ printStr :: Name a => Int -> String -> TP a ()
 printStr i s = mwhen ((i <=) <$> (outputLevel . params <$> get))
                 (liftIO $ putStrLn s)
 
-getIndType :: Name a => [Prop.Property a] -> Params -> Induction a
-getIndType ps p = case indType p of
+getIndType :: Name a => Params -> Induction a
+getIndType p = case indType p of
     Structural  -> structuralInd
-    Application -> applicationInd (splitCases p) ps
+    Application -> applicationInd (splitCases p)
 
 nextTimeout :: Name a => TP a Bool
 nextTimeout = do

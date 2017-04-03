@@ -4,7 +4,7 @@ import           Control.Monad      (foldM, zipWithM)
 
 import           Tip.Core           (ands, neg, ors, (/\), (===), bool)
 import           Tip.Fresh          (Fresh, Name)
-import           Tip.Funny.Property (SubProperty (..))
+import           Tip.Funny.Property (SubProperty (..), Property(..),functionSubProperties)
 import           Tip.Funny.Utils    (updateRef')
 import qualified Tip.Pretty.SMT as SMT  (ppExpr)
 import           Tip.Types          (Builtin (..), Case (..), Expr (..),
@@ -13,8 +13,8 @@ import           Tip.Types          (Builtin (..), Case (..), Expr (..),
 import           Tip.Mod             (universe)
 import           Data.List           (nub)
 
-createApps :: Name a => SubProperty a -> Fresh [(Expr a, Expr a)]
-createApps p =
+createApps :: Name a => SubProperty a -> [Property a] -> Fresh [(Expr a, Expr a)]
+createApps p ps =
     let
         f       = propFunc p
         fBody   = func_body f
@@ -23,19 +23,19 @@ createApps p =
         expr    = propBody p
     in do
         renamedExpr <- updateRef' (zip fArgs glbs) fBody
-        mExpr [] p renamedExpr
+        mExpr ps [] p renamedExpr
 
 
-mExpr :: Name a => [(Expr a, Expr a)] -> SubProperty a -> Expr a -> Fresh [(Expr a,Expr a)]
-mExpr exprs p (Match m cs)        =
+mExpr :: Name a => [Property a] -> [(Expr a, Expr a)] -> SubProperty a -> Expr a -> Fresh [(Expr a,Expr a)]
+mExpr ps exprs p (Match m cs)        =
     do
-        inM <- mExpr exprs p m
+        inM <- mExpr ps exprs p m
         lhs <- foldM (getCaseReqs m) [] cs
         let rhs = map (\(Case _ e) -> e) $ reverse cs
         allMatches <- zipWithM
             (\l e ->
                 do
-                    expr <- mExpr (l:exprs) p e
+                    expr <- mExpr ps (l:exprs) p e
                     let containsMatch = not $ null [0 | (Match _ _) <- universe e]
                     (case expr of
                         [] -> do 
@@ -43,29 +43,38 @@ mExpr exprs p (Match m cs)        =
                                 return [(exx, bool True)]  --  [(ands (map (uncurry (===)) (l:exprs)), bool True)]
                         xs -> return xs)) lhs rhs --if(containsMatch) then xs else [ands (nub xs)])) lhs rhs
         return (inM ++ concat allMatches)
-mExpr exprs p (Builtin g :@: ls)  = concat <$> mapM (mExpr exprs p) ls
-mExpr exprs p g@(Gbl g1 :@: ls)      =
+mExpr ps exprs p (Builtin g :@: ls)  = concat <$> mapM (mExpr ps exprs p) ls
+mExpr ps exprs p g@(Gbl g1 :@: ls)   =
     do
-        list_exprs <- concat <$> mapM (mExpr exprs p) ls
-        o <- gblExpr exprs p g
-        case o of
-            Nothing -> return list_exprs
-            Just e  -> return (e:list_exprs)
-mExpr exprs p (Lcl l) = return []
-mExpr exprs p (Lam ls e) = mExpr exprs p e
+        list_exprs <- concat <$> mapM (mExpr ps exprs p) ls
+        o <- gblExpr ps exprs g
+        return $ o ++ list_exprs
+       -- case o of
+         --   Nothing -> return list_exprs
+           -- Just e  -> return (e:list_exprs)
+mExpr ps exprs p (Lcl l) = return []
+mExpr ps exprs p (Lam ls e) = mExpr ps exprs p e
 --mExpr exprs p (Let ls lExpr expr) = mExpr
-mExpr _ _ e = fail $ "Cannot handle let, letrec or quantifier in expression in: "
+mExpr _ _ _ e = fail $ "Cannot handle let, letrec or quantifier in expression in: "
                         ++ show (SMT.ppExpr  e)
 
-gblExpr :: Name a => [(Expr a, Expr a)] -> SubProperty a -> Expr a -> Fresh (Maybe (Expr a, Expr a))
-gblExpr reqs p (Gbl g :@: rhsArgs)
-    | gbl_name g == func_name (propFunc p) =
+gblExpr :: Name a => [Property a] -> [(Expr a, Expr a)] -> Expr a -> Fresh ([(Expr a, Expr a)])
+gblExpr ps reqs (Gbl g :@: rhsArgs) = do
+    let hyps = functionSubProperties g ps
+    mapM (\p -> do
+        prop <- updateRef' (zip (map Lcl (propInp p)) rhsArgs) (propBody p)
+        foldedReq <- foldReqs reqs
+        return (foldedReq, prop))
+        hyps
+
+{-- 
+   | gbl_name g == func_name (propFunc p) =
         do
             prop <- updateRef' (zip (map Lcl (propInp p)) rhsArgs) (propBody p)
             foldedReq <- foldReqs reqs
             return $ Just (foldedReq, prop) 
     | otherwise = return Nothing 
-
+--}
 foldReqs :: Name a => [(Expr a,Expr a)] -> Fresh (Expr a)
 foldReqs list =
     let exp = last list
