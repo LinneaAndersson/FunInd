@@ -9,11 +9,11 @@ import           Control.Monad                  (join)
 import           Data.Maybe                     (isJust, fromMaybe)
 import           Text.PrettyPrint               (Doc(..), vcat)
 
-import           Tip.Core                       (locals)
+import           Tip.Core                       (locals, exprType)
 import           Tip.Fresh                      (Name, Fresh(..), fresh)
 import           Tip.Passes                     (StandardPass(..), runPasses,
                                                  freshPass)
-import           Tip.Pretty                    (PrettyVar)
+import           Tip.Pretty                    (PrettyVar, ppVar)
 import qualified Tip.Pretty.TFF as TFF         (clause, ppExpr, ppSort,
                                                  ppUninterp, tffify, tffvarify,
                                                  validTFFChar)
@@ -22,6 +22,8 @@ import           Tip.Types                      (Head(..), Global(..), Type(..),
                                                  PolyType(..),Expr(..),
                                                  Theory(..), Formula(..),
                                                  Role(..))
+
+import          Debug.Trace (traceM)
 
 -- pretty print a formula in tff format
 ppFormulaTFF :: (Ord a, PrettyVar a) => Formula a -> Doc
@@ -92,3 +94,16 @@ freshGlobal pt t =
     do
         id <- fresh
         return $ Global id pt t
+
+ppEType :: Name a => Expr a -> String
+ppEType = ppType . exprType
+
+ppType :: Name a => Type a -> String
+ppType (TyVar a) = "TyVar: " ++ (show $ ppVar a) 
+ppType (TyCon a ts) = unlines $ 
+        ["TyCon: " ++ (show $ ppVar a)] ++ (map ppType ts)
+ppType (BuiltinType _) = "BuiltinType" 
+ppType (_ :=>: _) = "Function"
+
+pp :: (Applicative f) => (a -> String) -> [a] -> f ()
+pp f = traceM . unlines . map f
