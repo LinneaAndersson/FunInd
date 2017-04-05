@@ -18,12 +18,9 @@ import qualified Tip.Pretty.TFF as TFF         (clause, ppExpr, ppSort,
                                                  ppUninterp, tffify, tffvarify,
                                                  validTFFChar)
 import           Tip.Rename                     (renameAvoiding)
-import           Tip.Types                      (Head(..), Global(..), Type(..),
-                                                 PolyType(..),Expr(..),
-                                                 Theory(..), Formula(..),
-                                                 Role(..))
+import           Tip.Types                      
 
-import          Debug.Trace (traceM)
+import           Debug.Trace (traceM)
 
 -- pretty print a formula in tff format
 ppFormulaTFF :: (Ord a, PrettyVar a) => Formula a -> Doc
@@ -90,20 +87,30 @@ universeBi :: G.UniverseBi a b => a -> [b]
 universeBi = G.universeBi
 
 freshGlobal :: (PrettyVar a, Name a) => PolyType a -> [Type a] -> Fresh (Global a)
-freshGlobal pt t =
-    do
+freshGlobal pt t = do
         id <- fresh
         return $ Global id pt t
+
+ppTuple :: Name a => (Expr a, Expr a) -> String
+ppTuple (a,b) = unwords ["(", ppEType a , ",", ppEType b, ")"]
 
 ppEType :: Name a => Expr a -> String
 ppEType = ppType . exprType
 
 ppType :: Name a => Type a -> String
 ppType (TyVar a) = "TyVar: " ++ (show $ ppVar a) 
-ppType (TyCon a ts) = unlines $ 
-        ["TyCon: " ++ (show $ ppVar a)] ++ (map ppType ts)
+ppType (TyCon a ts) = unwords 
+    ["TyCon: " ++ (show $ ppVar a)] ++ (map ppType ts)
 ppType (BuiltinType _) = "BuiltinType" 
 ppType (_ :=>: _) = "Function"
+
+ppPType :: Name a => PolyType a -> String
+ppPType (PolyType tvs args res) = unlines 
+    ["PolyType {",
+        "tvs  = " ++ show (map ppVar tvs), 
+        "args = " ++ show (map ppType args),
+        "res  = " ++ ppType res,
+    "}"] 
 
 pp :: (Applicative f) => (a -> String) -> [a] -> f ()
 pp f = traceM . unlines . map f
