@@ -5,7 +5,7 @@ import Data.List (find)
 import Data.Maybe (fromMaybe)
 
 import Control.Exception (Exception, SomeException, catch, throw)
-import Control.Monad.State (modify, put, get, when, liftIO, join, runStateT)
+import Control.Monad.State (modify, put, get, when, liftIO, join, runStateT,foldM   )
 
 import Induction.Induction (printStr, runProver, addLemma, nextTimeout)
 import Induction.Types (TP(..), IndState(..), Lemma(..), Induction(..), getLemmas, getProver, getInduction)
@@ -13,9 +13,9 @@ import Induction.Types (TP(..), IndState(..), Lemma(..), Induction(..), getLemma
 import Parser.Params (Params(..))
 
 import Tip.Core (theoryGoals)
-import Tip.Fresh (Name)
+import Tip.Fresh (Name, freshFrom)
 import Tip.Formula (getFormula)
-import Tip.Passes (StandardPass(..),provedConjecture,selectConjecture, runPasses, freshPass)
+import Tip.Passes (StandardPass(..),runPass,provedConjecture,selectConjecture, runPasses, freshPass)
 import Tip.Types (Theory(..), Formula(..))
 import Tip.Pretty.SMT as SMT
 
@@ -24,6 +24,8 @@ import Constants (out_path)
 import IO.Output (printTheories, removeContentInFolder)
 import Prover (Prover(..))
 import Utils (mcase, subsets)
+
+import Debug.Trace
 
 -- Looping through all conjectures and try to prove them
 -- If provable with structural induction, they are put into the theory as proven lemmas
@@ -110,7 +112,8 @@ loop_ind theory (x:xs)  = do
         let ind_theory = freshPass (indPass x) theory
 
         prep <- prepare <$> getProver
-        liftIO $ printTheories prep ind_theory 0 (out_path ("Theory" ++ show x))
+        let tmp_prep = (return . show . SMT.ppTheory [])
+        liftIO $ printTheories tmp_prep ind_theory 0 (out_path ("Theory" ++ show x))
 
         printStr 3 "-----------------------------------------"
         mcase (proveAll ind_theory)     -- try induction 
@@ -127,6 +130,23 @@ proveAll (th:ths) = mcase (prove th)
                         (proveAll ths)
                         (return False)
 
+debugg :: Name a => Theory a -> TP a Bool 
+debugg th = do
+    let ps = [TypeSkolemConjecture, 
+            {-Monomorphise  False, -}SimplifyGently, LambdaLift, 
+            AxiomatizeLambdas, {-Monomorphise False,-} SimplifyGently, CollapseEqual,
+            RemoveAliases, SimplifyGently , 
+            AxiomatizeFuncdefs2, 
+            RemoveMatch, SkolemiseConjecture, NegateConjecture]
+    (_,lst) <- foldM ps_run_length (th,[length (thy_asserts th)]) ps
+    traceM $ "List ::::: " ++ (show $ zip ps lst)
+    return False
+  where  
+    ps_run_length :: Name a => (Theory a, [Int]) -> StandardPass -> TP a (Theory a, [Int])
+    ps_run_length (th,ls) p = do
+        let th' = head $ (runPass p) `freshPass` th
+        traceM $ "p: " ++ (show p) ++ " " ++ (show $ length (thy_asserts th'))
+        return (th',ls ++ [length (thy_asserts th')])  
 
 -- trying to prove one conjecture, returns true if provable
 -- TODO passes should be prover dependent!!!

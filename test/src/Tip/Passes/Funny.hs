@@ -10,14 +10,18 @@ import           Tip.Fresh             (Fresh, Name)
 import           Tip.Funny.Application (createApps)
 import           Tip.Funny.Property    as Prop (Property (..), createProperty, freshIds)
 import           Tip.Funny.Utils       (findApps, updateRef',quantifyAll)
-import           Tip.Mod               (freshGlobal)
 import           Tip.Passes            (StandardPass (..),
                                         deleteConjecture, runPasses)
 import           Tip.Types             (Expr (..), Formula (..), Quant (..),
                                         Role (..), Signature (..), Theory (..))
 import Utils (group)
 
-import Tip.Pretty.SMT
+import Tip.Pretty.SMT hiding (ppType)
+
+
+import           Tip.Mod             (universe,ppEType, ppType, pp,freshGlobal)
+
+import           Debug.Trace         (traceM)
 
 
 --Returns The "sub"-properties of the property
@@ -31,11 +35,12 @@ createProperties th e = do
             let funcs = catMaybes mFuncs
             fIds <- Prop.freshIds (map fst apps)
             zipWithM (Prop.createProperty e) fIds funcs
+            
 
 
 --Returns a "sub"-property of the property specifed by an index
-createProperty :: Name a =>  Theory a -> Expr a -> Int -> Fresh (Property a)
-createProperty th e i = do
+createProperty' :: Name a =>  Theory a -> Expr a -> Int -> Fresh (Property a)
+createProperty' th e i = do
     let app = findApps (thy_funcs th) e !! i
     let func = find ((snd app ==) . func_name) (thy_funcs th)
     if isNothing func then
@@ -46,8 +51,11 @@ createProperty th e i = do
 
 
 -- Create sub properties and their hypotheses
-createAsserts :: Name a => Theory a -> Expr a -> Fresh [(Property a,[(Expr a, Expr a)])]
-createAsserts theory expr = createProperties theory expr >>= \p -> zip p <$> mapM createApps p
+createAsserts :: Name a => Theory a -> Expr a -> Int -> Fresh (Property a,[(Expr a, Expr a)])
+createAsserts theory expr i = do
+    p <- createProperty' theory expr i
+    as <- createApps p
+    return (p,as) 
 
 -- Returns the goal of the property as a formula
 createGoal :: Name a => Property a  -> Fresh (Formula a)
@@ -66,7 +74,7 @@ createSignatures prop = map (\g -> Signature (gbl_name g) [] (gbl_type g)) (prop
 applicativeInduction :: Name a => Bool -> [Int] -> Theory a -> Fresh [Theory a]
 applicativeInduction _      []      _ = fail "No induction indices"
 applicativeInduction split  (l:ls)  theory' = do
-    theory <- head <$> runPasses [TypeSkolemConjecture,Monomorphise False,LetLift] theory'    
+    theory <- head <$> runPasses [LetLift] theory'    
 
     -- Get the goal expression from the theory
     let         goalExpr = fm_body . head . fst . theoryGoals $ theory
@@ -76,25 +84,29 @@ applicativeInduction split  (l:ls)  theory' = do
 
     --Create all application properties and the goals for each of its "pattern matching cases"
 -- TODO : only make one property!!!  
-    propExpr    <-  createAsserts newTheory goalExpr
+    propExpr    <-  createAsserts newTheory goalExpr l
 
     -- update references from locals to constants in the hypotheses
-    let         prop = fst $ propExpr !! l
+    let         prop = fst $ propExpr
 
     -- Create new theories
     if split 
-        then applicativeSplit   (snd $ propExpr !! l) prop newTheory         
-        else applicativeNoSplit (snd $ propExpr !! l) prop newTheory 
+        then applicativeSplit   (snd $ propExpr) prop newTheory         
+        else applicativeNoSplit (snd $ propExpr) prop newTheory 
    
 
 applicativeNoSplit :: Name a => [(Expr a, Expr a)] -> Property a -> Theory a -> Fresh [Theory a]
 applicativeNoSplit hyp prop theory = do
-
     -- collect all hypotheses for each pattern matching case
     let collectedExprs = group hyp 
    
     -- List the free variables in the pattern matching cases (global variables)
     let freeVars = concatMap free (map fst collectedExprs)
+    
+    
+    --pp ppEType (map Lcl freeVars)
+    --m-apM (\(a,b) -> traceM $ show $ (ppEType a, ppEType b)) hyp
+    --traceM "aaaaaaaaaaaaaaaaaaaaaaaaaa"
 
     --Create new globals for all the free variables
     listFree <- mapM  createFreshGlobal freeVars
@@ -102,6 +114,7 @@ applicativeNoSplit hyp prop theory = do
     -- update the expression with the new globals
     let lcls = (map Lcl freeVars)
     let gbls = (map (\gg -> Gbl gg :@: []) listFree)
+
     hypExprs <- mapM (\(req,exprs) -> do
                         lhs <- updateRef' (zip lcls gbls) req
                         rhs <- mapM (updateRef' (zip lcls gbls)) exprs
@@ -114,6 +127,7 @@ applicativeNoSplit hyp prop theory = do
     -- create one hypothesis consisting of all possible pattern matching cases
     let hypExpr' = ors $ colQuant
     
+    --traceM $ "hypExpr: " ++ (show $ ppExpr hypExpr')
     -- create signatures for all new global variables
     let sigsFree =  map createSig (listFree ++ propGblBody prop)
 
@@ -123,12 +137,14 @@ applicativeNoSplit hyp prop theory = do
     -- create the goal
     goal <- createGoal prop
 
+    --traceM $ "th: " ++ (show $ ppTheory [] $ head $ [theory{thy_asserts =  [exprs hypExpr'] ++ thy_asserts theory ++ [goal], thy_sigs    =  varDefs ++ thy_sigs theory}])
+
     -- update the theory with the new assumptions, signatures and goal
     return $ [theory{thy_asserts =  [exprs hypExpr'] ++ thy_asserts theory ++ [goal], 
                      thy_sigs    =  varDefs ++ thy_sigs theory}]
 
         where
-            exprs = Formula Assert [("Assert", Nothing)] []
+            exprs = Formula Assert [("Assert", Nothing), ("keep", Nothing)] []
             createFreshGlobal = (\pt -> freshGlobal (PolyType [] [] (lcl_type pt)) [])
             createSig = (\g -> Signature (gbl_name g) [] (gbl_type g))
 

@@ -65,9 +65,8 @@
         (and (ordered xs) (ordered ys))))))
 (assert-not
   :source Sort.prop_pp
-  (par (a)
-    (forall ((a1 (list a)) (b (list a)) (c (list a)))
-      (= (++ a1 (++ b c)) (++ (++ a1 b) c)))))
+  (forall ((a (list Int)) (b (list Int)) (c (list Int)))
+    (= (++ a (++ b c)) (++ (++ a b) c))))
 (assert-not
   :source Sort.prop_countcount
   (forall ((x Int) (bs (list Int)) (cs (list Int)))

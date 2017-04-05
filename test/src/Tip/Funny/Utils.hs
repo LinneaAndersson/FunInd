@@ -1,12 +1,13 @@
 module Tip.Funny.Utils where
 
+import           Debug.Trace (traceM)
+
 import           Data.Maybe (fromMaybe)
 
 import           Tip.Core   (exprType,free,mkQuant, Quant(..))
 import           Tip.Fresh  (Fresh, Name, fresh)
-import           Tip.Mod    (globals')
-import           Tip.Types  (Case (..), Pattern(..), Expr (..), Function (..), Global (..),
-                             Head (..), Local (..), Role(..))
+import           Tip.Mod    (globals',ppEType, ppType, pp)
+import           Tip.Types 
 
 import qualified Tip.Pretty.SMT as SMT
 
@@ -14,7 +15,10 @@ updateRef :: Name a => [(Expr a, Local a)] -> Expr a -> Fresh (Expr a)
 updateRef = updateRef' . map (\(e,l) -> (e,Lcl l))
 
 updateRef' :: Name a => [(Expr a, Expr a)] -> Expr a -> Fresh (Expr a)
-updateRef' ls local@(Lcl _) = return $ fromMaybe local (lookup local ls)
+updateRef' ls local@(Lcl _) = do
+    --traceM $ "MATCH: " ++ (show $ length ls)
+    --pp (\(a,b) -> "(" ++ ppEType a ++ "," ++ ppEType b ++ ")" ) ls  
+    return $ fromMaybe local (lookup local ls)
 updateRef' ls gbl@(a :@: ts) =
     case lookup gbl ls of
         Nothing ->
@@ -22,12 +26,14 @@ updateRef' ls gbl@(a :@: ts) =
                 updated <- mapM (updateRef' ls) ts
                 return (a :@: updated)
         Just l' -> return l'
-updateRef' ls m@(Match e cs) =
+updateRef' ls m@(Match e cs) = do
+    --pp (\(a,b) -> "IIIIIN MMMAAATCH!! (" ++ ppEType a ++ "," ++ ppEType b ++ ")" ) ls 
     case lookup m ls of
         Nothing ->
             do
                 eUp     <- updateRef' ls e
-                listUp  <- mapM (updateCase ls) cs
+                --traceM $ ppEType e
+                listUp  <- mapM (updateCase ls eUp) cs
                 return $ Match eUp listUp
         Just l' -> return l'
 updateRef' ls (Quant t dn lcls expr) = do
@@ -46,14 +52,37 @@ updateRef' ls (Let lcl eLcl expr) = do
     return (Let fVar eLcLU exprU)
 updateRef' ls a = fail $ "Expression not supported in updateRef' : " ++ (show $ SMT.ppExpr a) 
 
-updateCase :: Name a => [(Expr a, Expr a)] -> Case a -> Fresh (Case a)
-updateCase ls (Case (ConPat con lcls) rhs) = do 
-    fVar <- mapM (\l -> fresh >>= \i -> return $ Local i (lcl_type l)) lcls
-    rh2 <- updateRef (zip (map Lcl lcls) fVar) rhs
+updateCase :: Name a => [(Expr a, Expr a)] -> Expr a -> Case a -> Fresh (Case a)
+updateCase ls e (Case (ConPat (Global gn gt ga) lcls) rhs) = do
+    e_types <- replacePoly gt (exprType e)
+    traceM "Before update types"
+    pp ppType [(exprType e)]
+    --pp ppType (polytype_args gt)
+    traceM "After update types"
+    --pp ppType e_types
+    fVar <- mapM (\l -> fresh >>= \i -> return $ Local i l) e_types
+    let type_pairs =  (zip (map Lcl lcls) fVar)
+    rh2 <- updateRef type_pairs rhs
     cUp <- updateRef' ls rh2
+    let con = Global gn gt ga--(PolyType [] e_types (exprType e)) e_types
     return $ Case (ConPat con fVar) cUp
-updateCase ls (Case pat rhs) = updateRef' ls rhs >>= return . Case pat  
+updateCase ls e (Case pat rhs) = updateRef' ls rhs >>= return . Case pat  
 
+replacePoly :: (Name a) => PolyType a -> Type a -> Fresh [Type a]  
+replacePoly (PolyType tvs args res) e_type = do
+    case (res, e_type) of
+        (TyCon t1 types_res, TyCon te types_e) -> do
+            let type_pairs = (res,e_type) : zip types_res types_e 
+            updateTypes args type_pairs
+        _ -> fail "conpat cannot contain other types than tycon (In replacePoly)"
+  where
+    updateTypes :: Name a => [Type a] -> [(Type a, Type a)] -> Fresh [Type a]
+    updateTypes []     _    = return []
+    updateTypes (x:xs) ls   = 
+        case lookup x ls of 
+            Nothing -> fail "fail in updateTypes in replacePoly i src/Tip/Funny"  
+            Just a -> (a : ) <$> updateTypes xs ls    
+        
 isLocal :: Name a => Expr a -> Bool
 isLocal (Lcl _) = True
 isLocal _       = False

@@ -99,7 +99,7 @@ ppEType = ppType . exprType
 
 ppType :: Name a => Type a -> String
 ppType (TyVar a) = "TyVar: " ++ (show $ ppVar a) 
-ppType (TyCon a ts) = unwords 
+ppType (TyCon a ts) = unwords $
     ["TyCon: " ++ (show $ ppVar a)] ++ (map ppType ts)
 ppType (BuiltinType _) = "BuiltinType" 
 ppType (_ :=>: _) = "Function"

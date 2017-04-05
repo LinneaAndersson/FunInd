@@ -45,6 +45,7 @@ count x (y:ys)
 
 prop_ordering2 xs ys z = smallerEq xs z && bigger ys z ==> ordered (xs ++ [z] ++ ys) === ((ordered xs) && (ordered ys))
 
+prop_pp :: [Int] -> [Int] -> [Int] -> Prop
 prop_pp a b c = a++(b++c) === (a++b)++c
 prop_countcount x as bs = count x as + count x bs === count x (as ++ bs) 
 

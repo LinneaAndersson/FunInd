@@ -2,16 +2,16 @@ module Tip.Funny.Application where
 
 import           Control.Monad      (foldM, zipWithM)
 
-import           Tip.Core           (ands, neg, ors, (/\), (===), bool)
+import           Tip.Core           (ands, neg, ors, (/\), (===), bool, exprType, applyTypeInExpr, applyPolyType)
 import           Tip.Fresh          (Fresh, Name)
 import           Tip.Funny.Property (Property (..))
 import           Tip.Funny.Utils    (updateRef')
 import qualified Tip.Pretty.SMT as SMT  (ppExpr)
-import           Tip.Types          (Builtin (..), Case (..), Expr (..),
-                                     Function (..), Global (..), Head (..),
-                                     Pattern (..))
-import           Tip.Mod             (universe)
+import           Tip.Types          
+import           Tip.Mod             (universe,ppEType, ppType, ppPType, pp)
 import           Data.List           (nub)
+
+import           Debug.Trace         (traceM)
 
 createApps :: Name a => Property a -> Fresh [(Expr a, Expr a)]
 createApps p =
@@ -23,13 +23,22 @@ createApps p =
         expr    = propBody p
     in do
         renamedExpr <- updateRef' (zip fArgs glbs) fBody
-        mExpr [] p renamedExpr
+        mEx<-mExpr [] p renamedExpr
+        traceM $ "renExpr: " ++ (show $ SMT.ppExpr renamedExpr)
+--        traceM $ ppEType renamedExpr
+        
+        --traceM $ show $ SMT.ppExpr fBody
+        --traceM $ show $ SMT.ppExpr renamedExpr
+        pp (\(a,b) -> "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaa(" ++ (show $ SMT.ppExpr a) ++ "," ++ (show $ SMT.ppExpr b) ++ ")"  ) mEx
+
+        return mEx
         --fail $ show $ ((ppExpr  renamedExpr) : (map (ppExpr) outp)) ++ (map (\p' -> ppExpr (Gbl p' :@: [])) (propGlobals p)
 
 
 mExpr :: Name a => [(Expr a, Expr a)] -> Property a -> Expr a -> Fresh [(Expr a,Expr a)]
 mExpr exprs p (Match m cs)        =
     do
+        traceM $ "Match cs: " ++ (ppEType m)
         inM <- mExpr exprs p m
         lhs <- foldM (getCaseReqs m) [] cs
         let rhs = map (\(Case _ e) -> e) $ reverse cs
@@ -37,12 +46,13 @@ mExpr exprs p (Match m cs)        =
             (\l e ->
                 do
                     expr <- mExpr (l:exprs) p e
-                    let containsMatch = not $ null [0 | (Match _ _) <- universe e]
                     (case expr of
                         [] -> do 
                                 exx <- foldReqs (l:exprs)
-                                return [(exx, bool True)]  --  [(ands (map (uncurry (===)) (l:exprs)), bool True)]
-                        xs -> return xs)) lhs rhs --if(containsMatch) then xs else [ands (nub xs)])) lhs rhs
+                                traceM $ "foldType reqs: " ++ (show $ map (\(a,b)-> "(" ++ (show $ SMT.ppExpr a) ++ "," ++ (show $ SMT.ppExpr b) ++ ")") (l:exprs))
+                                traceM $ "foldType: " ++ (show $ SMT.ppExpr exx)
+                                return [(exx, bool True)] 
+                        xs -> return xs)) lhs rhs 
         return (inM ++ concat allMatches)
 mExpr exprs p (Builtin g :@: ls)  = concat <$> mapM (mExpr exprs p) ls
 mExpr exprs p g@(Gbl g1 :@: ls)      =
@@ -80,4 +90,33 @@ foldReqs list =
 getCaseReqs :: Name a => Expr a -> [(Expr a,Expr a)] -> Case a -> Fresh [(Expr a, Expr a)]
 getCaseReqs m cs (Case Default e)           = fail "default case " --return $ (m, ors (map (neg . snd) cs)) : cs
 getCaseReqs m cs (Case (LitPat l) e)        = return $ (m, Builtin (Lit l) :@: []) : cs
-getCaseReqs m cs (Case (ConPat gbl args) e) = return $ (m, Gbl gbl :@: map Lcl args) : cs
+getCaseReqs m cs (Case (ConPat gbl ls) e) =
+    case exprType m of
+        t@(TyCon l list_types) -> do
+            let ex = Gbl gbl :@: map Lcl ls
+            let newEx = Gbl (Global (gbl_name gbl) (gbl_type gbl) list_types) :@: map Lcl ls
+
+            traceM $ "applyBefore  : " ++ (show $ SMT.ppExpr ex) 
+            traceM $ "applyTypeInEx: " ++ (show $ SMT.ppExpr newEx )
+        
+            return $ (m, newEx) : cs
+        _ -> fail "Can only be TyCon in patternmatchng -> in getCaseReq in src/Tip/Funny/Application.hs!!"
+--getCaseReqs m cs (Case (ConPat gbl args) e) = return $ (m, Gbl gbl :@: map Lcl args) : cs
+
+
+{-
+    case exprType m of
+        t@(TyCon _ list_types) -> do
+            let npt = PolyType (polytype_tvs $ gbl_type gbl) [] t
+            let ex = Gbl {-(Global (gbl_name gbl) (gbl_type gbl) [BuiltinType Integer])-}gbl :@: []
+            let newEx = applyTypeInExpr (polytype_tvs $ gbl_type gbl) list_types ex      
+            traceM $ "applyBefore: " ++ (ppEType ex) 
+            traceM $ "applyTypeInEx: " ++ (ppEType newEx )
+
+            return $ (m, newEx) : cs
+        _ -> fail "Can only be TyCon in patternmatchng -> in getCaseReq in src/Tip/Funny/Application.hs!!"
+
+
+et npt = PolyType (polytype_tvs $ gbl_type gbl) (polytype_args $ gbl_type gbl) (polytype_res $ gbl_type gbl)
+            return $ (m, Gbl (Global (gbl_name gbl) npt [BuiltinType Integer]) :@: []) : cs
+-}
