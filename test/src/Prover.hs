@@ -90,8 +90,8 @@ z3 = P {name = "z3",
         setTime = \i -> "-T:"++ show i}
     where
         z3PrePasses = runPasses [TypeSkolemConjecture, 
-            {-Monomorphise  False,-} SimplifyGently, LambdaLift, 
-            AxiomatizeLambdas, {-Monomorphise False,-} SimplifyGently, CollapseEqual,
+            Monomorphise  False, SimplifyGently, LambdaLift, 
+            AxiomatizeLambdas, Monomorphise False, SimplifyGently, CollapseEqual,
             RemoveAliases, SimplifyGently , 
             AxiomatizeFuncdefs2, 
             RemoveMatch, SkolemiseConjecture, NegateConjecture] 

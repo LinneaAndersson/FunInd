@@ -43,25 +43,24 @@
       (case nil true)
       (case (cons z xs) (and (> z y) (bigger xs y)))))
 (define-fun-rec
-  (par (a)
-    (++ :source Prelude.++
-       ((x (list a)) (y (list a))) (list a)
-       (match x
-         (case nil y)
-         (case (cons z xs) (cons z (++ xs y)))))))
+  ++ :keep :source Sort.++
+    ((x (list Int)) (y (list Int))) (list Int)
+    (match x
+      (case nil y)
+      (case (cons b bs) (cons b (++ bs y)))))
 (define-fun-rec
   qsort :keep :source Sort.qsort
     ((x (list Int))) (list Int)
     (match x
       (case nil (as nil (list Int)))
       (case (cons y xs)
-        (++ (qsort (filterLEq y xs))
-          (++ (cons y (as nil (list Int))) (qsort (filterGT y xs)))))))
+        (++ (++ (qsort (filterLEq y xs)) (cons y (as nil (list Int))))
+          (qsort (filterGT y xs))))))
 (assert-not
   :source Sort.prop_ordering2
   (forall ((xs (list Int)) (ys (list Int)) (z Int))
     (=> (and (smallerEq xs z) (bigger ys z))
-      (= (ordered (++ xs (++ (cons z (as nil (list Int))) ys)))
+      (= (ordered (++ (++ xs (cons z (as nil (list Int)))) ys))
         (and (ordered xs) (ordered ys))))))
 (assert-not
   :source Sort.prop_pp
@@ -109,16 +108,16 @@
   (forall ((y Int) (ys (list Int)) (x Int))
     (= (smallerEq (cons y ys) x)
       (smallerEq
-        (++ (filterLEq y ys)
-          (++ (cons y (as nil (list Int))) (filterGT y ys)))
+        (++ (++ (filterLEq y ys) (cons y (as nil (list Int))))
+          (filterGT y ys))
         x))))
 (assert-not
   :source Sort.prop_bbmbmb
   (forall ((y Int) (ys (list Int)) (x Int))
     (= (bigger (cons y ys) x)
       (bigger
-        (++ (filterLEq y ys)
-          (++ (cons y (as nil (list Int))) (filterGT y ys)))
+        (++ (++ (filterLEq y ys) (cons y (as nil (list Int))))
+          (filterGT y ys))
         x))))
 (assert-not
   :source Sort.prop_smallQ

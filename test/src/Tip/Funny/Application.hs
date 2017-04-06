@@ -96,10 +96,12 @@ getCaseReqs m cs (Case (ConPat gbl ls) e) =
             let ex = Gbl gbl :@: map Lcl ls
             let newEx = Gbl (Global (gbl_name gbl) (gbl_type gbl) list_types) :@: map Lcl ls
 
-            traceM $ "applyBefore  : " ++ (show $ SMT.ppExpr ex) 
-            traceM $ "applyTypeInEx: " ++ (show $ SMT.ppExpr newEx )
-        
-            return $ (m, newEx) : cs
+            --traceM $ "applyBefore  : " ++ (show $ SMT.ppExpr ex) 
+            --traceM $ "ex: " ++ (ppEType (ex))
+            --traceM $ "applyTypeInEx: " ++ (show $ SMT.ppExpr newEx )
+            --traceM $ "newEx: " ++ (ppEType (newEx))
+
+            return $ (m, ex) : cs
         _ -> fail "Can only be TyCon in patternmatchng -> in getCaseReq in src/Tip/Funny/Application.hs!!"
 --getCaseReqs m cs (Case (ConPat gbl args) e) = return $ (m, Gbl gbl :@: map Lcl args) : cs
 

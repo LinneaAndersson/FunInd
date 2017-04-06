@@ -101,7 +101,7 @@ ppType :: Name a => Type a -> String
 ppType (TyVar a) = "TyVar: " ++ (show $ ppVar a) 
 ppType (TyCon a ts) = unwords $
     ["TyCon: " ++ (show $ ppVar a)] ++ (map ppType ts)
-ppType (BuiltinType _) = "BuiltinType" 
+ppType (BuiltinType b) = (show b) 
 ppType (_ :=>: _) = "Function"
 
 ppPType :: Name a => PolyType a -> String

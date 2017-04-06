@@ -87,7 +87,7 @@ runMain params preQS = do
         -- parsing tip qith quickspec to theory
         theory_qs <- readTheory prop_file
 
-        let theory' = freshPass (replacePrelude) theory_qs
+        let theory' = theory_qs --freshPass (replacePrelude) theory_qs
         
         -- TODO better error handling
         runStateT 

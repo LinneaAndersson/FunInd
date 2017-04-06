@@ -6,7 +6,7 @@ import           Data.Maybe (fromMaybe)
 
 import           Tip.Core   (exprType,free,mkQuant, Quant(..))
 import           Tip.Fresh  (Fresh, Name, fresh)
-import           Tip.Mod    (globals',ppEType, ppType, pp)
+import           Tip.Mod    (globals',ppEType, ppType, pp, ppPType)
 import           Tip.Types 
 
 import qualified Tip.Pretty.SMT as SMT
@@ -24,6 +24,10 @@ updateRef' ls gbl@(a :@: ts) =
         Nothing ->
             do
                 updated <- mapM (updateRef' ls) ts
+                --traceM $ "tsBefore  : " ++ (show $ map SMT.ppExpr ts) 
+                --traceM $ "ts: " ++ (show $ map ppEType (ts))
+                --traceM $ "tsAfter : " ++ (show $ map SMT.ppExpr updated )
+                --traceM $ "updated ts: " ++ (show $ map ppEType updated)
                 return (a :@: updated)
         Just l' -> return l'
 updateRef' ls m@(Match e cs) = do
@@ -55,16 +59,15 @@ updateRef' ls a = fail $ "Expression not supported in updateRef' : " ++ (show $ 
 updateCase :: Name a => [(Expr a, Expr a)] -> Expr a -> Case a -> Fresh (Case a)
 updateCase ls e (Case (ConPat (Global gn gt ga) lcls) rhs) = do
     e_types <- replacePoly gt (exprType e)
-    traceM "Before update types"
-    pp ppType [(exprType e)]
-    --pp ppType (polytype_args gt)
-    traceM "After update types"
-    --pp ppType e_types
-    fVar <- mapM (\l -> fresh >>= \i -> return $ Local i l) e_types
+    --pp ppType [(exprType e)]
+    --pp (("lcls: " ++ ) . ppEType) (map Lcl lcls)
+    --pp (("af: " ++ ) . ppType) e_types
+    fVar <- mapM (\l -> fresh >>= \i -> return $ Local i l) (map lcl_type lcls) --e_types
     let type_pairs =  (zip (map Lcl lcls) fVar)
+    --pp (("fVars: " ++ ) . ppEType) (map Lcl fVar)
     rh2 <- updateRef type_pairs rhs
     cUp <- updateRef' ls rh2
-    let con = Global gn gt ga--(PolyType [] e_types (exprType e)) e_types
+    let con = Global gn gt ga --(PolyType [] e_types (exprType e)) e_types
     return $ Case (ConPat con fVar) cUp
 updateCase ls e (Case pat rhs) = updateRef' ls rhs >>= return . Case pat  
 

@@ -2,7 +2,11 @@
 module Sort where
 
 import Tip
+import Prelude hiding ((++))
 
+(++) :: [Int] -> [Int] -> [Int]
+[] ++ x = x
+(a:as) ++ b = (a:as ++ b)
 
 qsort ::  [Int] -> [Int]
 qsort []     = []
