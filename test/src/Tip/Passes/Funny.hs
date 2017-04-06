@@ -144,7 +144,7 @@ applicativeNoSplit hyp prop theory = do
                      thy_sigs    =  varDefs ++ thy_sigs theory}]
 
         where
-            exprs = Formula Assert [("Assert", Nothing), ("keep", Nothing)] []
+            exprs = Formula Assert [("Assert", Nothing)] []
             createFreshGlobal = (\pt -> freshGlobal (PolyType [] [] (lcl_type pt)) [])
             createSig = (\g -> Signature (gbl_name g) [] (gbl_type g))
 
