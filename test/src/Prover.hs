@@ -17,8 +17,11 @@ import           Tip.Types          (Theory)
 import           Tip.Fresh          (Name)
 
 import           Constants          (out_path)
-import           IO.Process            (jukebox_hs)
+import           IO.Process            (jukebox_hs, readTheory)
 import qualified Tip.Pretty.SMT.Mod as SMT    (ppTheory)
+import qualified Tip.Pretty.SMT as SMT2
+
+import           Tip.Lint
 
 type Flag = String
 
@@ -49,7 +52,9 @@ eprover = P {name = "eproof",
              flags = ["--tstp-in", "--auto", "--full-deriv"],
              prepare = \i ->
                     do
-                        let str = show . ppTheoryTFF . head . tff [IntToNat, SortsToNat, SkolemiseConjecture] $ i
+                        writeFile ("./tmpout") . show $ SMT2.ppTheory [] i
+                        i' <- readTheory ("./tmpout")
+                        let str = show . ppTheoryTFF . head . tff [IntToNat, SortsToNat, SkolemiseConjecture] $ i'
                         writeFile (out_path "prepared") str
                         jukebox_hs str,
              parseOut = pout,
@@ -83,14 +88,17 @@ z3 = P {name = "z3",
         flags = ["-smt2","proof=true","unsat-core=true","pp.pretty-proof=true"],
         prepare = \i ->
             do
-                let str = show . SMT.ppTheory [] . head . freshPass (z3PrePasses) $ i
+                writeFile ("./tmpout") . show $ SMT2.ppTheory [] i
+                i' <- readTheory ("./tmpout")
+                let str = show . SMT.ppTheory [] . head . freshPass (z3PrePasses) $ i'
+
                 writeFile (out_path "prepared") str
                 return str,
         parseOut = pout,
         setTime = \i -> "-T:"++ show i}
     where
         z3PrePasses = runPasses [TypeSkolemConjecture, 
-            Monomorphise  False, SimplifyGently, LambdaLift, 
+            Monomorphise  False , SimplifyGently, LambdaLift, 
             AxiomatizeLambdas, Monomorphise False, SimplifyGently, CollapseEqual,
             RemoveAliases, SimplifyGently , 
             AxiomatizeFuncdefs2, 
