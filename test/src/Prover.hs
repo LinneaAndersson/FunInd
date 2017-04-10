@@ -17,7 +17,8 @@ import           Tip.Types          (Theory)
 import           Tip.Fresh          (Name)
 
 import           Constants          (out_path)
-import           IO.Process            (jukebox_hs)
+import           IO.Process            (jukebox_hs,readTheory)
+import qualified Tip.Pretty.SMT as SMT2 (ppTheory)
 import qualified Tip.Pretty.SMT.Mod as SMT    (ppTheory)
 
 type Flag = String
@@ -83,7 +84,9 @@ z3 = P {name = "z3",
         flags = ["-smt2","proof=true","unsat-core=true","pp.pretty-proof=true"],
         prepare = \i ->
             do
-                let str = show . SMT.ppTheory [] . head . freshPass (z3PrePasses) $ i
+                writeFile "./tmpout" (show . SMT2.ppTheory [] $ i)
+                i' <- readTheory "./tmpout"
+                let str = show . SMT.ppTheory [] . head . freshPass (z3PrePasses) $ i'
                 writeFile (out_path "prepared") str
                 return str,
         parseOut = pout,
