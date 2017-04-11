@@ -91,7 +91,7 @@ z3 = P {name = "z3",
     where
         z3PrePasses = runPasses [TypeSkolemConjecture, 
             Monomorphise  False, SimplifyGently, LambdaLift, 
-            AxiomatizeLambdas, Monomorphise False, SimplifyGently, CollapseEqual,
+            AxiomatizeLambdas, SimplifyGently, CollapseEqual,
             RemoveAliases, SimplifyGently , 
             AxiomatizeFuncdefs2, 
             RemoveMatch, SkolemiseConjecture, NegateConjecture] 
