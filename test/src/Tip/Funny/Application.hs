@@ -2,20 +2,29 @@ module Tip.Funny.Application where
 
 import           Control.Monad      (foldM, zipWithM)
 
+import           Data.Maybe         (fromJust)
 import           Debug.Trace    
 
 import           Tip.Core           (ands, neg, ors, (/\), (===), bool)
-import           Tip.Fresh          (Fresh, Name)
-import           Tip.Funny.Property (SubProperty (..), Property(..),functionSubProperties)
+import           Tip.Fresh          (Fresh, Name(..), fresh)
+import           Tip.Funny.Property (SubProperty (..), Property(..),functionSubProperties, getParentProp)
 import           Tip.Funny.Utils    (updateRef')
 import qualified Tip.Pretty.SMT as SMT  (ppExpr)
 import           Tip.Types          (Builtin (..), Case (..), Expr (..),
                                      Function (..), Global (..), Head (..),
                                      Pattern (..))
 import           Tip.Mod             (universe)
+import           Tip.Formula       (getAttr) -- TODO rename
+
 import           Data.List           (nub)
 
-createApps :: Name a => SubProperty a -> [Property a] -> Fresh [(Expr a, Maybe (SubProperty a))]
+data Lemma a = Lemma {
+      name :: String
+    , body :: Expr a
+    }
+
+
+createApps :: Name a => SubProperty a -> [Property a] -> Fresh [(Expr a, Maybe (Lemma a))]
 createApps p ps =
     let
         f       = propFunc p
@@ -28,7 +37,7 @@ createApps p ps =
         mExpr ps [] p renamedExpr
 
 
-mExpr :: Name a => [Property a] -> [(Expr a, Expr a)] -> SubProperty a -> Expr a -> Fresh [(Expr a, Maybe (SubProperty a))]
+mExpr :: Name a => [Property a] -> [(Expr a, Expr a)] -> SubProperty a -> Expr a -> Fresh [(Expr a, Maybe (Lemma a))]
 mExpr ps exprs p (Match m cs)        =
     do
         inM <- mExpr ps exprs p m
@@ -60,15 +69,17 @@ mExpr ps exprs p (Lam ls e) = mExpr ps exprs p e
 mExpr _ _ _ e = fail $ "Cannot handle let, letrec or quantifier in expression in: "
                         ++ show (SMT.ppExpr  e)
 
-gblExpr :: Name a => [Property a] -> [(Expr a, Expr a)] -> Expr a -> Fresh ([(Expr a, Maybe (SubProperty a))])
+gblExpr :: Name a => [Property a] -> [(Expr a, Expr a)] -> Expr a -> Fresh ([(Expr a, Maybe (Lemma a))])
 gblExpr ps reqs (Gbl g :@: rhsArgs) = do
     let hyps = functionSubProperties g ps
-    traceM $ "length hyps ::: " ++ (show $ length $ hyps)
+    --traceM $ "length hyps :: " ++ (show $ length $ hyps)
     mapM (\p -> do
-        prop <- updateRef' (zip (map Lcl (propInp p)) rhsArgs) (propBody p)
-        foldedReq <- foldReqs reqs
-        return (foldedReq, Just p{propBody=prop}))
-        hyps
+            prop <- updateRef' (zip (map Lcl (propInp p)) rhsArgs) (propBody p)
+            foldedReq <- foldReqs reqs
+            i <- (fresh :: Fresh Int)
+            let name = lemmaName . fromJust $ getParentProp ps p
+            return (foldedReq, Just (Lemma ("sub" ++ (show i) ++ name) prop))
+         ) hyps
 
 {-- 
    | gbl_name g == func_name (propFunc p) =
@@ -78,6 +89,7 @@ gblExpr ps reqs (Gbl g :@: rhsArgs) = do
             return $ Just (foldedReq, prop) 
     | otherwise = return Nothing 
 --}
+
 foldReqs :: Name a => [(Expr a,Expr a)] -> Fresh (Expr a)
 foldReqs list =
     let exp = last list

@@ -9,7 +9,7 @@ import           Debug.Trace           (traceM)
 
 import           Tip.Core              hiding (freshArgs)
 import           Tip.Fresh             (Fresh, Name, freshPass)
-import           Tip.Funny.Application (createApps)
+import           Tip.Funny.Application (createApps, Lemma(..))
 import           Tip.Funny.Property    as Prop (Property(..), SubProperty (..), createSubProperty, freshIds, findProperty)
 import           Tip.Funny.Utils       (findApps, updateRef',quantifyAll)
 import           Tip.Mod               (freshGlobal)
@@ -54,7 +54,7 @@ createSubProperties th e = do
 
 
 -- Create sub properties and their hypotheses of the ith property
-createAsserts :: Name a => Theory a -> SubProperty a -> [Property a] -> Fresh (SubProperty a,[(Expr a, Expr a)])
+createAsserts :: Name a => Theory a -> SubProperty a -> [Property a] -> Fresh (SubProperty a,[(Expr a, Maybe (Lemma a))])
 createAsserts theory subProp allProps =  do
     apps <- createApps subProp allProps
     return (subProp, apps)
@@ -90,7 +90,7 @@ applicativeInduction mutually split (l:ls)  theory' = do
     
     --traceM $ "theory before: " ++ (show $ ppTheory [] theory')    
 
-    theory_all <- head <$> runPasses [TypeSkolemConjecture, Monomorphise False, LetLift] theory_mut    
+    theory_all <- head <$> runPasses [{- IntToNat, SortsToNat, -}TypeSkolemConjecture, Monomorphise False, LetLift] theory_mut    
 
     --traceM $ "theory after: " ++ (show $ ppTheory [] theory_all)     
 
@@ -134,12 +134,14 @@ applicativeInduction mutually split (l:ls)  theory' = do
                         "i = " ++ show i]
 
 
-applicativeNoSplit :: Name a => [(Expr a, Maybe (SubProperty a))] -> SubProperty a -> Theory a -> Fresh [Theory a]
+applicativeNoSplit :: Name a => [(Expr a, Maybe (Lemma a))] -> SubProperty a -> Theory a -> Fresh [Theory a]
 applicativeNoSplit hyp prop theory = do
 
     -- collect all hypotheses for each pattern matching case
     let collectedExprs = group hyp 
    
+    let filteredExprs = filter (not . null . snd) $ map (\(e, ls) -> (e, catMaybes ls)) collectedExprs
+
     -- List the free variables in the pattern matching cases (global variables)
     let freeVars = concatMap free (map fst collectedExprs)
 
@@ -149,20 +151,19 @@ applicativeNoSplit hyp prop theory = do
     -- update the expression with the new globals
     let lcls = (map Lcl freeVars)
     let gbls = (map (\gg -> Gbl gg :@: []) listFree)
-    hypExprs <- mapM (\(req,sps) -> do
+    hypExprs <- mapM (\(req,ls) -> do
                         lhs <- updateRef' (zip lcls gbls) req
-                        rhs <- mapM (\sp -> 
-                                sp{propBody=
-                                    updateRef' (zip lcls gbls) (propBody sp)
-                                  }) sps
+                        rhs <- mapM (\l -> do 
+                                newBody <- updateRef' (zip lcls gbls) (body l) 
+                                return l{body = newBody}) ls
                         return (lhs,rhs)
-                     ) collectedExprs
+                     ) filteredExprs
 
     -- add quantifier for each hypothesis
-    let colQuant = concatMap  (\(req, sps) -> 
-                                    map (\sp -> sp{propBody= req 
-                                                    ==> quantifyAll (propBody sp)}
-                                        ) sps) hypExprs
+    let colQuant = concatMap  (\(req, ls) -> 
+                                    map (\l -> l{body = req 
+                                                    ==> quantifyAll (body l)}
+                                        ) ls) hypExprs
 
     let hypOr = ors $ map fst hypExprs
     --map (\(req,exs) -> ands $ req:map quantifyAll exs) hypExprs
@@ -181,13 +182,13 @@ applicativeNoSplit hyp prop theory = do
     goal <- createGoal prop
 
     -- update the theory with the new assumptions, signatures and goal
-    return $ [theory{thy_asserts =  exprs hypOr : (map exprs hypExpr') ++ thy_asserts theory ++ [goal], 
+    return $ [theory{thy_asserts =  exprs hypOr : (map exprsName hypExpr') ++ thy_asserts theory ++ [goal], 
                      thy_sigs    =  varDefs ++ thy_sigs theory}]
 
         where
             exprs = Formula Assert [("Assert", Nothing)] []
-            exprsName sp = Formula Assert 
-                [("Assert", Nothing), ("name", Just $ func_name . propFunc $ sp)] [] (propBody sp)
+            exprsName l = Formula Assert 
+                [("Assert", Nothing), ("name", Just $ name l)] [] (body l)
             createFreshGlobal = (\pt -> freshGlobal (PolyType [] [] (lcl_type pt)) [])
             createSig = (\g -> Signature (gbl_name g) [] (gbl_type g))
 
@@ -195,7 +196,7 @@ applicativeNoSplit hyp prop theory = do
 
 
 
-applicativeSplit :: Name a => [(Expr a, Maybe (SubProperty a))] -> SubProperty a -> Theory a -> Fresh [Theory a]
+applicativeSplit :: Name a => [(Expr a, Maybe (Lemma a))] -> SubProperty a -> Theory a -> Fresh [Theory a]
 applicativeSplit hyp prop theory = undefined {-do 
 
     -- collect all hypotheses for each pattern matching case

@@ -3,7 +3,7 @@ module Tip.Formula where
 import           Control.Monad         (join)
 import           Text.Regex            (mkRegex, subRegex)
 
-import           Tip.Core              (forallView)
+import           Tip.Core              (forallView, HasAttr(..))
 import           Tip.Fresh             (Name)
 import           Tip.Haskell.Translate (trTheory)
 import           Tip.Pretty            (PrettyVar (..), pp)
@@ -11,6 +11,10 @@ import qualified Tip.Pretty.SMT        as SMT (ppExpr)
 import qualified Tip.Pretty.Haskell    as HS (Mode (..))
 import qualified Tip.Pretty.TFF        as TFF (ppExpr)
 import           Tip.Types             (Formula (..), Local (..), Theory (..))
+
+
+getAttr :: HasAttr a => String -> a -> Maybe String
+getAttr s = join . lookup s . getAttrs
 
 -- lookup a fomrula with given name
 lookupFormula :: Name a => String -> [Formula a] -> Maybe (Formula a)

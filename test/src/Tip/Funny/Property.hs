@@ -15,7 +15,7 @@ import           Tip.Formula     (getFormulaName)
 data Name a => Property a = Prop
     { lemmaName :: String
     , subProps  :: [SubProperty a]
-    } 
+    } deriving Eq
 
 instance Name a => Show (Property a) where
     show p = lemmaName p
@@ -36,7 +36,7 @@ data Name a => SubProperty a = SubProp
         -- The Globals for propInp
     , propGlobals :: [Global a]
     }
-    deriving Show
+    deriving (Show,Eq)
 
 
 
@@ -136,6 +136,11 @@ functionSProps g = filter ((gbl_name g ==) . func_name . propFunc ) . subProps
 -- returns all subproperties among alll properties related to a function
 functionSubProperties :: Name a => Global a -> [Property a] -> [SubProperty a]
 functionSubProperties g = concatMap (functionSProps g)
+
+getParentProp :: Name a => [Property a] -> SubProperty a -> Maybe (Property a)
+getParentProp [] _      = Nothing
+getParentProp (p:ps) sp = if sp `elem` (subProps p) then Just p else
+                                getParentProp ps sp 
 
 findProperty :: Name a => Formula a -> [Property a] -> Maybe (Property a)
 findProperty f []       = Nothing 
