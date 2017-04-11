@@ -43,11 +43,11 @@ count x (y:ys)
 
 --prop_ordering xs ys z = smallerEq xs z && bigger ys z ==> ordered (xs ++ ys) === ((ordered xs) && (ordered ys))
 
---prop_ordering2 xs ys z = smallerEq xs z && bigger ys z ==> (ordered (xs ++ [z] ++ ys) ==> ((ordered xs) && (ordered ys)))
+prop_ordering2 xs ys z = smallerEq xs z && bigger ys z ==> ordered (xs ++ [z] ++ ys) === ((ordered xs) && (ordered ys))
 
---prop_pp a b c = a++(b++c) ==> (a++b)++c
---prop_countcount x as bs = count x as + count x bs ==> count x (as ++ bs) 
-{-
+prop_pp a b c = a++(b++c) === (a++b)++c
+prop_countcount x as bs = count x as + count x bs === count x (as ++ bs) 
+
 p_tmpNil y = count y [] === count y (qsort [])
 p_tmp y x xs = count y (x:xs) ===  count y (filterLEq x xs) + count y [x] + count y (filterGT x xs) 
 
@@ -76,8 +76,8 @@ prop_bigQ xs x = bigger xs x === bigger (qsort xs) x
 prop_ppOrd x xs     = (ordered xs && smallerEq xs x) ==> ordered (xs++[x]) 
 prop_ppOrd1 x xs     = ordered (xs++[x]) ==> (ordered xs && smallerEq xs x)  
 prop_ppOrd2 x xs    = (ordered xs && bigger xs x) ==> ordered (x:xs)
--}
---prop_orsAnd a b = ordered (a ++ b) ==> ((ordered a) && (ordered b))
+
+prop_orsAnd a b = ordered (a ++ b) ==> ((ordered a) && (ordered b))
 --prop_orsAnd a b = ((ordered a) && (ordered b) &) ==> ordered (a ++ b)
 
 

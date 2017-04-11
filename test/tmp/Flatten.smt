@@ -35,34 +35,31 @@
               (case Nil (cons x2 (flatten1 (cons q ps))))))
           (case Nil (flatten1 ps))))))
 (define-fun-rec
-  (par (a)
-    (++ :source Prelude.++
-       ((x (list a)) (y (list a))) (list a)
-       (match x
-         (case nil y)
-         (case (cons z xs) (cons z (++ xs y)))))))
-(define-fun-rec
-  (par (a b)
-    (concatMap :let :source Prelude.concatMap
-       ((f (=> a (list b))) (x (list a))) (list b)
-       (match x
-         (case nil (as nil (list b)))
-         (case (cons y xs) (++ (@ f y) (concatMap f xs)))))))
+  ++ :keep :source Tree.++
+    ((x (list Int)) (y (list Int))) (list Int)
+    (match x
+      (case nil y)
+      (case (cons b bs) (cons b (++ bs y)))))
 (define-fun-rec
   flatten0 :keep :source Tree.flatten0
     ((x Tree)) (list Int)
     (match x
       (case (Node p y q)
-        (++ (flatten0 p) (++ (cons y (as nil (list Int))) (flatten0 q))))
+        (++ (++ (flatten0 p) (cons y (as nil (list Int)))) (flatten0 q)))
       (case Nil (as nil (list Int)))))
+(define-fun-rec
+  concatMap :keep :source Tree.concatMap
+    ((x (list Tree))) (list Int)
+    (match x
+      (case nil (as nil (list Int)))
+      (case (cons b bs) (++ (flatten0 b) (concatMap bs)))))
 (assert-not
   :source Tree.prop_Flatten1
   (forall ((p Tree))
     (= (flatten1 (cons p (as nil (list Tree)))) (flatten0 p))))
 (assert-not
   :source Tree.prop_Flatten1List
-  (forall ((ps (list Tree)))
-    (= (flatten1 ps) (concatMap (lambda ((x Tree)) (flatten0 x)) ps))))
+  (forall ((ps (list Tree))) (= (flatten1 ps) (concatMap ps))))
 (assert-not
   :source Tree.prop_Flatten2
   (forall ((p Tree))
