@@ -1,6 +1,6 @@
 module Induction.Application where
 
-import           Control.Monad.State (join, modify, liftIO)
+import           Control.Monad.State (when, join, modify, liftIO)
 
 import           Data.List           (partition,nub,(\\))
 import           Data.Maybe          (fromJust)
@@ -48,7 +48,7 @@ selectConjApp th = return [th1,th2]
 provedConjApp :: Name a => Theory a -> TP a (Theory a)
 provedConjApp th = do
     (new:ls) <- getLemmas
-    traceM $ unlines $ map lemmaName ls
+
     let provenLemmas = filter status ls 
     let newLemmas = updateProven $ new{status=False}:ls
           --case canProve new provenLemmas of
@@ -63,7 +63,7 @@ provedConjApp th = do
     --traceM $ unlines ["proven: ",(show proven)]
     let (gs,as) = theoryGoals th
     if null proven then do
-        liftIO $ putStrLn "in null proven "
+        --liftIO $ putStrLn "in null proven "
         return th{thy_asserts = tail gs ++ [head gs] ++ as}
         else 
             return th{thy_asserts = (map (\g -> if fname g `elem` proven then g{fm_role = Assert} else g) gs) ++ as}

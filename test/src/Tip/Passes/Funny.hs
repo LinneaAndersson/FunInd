@@ -110,7 +110,7 @@ applicativeInduction mutually split (l:ls)  theory' = do
                                                 when (length sp <= l ) $ end goalFormula old sp l
                                                 return ([a{subProps=[sp !! l]}], sp !! l)
 
-    traceM $ "lengttt : " ++ (show $ map (length . subProps) ps )
+    --traceM $ "lengttt : " ++ (show $ map (length . subProps) ps )
     -- Remove all conjectures from the theory
     let theory = selectConjecture 0 theory_all
     let         newTheory = deleteConjecture 0 theory
@@ -151,10 +151,13 @@ applicativeNoSplit hyp prop theory = do
     -- update the expression with the new globals
     let lcls = (map Lcl freeVars)
     let gbls = (map (\gg -> Gbl gg :@: []) listFree)
+
+    let pairs = zip lcls gbls
+
     hypExprs <- mapM (\(req,ls) -> do
-                        lhs <- updateRef' (zip lcls gbls) req
+                        lhs <- updateRef' pairs req
                         rhs <- mapM (\l -> do 
-                                newBody <- updateRef' (zip lcls gbls) (body l) 
+                                newBody <- updateRef' pairs (body l) 
                                 return l{body = newBody}) ls
                         return (lhs,rhs)
                      ) filteredExprs
@@ -165,7 +168,8 @@ applicativeNoSplit hyp prop theory = do
                                                     ==> quantifyAll (body l)}
                                         ) ls) hypExprs
 
-    let hypOr = ors $ map fst hypExprs
+    hypOr <- ors <$> mapM (updateRef' pairs . fst) collectedExprs
+    traceM . show . ppExpr $ hypOr
     --map (\(req,exs) -> ands $ req:map quantifyAll exs) hypExprs
 
     -- create one hypothesis consisting of all possible pattern matching cases

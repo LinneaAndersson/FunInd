@@ -1,23 +1,8 @@
 module Tree where
 
 import Tip
-import Prelude hiding ((++),concatMap)
 
 data Tree = Node (Tree) Int (Tree) | Nil deriving Eq
-
-(++) :: [Int] -> [Int] -> [Int]
-[] ++ bs        = bs
-(a:as) ++ bs    = a : as ++ bs
-
-concatMap ::  [Tree] -> [Int]
-concatMap []      = []
-concatMap (a:as)  = flatten0 a ++ (concatMap as)
-
-
-{-(++t) :: [Tree] -> [Tree] -> [Tree]
-[] ++t bs        = bs
-(a:as) ++t bs    = a : as ++t bs
--}
 
 --------------------------------------------------------------------------------
 
@@ -48,7 +33,7 @@ prop_Flatten1 p =
 
 
 prop_Flatten1List ps =
-  flatten1 ps === concatMap ps
+  flatten1 ps === concatMap flatten0 ps
 
 
 prop_Flatten2 p = 

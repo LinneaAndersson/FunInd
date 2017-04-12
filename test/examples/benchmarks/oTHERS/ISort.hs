@@ -1,6 +1,5 @@
 module ISort where
 import Tip
-
 --import Data.List hiding (sort, insert)
 
 sort :: [Int] -> [Int]
