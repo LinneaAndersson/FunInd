@@ -22,6 +22,8 @@ import           Tip.Pretty          (ppVar)
 
 import           Utils               (deleteAt)
 
+import           Debug.Trace         (trace, traceM)
+
 applicationInd :: Name a => Bool -> Induction a
 applicationInd b =  Ind (\th0 -> length $ findApps (thy_funcs th0) (fm_body $ head . fst $ theoryGoals th0)) 
                         [applicativeInduction False b, applicativeInduction True b]
@@ -46,15 +48,19 @@ selectConjApp th = return [th1,th2]
 provedConjApp :: Name a => Theory a -> TP a (Theory a)
 provedConjApp th = do
     (new:ls) <- getLemmas
+    traceM $ unlines $ map lemmaName ls
     let provenLemmas = filter status ls 
-    let newLemmas = 
-          case canProve new provenLemmas of
-            Nothing ->  
-                updateProven $ new{status=False}:ls
-            Just a ->  updateProven  $ new{hLemmas=[a]}:ls 
+    let newLemmas = updateProven $ new{status=False}:ls
+          --case canProve new provenLemmas of
+            --Nothing ->  
+              --  updateProven $ new{status=False}:ls
+            --Just a ->  updateProven  $ new{hLemmas=[a]}:ls 
     modify (\s -> s{lemmas=newLemmas})
     let proven' = map lemmaName $ filter status newLemmas
     let proven = proven' \\ (map lemmaName provenLemmas)
+    --traceM $ unlines ["before: ",(show (map lemmaName provenLemmas))]
+    --traceM $ unlines ["proven': ",(show proven')]
+    --traceM $ unlines ["proven: ",(show proven)]
     let (gs,as) = theoryGoals th
     if null proven then do
         liftIO $ putStrLn "in null proven "
@@ -75,15 +81,15 @@ addProven :: [Lemma] -> [Lemma] -> [Lemma]
 addProven [] ls = ls
 addProven (x:xs) ls = 
     case canProve x ls of
-        Just helpLemmas -> addProven xs (x{status=True, hLemmas=[helpLemmas]}:ls)
-        Nothing ->  x : addProven xs ls
+        Just helpLemmas -> trace (":) " ++ lemmaName x) $ addProven xs (x{status=True, hLemmas=[helpLemmas]}:ls)
+        Nothing -> trace (":( " ++ lemmaName x) $ x : addProven xs ls
 
 canProve :: Lemma -> [Lemma] -> Maybe (Maybe [Int], [String])
 canProve lemma ls = help (hLemmas lemma) 
     where
-        provenLemmas = nub $ map (\h -> case lemmaSource h of
+        provenLemmas = nub $ map (\h -> lemmaName h {- case lemmaSource h of
                                     Nothing -> lemmaName h
-                                    Just a -> a ) (lemma:ls)
+                                    Just a -> a -}) (lemma:ls)
         help []                    = Nothing
         help (tp@(indvar, hs):hss) = if and $ map (\l -> l `elem` provenLemmas) (nub hs) then
                                             Just tp 

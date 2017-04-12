@@ -2,7 +2,7 @@
 module Interleave where
 
 import Tip
-import Data.List
+-- import Data.List
 
 --------------------------------------------------------------------------------
 

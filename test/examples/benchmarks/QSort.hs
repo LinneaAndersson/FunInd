@@ -43,7 +43,7 @@ count x (y:ys)
 
 --prop_ordering xs ys z = smallerEq xs z && bigger ys z ==> ordered (xs ++ ys) === ((ordered xs) && (ordered ys))
 
-prop_ordering2 xs ys z = smallerEq xs z && bigger ys z ==> ordered (xs ++ [z] ++ ys) === ((ordered xs) && (ordered ys))
+prop_ordering2 xs ys z = ((smallerEq xs z) && (bigger ys z)) ==> (ordered (xs ++ [z] ++ ys) == (ordered xs) && (ordered ys))
 
 prop_pp a b c = a++(b++c) === (a++b)++c
 prop_countcount x as bs = count x as + count x bs === count x (as ++ bs) 
@@ -53,7 +53,7 @@ p_tmp y x xs = count y (x:xs) ===  count y (filterLEq x xs) + count y [x] + coun
 
 prop_QSortCount x xs = count x (qsort xs) === count x xs
 
-prop_bigpp a b x = bigger (a++b) x === ((bigger a x) && (bigger b x) )
+prop_bigpp a b x = (bigger (a++b) x) === ((bigger a x) && (bigger b x))
 
 prop_smallpp1 a b x = smallerEq (a++b) x === ((smallerEq a x) && (smallerEq b x) )
 
