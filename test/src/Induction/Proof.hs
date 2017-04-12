@@ -31,8 +31,8 @@ loop_conj :: Name a => Theory a -> TP a (Theory a)
 loop_conj theory =  do
     let count = length . fst $ theoryGoals theory
     loopNbr <- getLoopNbr
-    liftIO $ putStrLn (show loopNbr)
-    liftIO $ putStrLn (show count)
+    --liftIO $ putStrLn (show loopNbr)
+    --liftIO $ putStrLn (show count)
     if ((loopNbr <= count) && (count /= 0)) then do
         state  <- get
         params <- params <$> get 
@@ -53,10 +53,10 @@ loop_conj theory =  do
                     pTheory <- proved theory
                     let count' = length . fst $ theoryGoals pTheory                    
                     if (count' < count) then do
-                        liftIO $ putStrLn "resetting!!"
+                        --liftIO $ putStrLn "resetting!!"
                         resetLoop
                         else do
-                            liftIO $ putStrLn "incloop"
+                            --liftIO $ putStrLn "incloop"
                             incLoop
             
                     loop_conj pTheory)
