@@ -169,8 +169,6 @@ applicativeNoSplit hyp prop theory = do
                                         ) ls) hypExprs
 
     hypOr <- ors <$> mapM (updateRef' pairs . fst) collectedExprs
-    traceM . show . ppExpr $ hypOr
-    --map (\(req,exs) -> ands $ req:map quantifyAll exs) hypExprs
 
     -- create one hypothesis consisting of all possible pattern matching cases
     let hypExpr' = colQuant

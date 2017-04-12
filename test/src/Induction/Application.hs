@@ -2,8 +2,8 @@ module Induction.Application where
 
 import           Control.Monad.State (when, join, modify, liftIO)
 
-import           Data.List           (partition,nub,(\\))
-import           Data.Maybe          (fromJust)
+import           Data.List           (partition,nub,(\\), find)
+import           Data.Maybe          (fromJust, isNothing, catMaybes)
 
 import           Tip.Core            (forallView, theoryGoals)
 import           Tip.Formula         (getFormula, getUserProperty,
@@ -70,20 +70,25 @@ provedConjApp th = do
         where fname = fromJust . join . lookup "name" . fm_attrs
 
 updateProven :: [Lemma] -> [Lemma]
-updateProven ls = if length proven1 > length proven then updateProven upLemmas else ls
-    where
-        (proven,unproven) = partition status ls
-        upLemmas = addProven unproven proven 
+updateProven ls = map update ls
+    where 
+        upLemmas = addProven ls
         proven1 = filter status upLemmas
+        update l = case find (\l' -> lemmaName l == lemmaName l') proven1 of
+                    Nothing -> l
+                    Just a  -> a
 
 
-addProven :: [Lemma] -> [Lemma] -> [Lemma] 
-addProven [] ls = ls
-addProven (x:xs) ls = 
-    case canProve x ls of
-        Just helpLemmas -> trace (":) " ++ lemmaName x) $ addProven xs (x{status=True, hLemmas=[helpLemmas]}:ls)
-        Nothing -> trace (":( " ++ lemmaName x) $ x : addProven xs ls
+addProven :: [Lemma] -> [Lemma] 
+--addProven [] ls = ls
+addProven ls = map update proven
+    where
+        proven = canProveLoop ls
+        update l = if not $ status l then
+            trace (":) " ++ lemmaName l) $ l{status=True, hLemmas=[head $ hLemmas l]}
+            else l
 
+{-
 canProve :: Lemma -> [Lemma] -> Maybe (Maybe [Int], [String])
 canProve lemma ls = help (hLemmas lemma) 
     where
@@ -94,4 +99,27 @@ canProve lemma ls = help (hLemmas lemma)
         help (tp@(indvar, hs):hss) = if and $ map (\l -> l `elem` provenLemmas) (nub hs) then
                                             Just tp 
                                             else help hss 
+-}
+
+canProveLoop :: [Lemma] -> [Lemma] 
+canProveLoop ls = if length updated == length ls then updated else canProveLoop updated
+    where  
+        --fakeLemmas = filter (not . status) ls
+        updateLemma l = if status l then Just l else updateFakeLemmas l ls 
+        updated = catMaybes (map updateLemma ls)
+        
+        --lemmaNames = map lemmaName ls
+        
+
+
+updateFakeLemmas :: Lemma -> [Lemma] -> Maybe Lemma
+updateFakeLemmas lemma ls = if null newHLemmas then Nothing else Just lemma{hLemmas=newHLemmas}
+    where 
+        oldHLemmas = hLemmas lemma
+        lemmaNames = map lemmaName ls
+        newHLemmas = filter (\(_, h) -> trace (unlines . nub $ (("== " ++ lemmaName lemma):h)) $ all (\l -> l `elem` lemmaNames) h) oldHLemmas
+
+
+
+
 

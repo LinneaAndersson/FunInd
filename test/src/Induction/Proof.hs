@@ -193,7 +193,7 @@ prove th = do
         ax' <- mapM (\ln -> 
                     case find (\Lemma{..} -> lemmaName == ln) lemmas of
                         Nothing -> return ln --fail "WTF!!!"
-                        Just l  -> return $ fromMaybe ln (lemmaSource l)) ax
+                        Just l  -> return ln {- $ fromMaybe ln (lemmaSource l)-}) ax
 
         -- add auxilliary lemmas to temporary state
         when proved $ modify (\s -> s{axioms = axioms s ++ ax'})
