@@ -112,6 +112,8 @@ loop_ind theory (x:xs)  = do
         prep <- prepare <$> getProver
         liftIO $ printTheories prep ind_theory 0 (out_path ("Theory" ++ show x))
 
+        checkInteractive $ theory
+
         printStr 3 "-----------------------------------------"
         mcase (proveAll ind_theory)     -- try induction 
             (do -- proves using induction on x
@@ -119,6 +121,20 @@ loop_ind theory (x:xs)  = do
                 return True)
             (loop_ind theory xs) -- unable to prove, try next variable
 
+
+checkInteractive :: Name a => Theory a -> TP a ()
+checkInteractive th = do
+    par <- params <$> get        
+    let ls = stepLemmas par
+    when (not $ null ls) $
+         let formula     = head . fst $ theoryGoals th
+                -- lookup up unique name of formual
+             f_name      = fromMaybe "no name"  $ join $ lookup "name" (fm_attrs formula)
+         in do           
+                when (f_name `elem` ls) $ do
+                    printStr 3 $ "== Pause @ " ++ f_name ++ ": Press enter to continue"
+                    liftIO getLine
+                    printStr 3 $ "== Continuing"
 
 -- Returns true if all conjectures are provable
 proveAll :: Name a => [Theory a] -> TP a Bool

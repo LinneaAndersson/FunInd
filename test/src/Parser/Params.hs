@@ -21,20 +21,22 @@ data Params = Params
     , splitCases  :: Bool
     , benchmarks  :: Bool
     , nbrInduct   :: Int
+    , stepLemmas :: [String]
     }
 
 instance Show Params where
     show p = unlines
         ["== Program Parameters ==",
-         " Input File: "        ++ show (inputFile p),
-         " Verbosity Level: "   ++ show (outputLevel p),
-         " Induction Type: "    ++ show (indType p),
-         " Prover Timeouts: "   ++ show (timeouts p),
-         " TipSpec Enabled: "   ++ show (tipspec p),
-         " Prover Backend: "    ++ show (backend p),
-         " Split Cases: "       ++ show (splitCases p),
-         " Run benchmarks: "    ++ show (benchmarks p) ,
-         " #Induction vars: "   ++ show (nbrInduct p)
+         " Input File: "         ++ show (inputFile p),
+         " Verbosity Level: "    ++ show (outputLevel p),
+         " Induction Type: "     ++ show (indType p),
+         " Prover Timeouts: "    ++ show (timeouts p),
+         " TipSpec Enabled: "    ++ show (tipspec p),
+         " Prover Backend: "     ++ show (backend p),
+         " Split Cases: "        ++ show (splitCases p),
+         " Run benchmarks: "     ++ show (benchmarks p),
+         " #Induction vars: "    ++ show (nbrInduct p),
+         " Interactive Lemmas: " ++ show (stepLemmas p)
         ]
 
 data TipSpec = No | Yes String | UseExisting String deriving Show
@@ -71,11 +73,19 @@ parseParams = execParser $ info
                                <*>  parseProver
                                <*>  parseSplit
                                <*>  parseBench
-                               <*>  parseInductNbr))
+                               <*>  parseInductNbr
+                               <*>  parseInteract))
                 (fullDesc <>
                  progDesc "Prov properties of recursively defined functions" <>
                  -- TODO we really need a better name... :)
                  header "test - Inductive theorem prover")
+
+parseInteract :: Parser [String]
+parseInteract = map (("lemma" ++) . show) <$> lemmaNbrs
+    where lemmaNbrs = option auto (long "interactive-lemmas" <> metavar "[Int,...]" 
+                        <> help "Lemmas to pause at, allowing the user to step through the induction"
+                        <> showDefault
+                        <> value []) :: Parser [Int]
 
 parseInductNbr :: Parser Int
 parseInductNbr = option auto (long "nbr-indvar" <> metavar "INT" <> help "Max number of induction variables"
@@ -100,7 +110,6 @@ parseProverTimeouts =
     option auto (long "timeouts" <> metavar "[INT,...]" <> help "Timeouts for the prover"
             <> showDefault
             <> value [1,5,10])
-    -- <|> (value [5])
 
 parseTipSpecEnabled :: Parser TipSpec
 parseTipSpecEnabled =
