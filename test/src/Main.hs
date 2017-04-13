@@ -135,7 +135,7 @@ initState :: Name a => Params -> IndState a
 initState par = IndState par
     (selectProver par)
     (getIndType par)
-    [] Nothing [] 0
+    [] [] 0
 
 -- When the input file is in haskell we need to run tip-ghc
 -- to convert it to smt2

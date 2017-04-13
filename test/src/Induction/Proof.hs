@@ -8,8 +8,7 @@ import Control.Exception (Exception, SomeException, catch, throw)
 import Control.Monad.State (modify, put, get, when, liftIO, join, runStateT)
 
 import Induction.Induction (printStr, runProver, addLemma, nextTimeout)
-import Induction.Types (TP(..), IndState(..), Lemma(..), Induction(..), IndPass, getLemmas, getProver, getInduction, getLoopNbr)
-
+import Induction.Types 
 import Parser.Params (Params(..))
 
 import Tip.Core (theoryGoals)
@@ -106,16 +105,23 @@ loop_conj2 th =
         indPasses <- inductionPass <$> getInduction
 
         -- clean temporary state
-        modify (\s -> s{axioms = [], ind=Nothing})
+        modify (\s -> s{axioms = []})
         mcase (select th >>= prove) -- Test if solvable without induction
             (do -- Proved without induction
                 printStr 3 $ "| " ++ f_s  ++  "  -- P | " ++ formulaPrint
-                addLemma f_name formulaPrint f_source-- add formula to proved lemmas
+                axs <- axioms <$> get
+                let cond = (Nothing, axs) 
+                addLemma f_name formulaPrint f_source cond -- add formula to proved lemmas
                 -- go to next conjecture
                 return True)
             (do
                 let indVars = subsets (nbrInduct params) (nbrVar th)
                 printStr 4 $ unlines ["", "= Indices to induct on =", " " ++ show indVars,""]
+
+                conds <- loop_ind th indPasses indVars
+                mapM (addLemma f_name formulaPrint f_source) conds
+                return . not $ null conds)
+{-
                 mcase ( loop_ind th indPasses indVars ) -- Attempt induction
                     (do -- Proved using induction
                         printStr 3 $ "| " ++ f_s  ++  "  -- I | " ++ formulaPrint
@@ -126,21 +132,23 @@ loop_conj2 th =
                         -- Unable to prove with current theory
                         -- try next conjecture
                         printStr 3 $ "| " ++ f_s  ++  "  -- U | " ++ formulaPrint
-                        return False))
+                        return False))-}
+
 
 -- Trying to prove a conjecture, looping over all variables in the conjecture
-loop_ind :: Name a => Theory a -> [IndPass a] -> [[Int]] -> TP a Bool
-loop_ind _      []     _  = return False -- tested all variables, unable to prove
-loop_ind theory (f:fs) xs = do
+loop_ind :: Name a => Theory a -> [IndPass a] -> [[Int]] -> TP a [Condition]
+loop_ind _      []     _  = return [] -- tested all variables, unable to prove
+loop_ind theory (f:fs) xs = loop_var theory f xs --do
+        {-
         mcase (loop_var theory f xs)     -- try induction 
             (do -- proves using induction on x
                 -- modify (\s -> s{ind = Just x}) -- store variables used
                 return True)
-            (loop_ind theory fs xs) -- unable to prove, try next variable
+            (loop_ind theory fs xs) -- unable to prove, try next variable-}
 
 
-loop_var :: Name a => Theory a -> IndPass a -> [[Int]] -> TP a Bool
-loop_var _ _ []                 = return False
+loop_var :: Name a => Theory a -> IndPass a -> [[Int]] -> TP a [Condition]
+loop_var _ _ []                 = return []
 loop_var theory indPass (x:xs) = do
 
         
@@ -158,8 +166,13 @@ loop_var theory indPass (x:xs) = do
 
         mcase (proveAll ind_theory)     -- try induction 
             (do -- proves using induction on x
-                modify (\s -> s{ind = Just x}) -- store variables used
-                return True)
+--                modify (\s -> s{ind = Just x}) -- store variables used
+                axs <- axioms <$> get
+                modify (\s -> s{axioms = []}) 
+                rec <- mcase (mutual_rec <$> (params <$> get)) 
+                                (loop_var theory indPass xs) 
+                                (return [])
+                return $ (Just x, axs):rec)
             (loop_var theory indPass xs) -- unable to prove, try next variable
 
 -- Returns true if all conjectures are provable

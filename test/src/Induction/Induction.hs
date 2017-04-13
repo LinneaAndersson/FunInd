@@ -11,13 +11,11 @@ import           Tip.Fresh           (Name)
 import           Tip.Funny.Utils     (findApps)
 import qualified Tip.Funny.Property as Prop (Property(..))
 import           Tip.Passes          (induction,selectConjecture, provedConjecture)
-import           Tip.Types           (Formula (..), Theory (..), Head(..), Expr(..), Local(..))
+import           Tip.Types           
 import           Tip.Pretty.SMT      (ppExpr)
 import           Tip.Pretty          (ppVar)
 
-import           Induction.Types     (Induction (..), Lemma (..), TP (..), getInduction,
-                                      axioms, getLemmas, getProver, ind, lemmas,
-                                      params)
+import           Induction.Types     
 import           Induction.Application (applicationInd)
 
 import           Parser.Params       (IndType (..), Params (..))
@@ -38,13 +36,14 @@ structuralInd = Ind (length . fst . forallView . fm_body . head . fst . theoryGo
           withIndex _ i formula = "--- Proved with variables" ++ ": " ++ (show $ map (vars formula !!) i)
           vars = map (ppVar . lcl_name) . fst . forallView . fm_body
 
-addLemma :: Name a => String -> String -> Maybe String -> TP a ()
-addLemma name formula source = modify (\s ->  s{lemmas = update (newLemma s) (lemmas s)})
+addLemma :: Name a => String -> String -> Maybe String -> Condition -> TP a ()
+addLemma name formula source c = modify (\s ->  s{lemmas = update newLemma (lemmas s)})
     where 
-        newLemma s = Lemma name source [(ind s, axioms s)] formula True
+        newLemma = Lemma name source [c] formula True
         update l ls = case partition (\a -> lemmaName l == lemmaName a) ls of
                         ([], _)    -> l:ls
-                        ([l'],ls') -> l'{hLemmas = hLemmas l ++ hLemmas l'}:ls'
+                        ([l'],ls') -> if c `elemC` (hLemmas l') then l':ls' 
+                                        else l'{hLemmas = hLemmas l ++ hLemmas l'}:ls'
 
 -- run the choosen prover on the file given by the filepath
 runProver :: Name a => FilePath -> TP a String
@@ -148,7 +147,7 @@ printStr i s = mwhen ((i <=) <$> (outputLevel . params <$> get))
 getIndType :: Name a => Params -> Induction a
 getIndType p = case indType p of
     Structural  -> structuralInd
-    Application -> applicationInd (splitCases p)
+    Application -> applicationInd (splitCases p) (mutual_rec p)
 
 nextTimeout :: Name a => TP a Bool
 nextTimeout = do

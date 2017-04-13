@@ -10,9 +10,7 @@ import           Tip.Formula         (getFormula, getUserProperty,
                                       lookupFormula)
 import           Tip.Fresh           (Name)
 import           Tip.Funny.Utils     (findApps)
-import           Induction.Types     (Induction (..), Lemma (..), TP (..), getInduction,
-                                      axioms, getLemmas, getProver, ind, lemmas,
-                                      params)
+import           Induction.Types    
 import qualified Tip.Funny.Property as Prop (Property(..))
 import           Tip.Passes.Funny    (applicativeInduction)
 import           Tip.Passes          (selectConjecture,provedConjecture)
@@ -24,9 +22,9 @@ import           Utils               (deleteAt)
 
 import           Debug.Trace         (trace, traceM)
 
-applicationInd :: Name a => Bool -> Induction a
-applicationInd b =  Ind (\th0 -> length $ findApps (thy_funcs th0) (fm_body $ head . fst $ theoryGoals th0)) 
-                        [applicativeInduction False b, applicativeInduction True b]
+applicationInd :: Name a => Bool -> Bool -> Induction a
+applicationInd b m =  Ind (\th0 -> length $ findApps (thy_funcs th0) (fm_body $ head . fst $ theoryGoals th0)) 
+                        [applicativeInduction m b]
                         withIndex
                         (return . selectConjecture 0)
                         provedConjApp

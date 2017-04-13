@@ -8,7 +8,7 @@ import           Control.Monad.State (MonadIO, MonadState, MonadTrans, StateT,
                                       get)
 import           Control.Exception.Base (SomeAsyncException)
 import           Control.Monad.Error ( MonadError)  
-import           Data.List           (find)
+import           Data.List           (find, nub, (\\))
 
 import           Tip.Fresh           (Fresh (..), Name)
 import           Tip.Types           (Theory (..), Formula(..))
@@ -19,6 +19,16 @@ import           Prover              (Prover (..))
 -- Monad-transformer for induction
 --type TheoremProverT s m a = StateT s m a
     --deriving (Functor, Applicative, Monad, MonadIO, MonadState s, MonadTrans)
+
+
+type Condition = (Maybe [Int], [String])
+
+elemC :: Condition -> [Condition] -> Bool
+elemC c [] = False
+elemC a (b:bs) = (null $ (a' \\ b') ++ (b' \\ a')) || (elemC a bs) 
+        where 
+            a' = nub $ snd a
+            b' = nub $ snd b
 
 type IndPass a = [Int] -> Theory a -> Fresh [Theory a]
 
@@ -35,7 +45,6 @@ data Name a => IndState a = IndState
   ,  prover :: Prover a
   ,  induct :: Induction a
   ,  lemmas :: [Lemma]
-  ,  ind    :: Maybe [Int]
   ,  axioms :: [String]
   ,  loopNbr:: Int
   }
@@ -63,17 +72,6 @@ getAxioms = axioms <$> get
 
 getLoopNbr :: Name a => TP a Int
 getLoopNbr = loopNbr <$> get
-
-
-getHelpLemmas :: Name a => String -> TP a [String]
-getHelpLemmas name = lemmas =<< getLemmas
-  where
-    lemmas ls = case find ((==) name . lemmaName) ls of
-                    Nothing -> fail "Lemma not found"
-                    Just l  -> return . snd . head $ hLemmas l
-
-getVar :: Name a => TP a (Maybe [Int])
-getVar = ind <$> get
 
 getLemmas :: Name a => TP a [Lemma]
 getLemmas = lemmas <$> get

@@ -21,6 +21,7 @@ data Params = Params
     , splitCases  :: Bool
     , benchmarks  :: Bool
     , nbrInduct   :: Int
+    , mutual_rec  :: Bool
     }
 
 instance Show Params where
@@ -34,7 +35,8 @@ instance Show Params where
          " Prover Backend: "    ++ show (backend p),
          " Split Cases: "       ++ show (splitCases p),
          " Run benchmarks: "    ++ show (benchmarks p) ,
-         " #Induction vars: "   ++ show (nbrInduct p)
+         " #Induction vars: "   ++ show (nbrInduct p),
+         " mutual recursion: "   ++ show (mutual_rec p)
         ]
 
 data TipSpec = No | Yes String | UseExisting String deriving Show
@@ -71,11 +73,16 @@ parseParams = execParser $ info
                                <*>  parseProver
                                <*>  parseSplit
                                <*>  parseBench
-                               <*>  parseInductNbr))
+                               <*>  parseInductNbr
+                               <*>  parseMutual))
                 (fullDesc <>
                  progDesc "Prov properties of recursively defined functions" <>
                  -- TODO we really need a better name... :)
                  header "test - Inductive theorem prover")
+
+
+parseMutual :: Parser Bool
+parseMutual = pure True
 
 parseInductNbr :: Parser Int
 parseInductNbr = option auto (long "nbr-indvar" <> metavar "INT" <> help "Max number of induction variables"
