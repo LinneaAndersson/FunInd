@@ -4,18 +4,18 @@ import Prelude hiding ((++),(+++))
 
 
 (++) :: [Int] -> [Int] -> [Int]
-[]      ++ bs = b
+[]      ++ bs = bs
 (a:as)  ++ bs = a : (as ++ bs)
 
 (+++) :: [Tree] -> [Tree] -> [Tree]
-[]      ++ bs = b
-(a:as)  ++ bs = a : (as ++ bs)
+[]      +++ bs = bs
+(a:as)  +++ bs = a : (as +++ bs)
 
 
 -- trees
 
 data Tree = Node Int [Tree]
- deriving ( Eq, Ord, Show )
+ deriving ( Eq, Ord )
 
 -- bft1
 
@@ -42,7 +42,7 @@ bft2 t = bftQueue [t] []
 bftQueue :: [Tree] -> [Tree] -> [Int]
 bftQueue []               [] = []
 bftQueue []               rs = bftQueue (reverse rs) []
-bftQueue (Node x ps : qs) rs = x : bftQueue qs (reverse ps ++ rs)
+bftQueue (Node x ps : qs) rs = x : bftQueue qs (reverse ps +++ rs)
 
 -- QuickCheck
 {-
