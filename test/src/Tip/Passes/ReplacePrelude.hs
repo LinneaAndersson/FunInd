@@ -12,8 +12,8 @@ import           Tip.Funny.Utils       (findApps, updateRef', quantifyAll)
 import           Tip.Mod               (freshGlobal,universeBi)
 import           Tip.Passes            (StandardPass (..),
                                         deleteConjecture, runPasses)
-import           Tip.Types             (Expr (..), Formula (..), Quant (..),
-                                        Role (..), Signature (..), Theory (..))
+import           Tip.Types             
+
 import           Utils (group)
 
 import           Tip.Pretty.SMT
@@ -34,7 +34,8 @@ replaceComparisons :: Name a => Theory a -> Fresh (Theory a)
 replaceComparisons theory = do
     def <- getLEDef 
     props <- getLEAsserts
-    return theory{thy_asserts=thy_asserts theory++ props ++ [def]}
+    let th = replaceComp theory
+    return th{thy_asserts=thy_asserts theory++ props ++ [def]}
 
 getLEAsserts :: Name a => Fresh [Formula a]
 getLEAsserts = sequence [trans, antisym, tot,refl]
@@ -70,4 +71,13 @@ a <<= b = (Builtin NumLe) :@: [Lcl a,Lcl b]
 
 (.<<=) :: Name a => Expr a -> Expr a -> Expr a
 a .<<= b = (Builtin NumLe) :@: [a, b]
+
+
+replaceComp :: Name a => Theory a -> Theory a
+replaceComp = transformExprIn replaceComp'
+    where
+        replaceComp' (Builtin NumLt :@: [a,b]) = neg (b .<<= a) 
+        replaceComp' (Builtin NumGt :@: [a,b]) = neg (a .<<= b)
+        replaceComp' (Builtin NumGe :@: [a,b]) = b .<<= a
+        replaceComp' e = e
 
