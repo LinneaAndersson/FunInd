@@ -82,11 +82,13 @@ loop_conj theory curr num continue
                                 printStr 3 $ "| " ++ f_s  ++  "  -- I | " ++ formulaPrint
                                 addLemma f_name formulaPrint f_source-- add formula to proved lemmas
                                 -- -- go to next conjecture
+                                checkInteractive $ th
                                 loop_conj (provedConjecture curr theory) curr (num-1) True)
                             (do
                                 -- Unable to prove with current theory
                                 -- try next conjecture
                                 printStr 3 $ "| " ++ f_s  ++  "  -- U | " ++ formulaPrint
+                                checkInteractive $ th
                                 loop_conj theory (curr + 1) num continue))
                 ) state 
             ) (\e -> do 
@@ -112,8 +114,6 @@ loop_ind theory (x:xs)  = do
 
         prep <- prepare <$> getProver
         liftIO $ printTheories prep ind_theory 0 (out_path ("Theory" ++ show x))
-
-        checkInteractive $ theory
 
         printStr 3 "-----------------------------------------"
         mcase (proveAll ind_theory)     -- try induction 
