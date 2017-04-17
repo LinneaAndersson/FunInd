@@ -43,7 +43,6 @@ count x (y:ys)
 
 --prop_ordering xs ys z = smallerEq xs z && bigger ys z ==> ordered (xs ++ ys) === ((ordered xs) && (ordered ys))
 
-prop_ordering2 xs ys z = smallerEq xs z && bigger ys z ==> ordered (xs ++ [z] ++ ys) === ((ordered xs) && (ordered ys))
 
 prop_pp a b c = a++(b++c) === (a++b)++c
 prop_countcount x as bs = count x as + count x bs === count x (as ++ bs) 
@@ -58,6 +57,7 @@ prop_bigpp a b x = bigger (a++b) x === ((bigger a x) && (bigger b x) )
 prop_smallpp1 a b x = smallerEq (a++b) x === ((smallerEq a x) && (smallerEq b x) )
 
 --prop_smallpp2 a b c x = smallerEq (a++b++c) x === ((smallerEq a x) && ((smallerEq b x) && (smallerEq c x)))
+
 
 prop1 ys x = (smallerEq ys x) === (filterGT x ys == [])
 prop2 ys x = (bigger ys x) === (filterLEq x ys == [])
@@ -83,6 +83,9 @@ prop_orsAnd a b = ordered (a ++ b) ==> ((ordered a) && (ordered b))
 
 prop_small x xs = bool $ smallerEq (filterLEq x xs) x
 prop_big x xs = bool $ bigger (filterGT x xs) x
+
+prop_ordering2 xs ys z = smallerEq xs z && bigger ys z ==> ordered (xs ++ [z] ++ ys) === ((ordered xs) && (ordered ys))
+
 
 {-
 

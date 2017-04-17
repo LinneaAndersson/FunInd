@@ -71,6 +71,7 @@ loop_conj theory curr num continue
                     (do -- Proved without induction
                         printStr 3 $ "| " ++ f_s  ++  "  -- P | " ++ formulaPrint
                         addLemma f_name formulaPrint f_source-- add formula to proved lemmas
+                        checkInteractive $ th
                         -- go to next conjecture
                         loop_conj (provedConjecture curr theory) curr (num-1) True)
                     (do

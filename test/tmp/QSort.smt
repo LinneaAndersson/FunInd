@@ -58,12 +58,6 @@
         (++ (qsort (filterLEq y xs))
           (++ (cons y (as nil (list Int))) (qsort (filterGT y xs)))))))
 (assert-not
-  :source Sort.prop_ordering2
-  (forall ((xs (list Int)) (ys (list Int)) (z Int))
-    (=> (and (smallerEq xs z) (bigger ys z))
-      (= (ordered (++ xs (++ (cons z (as nil (list Int))) ys)))
-        (and (ordered xs) (ordered ys))))))
-(assert-not
   :source Sort.prop_pp
   (par (a)
     (forall ((a1 (list a)) (b (list a)) (c (list a)))
@@ -153,6 +147,12 @@
 (assert-not
   :source Sort.prop_big
   (forall ((x Int) (xs (list Int))) (bigger (filterGT x xs) x)))
+(assert-not
+  :source Sort.prop_ordering2
+  (forall ((xs (list Int)) (ys (list Int)) (z Int))
+    (=> (and (smallerEq xs z) (bigger ys z))
+      (= (ordered (++ xs (++ (cons z (as nil (list Int))) ys)))
+        (and (ordered xs) (ordered ys))))))
 (assert-not
   :source Sort.prop_QSortSorts
   (forall ((xs (list Int))) (ordered (qsort xs))))
