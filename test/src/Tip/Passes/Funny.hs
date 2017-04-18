@@ -55,7 +55,7 @@ createGoal prop = do
     let        constants = map (\p' -> Gbl p' :@: []) (propGlobals prop ++ propGblBody prop)
     let        lcls = map Lcl (propInp prop ++ propQnts prop)
     propE      <- updateRef'  (zip lcls constants) (propBody prop)
-    return $   Formula Prove [("goal", Nothing)] [] propE 
+    return $   Formula Prove [("goal", Nothing)] [] $ quantifyAll propE
 
 -- Returns signatures for the input arguments of the application we are
 -- making induction over
