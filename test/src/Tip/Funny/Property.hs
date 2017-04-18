@@ -1,14 +1,17 @@
 module Tip.Funny.Property where
 
-import           Data.List       (partition)
+import           Data.List       (partition, nubBy)
 
 import           Tip.Core        (ands, (===), (==>))
-import           Tip.Fresh       (Fresh, Name, freshNamed, refresh)
+import           Tip.Fresh       (Fresh, Name, freshNamed, refresh, runFreshFrom)
 import           Tip.Funny.Utils (createLocal, isLocal, removeQuant, updateRef)
 import           Tip.Mod         (freshGlobal, locals')
 import           Tip.Types       (BuiltinType (..), Expr (..), Function (..),
                                   Global (..), Head (..), Local (..),
                                   PolyType (..), Type (..))
+
+import           Debug.Trace
+import           Tip.Pretty.SMT (ppExpr)
 
 data Name a => Property a = Prop
     { propInp     :: [Local a]
@@ -34,7 +37,7 @@ createProperty e ids func = do
 createPropExpr :: Name a => Expr a -> [(Expr a, a)] -> Fresh ([Local a], [Local a], Expr a)
 createPropExpr e ids =
     do
-        let subst = map (\ei -> (fst ei, createLocal ei)) ids
+        let subst = map (\ei -> (fst ei, createLocal ei)) ids -- (nubBy (\(e,_) -> (e ==) . fst) ids)
 
         -- Create prop definition
         prop <- createProp . snd . unzip $ subst
@@ -62,7 +65,8 @@ createPropExpr e ids =
         -- get global from property
         --let (Gbl _ :@: ts) = prop
 
-        return (map snd subst , newLocals1++newLocals2, pEqB)
+        traceM $ "Expr: " ++ (show $ ppExpr $ runFreshFrom 0 (return reqImpBody))
+        return (map snd subst , newLocals1 ++ newLocals2, pEqB)
 
 
 
@@ -73,8 +77,8 @@ addReq el newL =
         newEs <- mapM (\(e,i) ->
             do
                 upRefs <- updateRef locals e
-                return (upRefs,i)) exps
-        let eqExpr  = map (\(a,b)-> Lcl b === a) newEs
+                return (upRefs,i)) (exps) 
+        let eqExpr  = map (\(a,b)-> Lcl b === a) el
             andExpr = ands eqExpr
             fA = andExpr --mkQuant Forall newL andExpr
         return fA
@@ -88,7 +92,7 @@ addReq' ls (e:es) =
         eLoc = [ (e', le)   | e'@(Lcl le) <- locals' e]
         diff = [ (e,i)      | (e,i) <- eLoc, e `notElem` map fst ls]
 
-createProp :: Name a =>[Local a] -> Fresh (Expr a)
+createProp :: Name a => [Local a] -> Fresh (Expr a)
 createProp ls = (\name -> Gbl (Global name pType []) :@: lcls) <$> gName
     where
         t     = BuiltinType Boolean

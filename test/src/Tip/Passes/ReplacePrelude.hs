@@ -67,7 +67,7 @@ formula :: Name a => Expr a -> Formula a
 formula = Formula Assert [] [] . quantifyAll   
 
 (<<=) :: Name a => Local a -> Local a -> Expr a
-a <<= b = (Builtin NumLe) :@: [Lcl a,Lcl b]
+a <<= b = Lcl a .<<= Lcl b
 
 (.<<=) :: Name a => Expr a -> Expr a -> Expr a
 a .<<= b = (Builtin NumLe) :@: [a, b]

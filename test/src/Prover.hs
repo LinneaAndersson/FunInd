@@ -49,7 +49,7 @@ eprover = P {name = "eproof",
              flags = ["--tstp-in", "--auto", "--full-deriv"],
              prepare = \i ->
                     do
-                        let str = show . ppTheoryTFF . head . tff [IntToNat, SortsToNat, SkolemiseConjecture] $ i
+                        let str = show . ppTheoryTFF . head . tff [SkolemiseConjecture] $ i
                         writeFile (out_path "prepared") str
                         jukebox_hs str,
              parseOut = pout,
