@@ -32,37 +32,38 @@ replacePrelude theory = do
 
 replaceComparisons :: Name a => Theory a -> Fresh (Theory a)
 replaceComparisons theory = do
-    def <- getLEDef 
-    props <- getLEAsserts
+    --def <- getLEDef 
+    let types = nub [exprType (head es) | (Builtin a :@: es) <- universeBi theory, a `elem` [NumLe,NumLt, NumGt, NumGe]] 
+    props <- concat <$> mapM getLEAsserts types
     let th = replaceComp theory
-    return th{thy_asserts=thy_asserts theory++ props ++ [def]}
+    return th{thy_asserts=thy_asserts theory++ props} -- ++ [def]}
 
-getLEAsserts :: Name a => Fresh [Formula a]
-getLEAsserts = sequence [trans, antisym, tot,refl]
+getLEAsserts :: Name a => Type a -> Fresh [Formula a]
+getLEAsserts t = sequence [trans, antisym, tot,refl]
     where 
         trans = do 
-                a <- freshLocal intType
-                b <- freshLocal intType
-                c <- freshLocal intType
+                a <- freshLocal t
+                b <- freshLocal t
+                c <- freshLocal t
                 return $ formula $ (a <<= b) /\ (b <<= c) ==> (a <<= c)
         antisym = do 
-                a <- freshLocal intType
-                b <- freshLocal intType
+                a <- freshLocal t
+                b <- freshLocal t
                 return $ formula $ (a <<= b) /\ (b <<= a) ==> ((Lcl a) === (Lcl b))
         tot = do 
-                a <- freshLocal intType
-                b <- freshLocal intType
+                a <- freshLocal t
+                b <- freshLocal t
                 return $ formula $ (a <<= b) \/ (b <<= a) 
         refl = do 
-                a <- freshLocal intType
+                a <- freshLocal t
                 return $ formula $ (a <<= a)
-
+{-
 getLEDef :: Name a => Fresh (Formula a)
 getLEDef = do
     a <- freshLocal intType
     b <- freshLocal intType
     return $ formula $ (Lcl a) .<<= ((Builtin NumAdd) :@: [Lcl a,Lcl b])
-        
+  -}      
 formula :: Name a => Expr a -> Formula a
 formula = Formula Assert [] [] . quantifyAll   
 

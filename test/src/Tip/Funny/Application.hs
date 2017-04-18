@@ -2,7 +2,9 @@ module Tip.Funny.Application where
 
 import           Control.Monad      (foldM, zipWithM)
 
-import           Tip.Core           (ands, neg, ors, (/\), (===), bool)
+import           Debug.Trace        (traceM)
+
+import           Tip.Core           (ands, neg, ors, (/\), (===), (=/=), bool)
 import           Tip.Fresh          (Fresh, Name)
 import           Tip.Funny.Property (Property (..))
 import           Tip.Funny.Utils    (updateRef')
@@ -11,7 +13,9 @@ import           Tip.Types          (Builtin (..), Case (..), Expr (..),
                                      Function (..), Global (..), Head (..),
                                      Pattern (..))
 import           Tip.Mod             (universe)
-import           Data.List           (nub)
+import           Data.List           (nub, partition)
+
+type Reqs a = (Expr a, Expr a, Builtin)--(Expr a -> Expr a -> Expr a))
 
 createApps :: Name a => Property a -> Fresh [(Expr a, Expr a)]
 createApps p =
@@ -27,20 +31,19 @@ createApps p =
         --fail $ show $ ((ppExpr  renamedExpr) : (map (ppExpr) outp)) ++ (map (\p' -> ppExpr (Gbl p' :@: [])) (propGlobals p)
 
 
-mExpr :: Name a => [(Expr a, Expr a)] -> Property a -> Expr a -> Fresh [(Expr a,Expr a)]
+mExpr :: Name a => [Reqs a] -> Property a -> Expr a -> Fresh [(Expr a,Expr a)]
 mExpr exprs p (Match m cs)        =
     do
         inM <- mExpr exprs p m
-        lhs <- foldM (getCaseReqs m) [] cs
-        let rhs = map (\(Case _ e) -> e) $ reverse cs
+        lhs <- foldM (getCaseReqs m) [] (reverse cs)
+        let rhs = map (\(Case _ e) -> e) $ cs
         allMatches <- zipWithM
-            (\l e ->
+            (\ls e ->
                 do
-                    expr <- mExpr (l:exprs) p e
-                    let containsMatch = not $ null [0 | (Match _ _) <- universe e]
+                    expr <- mExpr (ls ++ exprs) p e
                     (case expr of
                         [] -> do 
-                                exx <- foldReqs (l:exprs)
+                                exx <- foldReqs (ls ++ exprs)
                                 return [(exx, bool True)]  --  [(ands (map (uncurry (===)) (l:exprs)), bool True)]
                         xs -> return xs)) lhs rhs --if(containsMatch) then xs else [ands (nub xs)])) lhs rhs
         return (inM ++ concat allMatches)
@@ -58,7 +61,7 @@ mExpr exprs p (Lam ls e) = mExpr exprs p e
 mExpr _ _ e = fail $ "Cannot handle let, letrec or quantifier in expression in: "
                         ++ show (SMT.ppExpr  e)
 
-gblExpr :: Name a => [(Expr a, Expr a)] -> Property a -> Expr a -> Fresh (Maybe (Expr a, Expr a))
+gblExpr :: Name a => [Reqs a] -> Property a -> Expr a -> Fresh (Maybe (Expr a, Expr a))
 gblExpr reqs p (Gbl g :@: rhsArgs)
     | gbl_name g == func_name (propFunc p) =
         do
@@ -70,14 +73,29 @@ gblExpr reqs p (Gbl g :@: rhsArgs)
             return $ Just (foldedReq, prop) --(mkQuant Forall freeVars prop')
     | otherwise = return Nothing
 
-foldReqs :: Name a => [(Expr a,Expr a)] -> Fresh (Expr a)
-foldReqs list =
-    let exp = last list
+foldReqs :: Name a => [Reqs a] -> Fresh (Expr a)
+foldReqs list'' =
+    let (list', distinct) = partition (\(_,_,b) -> b == Equal) list''
+        list = map (\(a,b,_) -> (a,b)) list'
+        exp = last list
         i   = init list
         ri  = reverse i
-    in foldM (\e _ -> foldM (\e' l -> updateRef' [l] e' ) e ri) (uncurry (===) exp) i
+    in do
+        eq <- foldM (\e _ -> foldM (\e' l -> updateRef' [l] e' ) e ri) (uncurry (===) exp) i
+        return . ands $ eq : map (\(a,b,_) -> a =/= b) distinct
 
-getCaseReqs :: Name a => Expr a -> [(Expr a,Expr a)] -> Case a -> Fresh [(Expr a, Expr a)]
-getCaseReqs m cs (Case Default e)           = fail "default case " --return $ (m, ors (map (neg . snd) cs)) : cs
-getCaseReqs m cs (Case (LitPat l) e)        = return $ (m, Builtin (Lit l) :@: []) : cs
-getCaseReqs m cs (Case (ConPat gbl args) e) = return $ (m, Gbl gbl :@: map Lcl args) : cs
+getCaseReqs :: Name a => Expr a -> [[Reqs a]] -> Case a -> Fresh [[Reqs a]]
+getCaseReqs m cs (Case Default e)           = do
+     let cs' = map (\(a,b,_) -> (a, b, Distinct)) (concat cs) : cs
+     traceM $ "default case " ++ (show $ SMT.ppExpr e) ++ " not :" ++ (show $ map showReqs (concat cs'))
+     return $ map (\(a,b,_) -> (a, b, Distinct)) (concat cs) : cs 
+     -- fail $ "default case " ++ (show $ SMT.ppExpr e)
+getCaseReqs m cs (Case (LitPat l) e)        = 
+    return $ [(m, Builtin (Lit l) :@: [], Equal)] : cs
+getCaseReqs m cs (Case (ConPat gbl args) e) = 
+    return $ [(m, Gbl gbl :@: map Lcl args, Equal)] : cs
+
+showReqs :: Name a => Reqs a -> String 
+showReqs (a,b,Equal) = show $ SMT.ppExpr (a === b)
+showReqs (a,b,Distinct) = show $ SMT.ppExpr (a =/= b)
+ 

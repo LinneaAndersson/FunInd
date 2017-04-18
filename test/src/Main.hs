@@ -13,6 +13,7 @@ import           Tip.Core              (theoryGoals,Builtin(..),Head(..),Expr(..
 import           Tip.Fresh             (Name,freshPass)
 import           Tip.Mod               (renameLemmas,universeBi)
 import           Tip.Pretty.SMT as SMT
+import           Tip.Passes (StandardPass(..), runPasses)
 import           Tip.Passes.ReplacePrelude (replacePrelude)
 
 import           Constants             (out_path, prop_file, out_smt)
@@ -87,8 +88,12 @@ runMain params preQS = do
         -- parsing tip qith quickspec to theory
         theory_qs <- readTheory prop_file
 
-        let theory' = freshPass (replacePrelude) theory_qs
-        
+        let theory' = head $ freshPass (runPasses [IntToNat]) $ freshPass (replacePrelude) theory_qs
+        putStrLn "Theory before replacePrelude: "
+        putStrLn . show . ppTheory [] $ theory_qs
+        putStrLn "Theory after replacePrelude: "
+        putStrLn . show . ppTheory [] $ theory'
+       
         -- TODO better error handling
         runStateT 
             (runTP $ induct (renameLemmas theory') start)
