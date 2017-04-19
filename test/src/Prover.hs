@@ -15,6 +15,7 @@ import           Tip.Mod            (ppTheoryTFF, tff)
 import           Tip.Passes         (StandardPass (..),runPasses, freshPass)
 import           Tip.Types          (Theory)
 import           Tip.Fresh          (Name)
+import           Tip.Parser         (parseFile)
 
 import           Constants          (out_path)
 import           IO.Process            (jukebox_hs)
@@ -50,7 +51,8 @@ eprover = P {name = "eproof",
              flags = ["--tstp-in", "--auto", "--full-deriv"],
              prepare = \i ->
                     do
-                        writeFile (out_path "pre-prepared") $ show $ ppTheory [] i                       
+                        writeFile (out_path "pre-prepared") $ show $ ppTheory [] i       
+                        i' <- parseFile (out_path "pre-prepared")               
                         let str = show . ppTheoryTFF . head . tff [SkolemiseConjecture] $ i
                         writeFile (out_path "prepared") str
                         jukebox_hs str,
