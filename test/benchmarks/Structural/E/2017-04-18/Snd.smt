@@ -1,0 +1,1 @@
+("0.390021s",[Lemma {lemmaName = "lemma0", lemmaSource = Just "Snd.prop_snd", hLemmas = ["lemma1"], indVar = Nothing, formula = " (snd1 y y) === y"},Lemma {lemmaName = "lemma1", lemmaSource = Nothing, hLemmas = ["lemma1"], indVar = Just [0], formula = " (snd1 x y) === y"}])

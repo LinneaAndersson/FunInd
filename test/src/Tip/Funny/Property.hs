@@ -49,7 +49,7 @@ createPropExpr e ids =
 
         -- Update quantifiers and refresh variables in body
         let rQuant = removeQuant e
-        uRefs <- updateRef subst rQuant
+        uRefs <- return rQuant --updateRef subst rQuant
         let newLocals2 = [ le |
                 (Lcl le) <- locals' uRefs, le `notElem` locals2 ]
         let body = uRefs--mkQuant Forall newLocals2 uRefs
@@ -65,7 +65,7 @@ createPropExpr e ids =
         -- get global from property
         --let (Gbl _ :@: ts) = prop
 
-        traceM $ "Expr: " ++ (show $ ppExpr $ runFreshFrom 0 (return reqImpBody))
+        --traceM $ "Expr: " ++ (show $ ppExpr $ runFreshFrom 0 (return reqImpBody))
         return (map snd subst , newLocals1 ++ newLocals2, pEqB)
 
 

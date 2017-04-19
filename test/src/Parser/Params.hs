@@ -42,7 +42,7 @@ instance Show Params where
 data TipSpec = No | Yes String | UseExisting String deriving Show
 
 data TheoremProver = E | Z
-    deriving Show
+    deriving (Show, Eq)
 
 -- verbosity level
 type OutputLevel = Int

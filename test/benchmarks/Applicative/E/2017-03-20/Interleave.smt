@@ -1,0 +1,1 @@
+[Lemma {lemmaName = "lemma9", hLemmas = [], indVar = Nothing},Lemma {lemmaName = "lemma8", hLemmas = [], indVar = Nothing},Lemma {lemmaName = "lemma2", hLemmas = [], indVar = Nothing},Lemma {lemmaName = "lemma1", hLemmas = [], indVar = Nothing},Lemma {lemmaName = "lemma0", hLemmas = [], indVar = Just 0}]

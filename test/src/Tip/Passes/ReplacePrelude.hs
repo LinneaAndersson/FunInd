@@ -17,6 +17,7 @@ import           Tip.Types
 import           Utils (group)
 
 import           Tip.Pretty.SMT
+import           Tip.Pretty
 
 
 --Returns The "sub"-properties of the property
@@ -39,8 +40,13 @@ replaceComparisons theory = do
     return th{thy_asserts=thy_asserts theory++ props} -- ++ [def]}
 
 getLEAsserts :: Name a => Type a -> Fresh [Formula a]
-getLEAsserts t = sequence [trans, antisym, tot,refl]
-    where 
+getLEAsserts t = do
+    laws <- sequence $ [trans, antisym, tot,refl]
+    leS <- leSucc
+    nLeS <- notLeSucc
+    return $ laws ++ (catMaybes [leS,nLeS]) 
+
+  where 
         trans = do 
                 a <- freshLocal t
                 b <- freshLocal t
@@ -57,6 +63,16 @@ getLEAsserts t = sequence [trans, antisym, tot,refl]
         refl = do 
                 a <- freshLocal t
                 return $ formula $ (a <<= a)
+        leSucc = do 
+                a <- freshLocal t
+                case succ' a of 
+                    Just a' -> return . Just . formula $ (Lcl a) .<<= a'
+                    Nothing -> return Nothing
+        notLeSucc = do 
+                a <- freshLocal t
+                case succ' a of 
+                    Just a' -> return . Just . formula . neg $ (a') .<<= (Lcl a)
+                    Nothing -> return Nothing
 {-
 getLEDef :: Name a => Fresh (Formula a)
 getLEDef = do
@@ -65,7 +81,14 @@ getLEDef = do
     return $ formula $ (Lcl a) .<<= ((Builtin NumAdd) :@: [Lcl a,Lcl b])
   -}      
 formula :: Name a => Expr a -> Formula a
-formula = Formula Assert [] [] . quantifyAll   
+formula = Formula Assert [] [] . quantifyAll
+
+succ' :: Name a => Local a -> Maybe (Expr a)
+succ' l = case lcl_type l of
+            (BuiltinType Integer) -> Just $ (Builtin NumAdd) :@: [Lcl l, intLit 1]
+            (TyCon a _) -> if show (ppVar a) == "Nat" || show (ppVar a) == "nat"
+                then Nothing else Nothing   
+            _ -> Nothing 
 
 (<<=) :: Name a => Local a -> Local a -> Expr a
 a <<= b = Lcl a .<<= Lcl b

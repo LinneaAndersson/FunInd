@@ -88,11 +88,8 @@ runMain params preQS = do
         -- parsing tip qith quickspec to theory
         theory_qs <- readTheory prop_file
 
-        let theory' = head $ freshPass (runPasses [IntToNat]) $ freshPass (replacePrelude) theory_qs
-        putStrLn "Theory before replacePrelude: "
-        putStrLn . show . ppTheory [] $ theory_qs
-        putStrLn "Theory after replacePrelude: "
-        putStrLn . show . ppTheory [] $ theory'
+        let theory' = if (backend params) == E then head $ freshPass (runPasses [IntToNat]) $ freshPass (replacePrelude) theory_qs else theory_qs
+
        
         -- TODO better error handling
         runStateT 
