@@ -19,6 +19,7 @@ import           Tip.Fresh          (Name)
 import           Constants          (out_path)
 import           IO.Process            (jukebox_hs)
 import qualified Tip.Pretty.SMT.Mod as SMT    (ppTheory)
+import Tip.Pretty.SMT    (ppTheory)
 
 type Flag = String
 
@@ -49,6 +50,7 @@ eprover = P {name = "eproof",
              flags = ["--tstp-in", "--auto", "--full-deriv"],
              prepare = \i ->
                     do
+                        writeFile (out_path "pre-prepared") $ show $ ppTheory [] i                       
                         let str = show . ppTheoryTFF . head . tff [SkolemiseConjecture] $ i
                         writeFile (out_path "prepared") str
                         jukebox_hs str,

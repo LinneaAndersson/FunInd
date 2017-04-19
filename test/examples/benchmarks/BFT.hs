@@ -1,48 +1,55 @@
 
 import Tip
-import Prelude hiding ((++),(+++))
+import Prelude hiding ((++),(+++), reverse)
 
+data IntList  = IntNil | IntCons Int IntList deriving (Eq, Ord)
+data TreeList = TreeNil | TreeCons Tree TreeList deriving (Eq, Ord)
 
-(++) :: [Int] -> [Int] -> [Int]
-[]      ++ bs = bs
-(a:as)  ++ bs = a : (as ++ bs)
+(++) :: IntList -> IntList -> IntList
+IntNil          ++ bs = bs
+(IntCons a as)  ++ bs = IntCons a (as ++ bs)
 
-(+++) :: [Tree] -> [Tree] -> [Tree]
-[]      +++ bs = bs
-(a:as)  +++ bs = a : (as +++ bs)
+(+++) :: TreeList -> TreeList -> TreeList
+TreeNil          +++ bs = bs
+(TreeCons a as)  +++ bs = TreeCons a (as +++ bs)
 
-
+reverse :: TreeList -> TreeList
+reverse = qrev TreeNil
+    where 
+        qrev :: TreeList -> TreeList -> TreeList
+        qrev ls TreeNil          = ls
+        qrev ls (TreeCons x xs)  = qrev (TreeCons x ls) xs
 -- trees
 
-data Tree = Node Int [Tree]
+data Tree = Node Int TreeList
  deriving ( Eq, Ord )
 
 -- bft1
 
-bft1 :: Tree -> [Int]
-bft1 t = bftList [t]
+bft1 :: Tree -> IntList
+bft1 t = bftList (TreeCons t TreeNil)
 
-bftList :: [Tree] -> [Int]
-bftList [] = []
+bftList :: TreeList -> IntList
+bftList TreeNil = IntNil
 bftList ts = tops ts ++ bftList (children ts)
 
-tops :: [Tree] -> [Int]
-tops []              = []
-tops (Node x _ : ts) = x : tops ts
+tops :: TreeList -> IntList
+tops TreeNil                = IntNil
+tops (TreeCons (Node x _) ts) = IntCons x $ tops ts
 
-children :: [Tree] -> [Tree]
-children []               = []
-children (Node _ vs : ts) = vs +++ children ts
+children :: TreeList -> TreeList
+children TreeNil                 = TreeNil
+children (TreeCons (Node _ vs) ts) = vs +++ children ts
 
 -- bft2
 
-bft2 :: Tree -> [Int]
-bft2 t = bftQueue [t] []
+bft2 :: Tree -> IntList
+bft2 t = bftQueue (TreeCons t TreeNil) TreeNil
 
-bftQueue :: [Tree] -> [Tree] -> [Int]
-bftQueue []               [] = []
-bftQueue []               rs = bftQueue (reverse rs) []
-bftQueue (Node x ps : qs) rs = x : bftQueue qs (reverse ps +++ rs)
+bftQueue :: TreeList -> TreeList -> IntList
+bftQueue TreeNil TreeNil = IntNil
+bftQueue TreeNil rs = bftQueue (reverse rs) TreeNil
+bftQueue (TreeCons (Node x ps) qs) rs = IntCons x $ bftQueue qs (reverse ps +++ rs)
 
 -- QuickCheck
 {-
