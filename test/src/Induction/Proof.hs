@@ -116,6 +116,7 @@ loop_ind theory (x:xs)  = do
         liftIO $ printTheories prep ind_theory 0 (out_path ("Theory" ++ show x))
 
         printStr 3 "-----------------------------------------"
+        when (null ind_theory) $ fail "no cases -> true"
         mcase (proveAll ind_theory)     -- try induction 
             (do -- proves using induction on x
                 modify (\s -> s{ind = Just x}) -- store variables used

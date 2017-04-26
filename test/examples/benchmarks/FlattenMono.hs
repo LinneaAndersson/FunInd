@@ -1,18 +1,18 @@
 module Tree where
 
 import Tip
-import Prelude hiding ((++), (+++))
+--import Prelude hiding ((++), (+++))
 
 data TreeList = TNil | TCons Tree TreeList
 data IntList = INil | ICons Int IntList
 
 concatMapF0 :: TreeList -> IntList
 concatMapF0 TNil     = INil
-concatMapF0 (TCons a as) = (flatten0 a) ++ (concatMapF0 as)
+concatMapF0 (TCons a as) = (flatten0 a) ++* (concatMapF0 as)
 
-(++) :: IntList -> IntList -> IntList
-INil      ++ bs = bs
-(ICons a as)  ++ bs = ICons a $ as ++ bs
+(++*) :: IntList -> IntList -> IntList
+INil      ++* bs = bs
+(ICons a as)  ++* bs = ICons a $ as ++* bs
 
 data Tree = Node (Tree) Int (Tree) | Niil deriving Eq
 
@@ -20,7 +20,7 @@ data Tree = Node (Tree) Int (Tree) | Niil deriving Eq
 
 flatten0 :: Tree -> IntList
 flatten0 Niil          = INil
-flatten0 (Node p x q) = flatten0 p ++ (ICons x INil) ++ flatten0 q
+flatten0 (Node p x q) = flatten0 p ++* (ICons x INil) ++* flatten0 q
 
 flatten1 :: TreeList -> IntList
 flatten1 TNil                  = INil

@@ -2,7 +2,9 @@
 
 module Prover where
 
-import           Data.List          (isInfixOf)
+import           Control.Monad      (when)
+import           Data.Maybe         (isNothing, isJust)
+import           Data.List          (isInfixOf, find)
 import           Data.Char          (isNumber)
 import qualified Jukebox.Provers.E  as Ep (extractAnswer)
 import           Jukebox.Form       (Answer (..))
@@ -13,7 +15,7 @@ import           Text.Regex.Applicative.Common (digit)
 
 import           Tip.Mod            (ppTheoryTFF, tff)
 import           Tip.Passes         (StandardPass (..),runPasses, freshPass)
-import           Tip.Types          (Theory)
+import           Tip.Types          
 import           Tip.Fresh          (Name)
 import           Tip.Parser         (parseFile)
 
@@ -51,18 +53,30 @@ eprover = P {name = "eproof",
              flags = ["--tstp-in", "--auto", "--full-deriv"],
              prepare = \i ->
                     do
-                        writeFile (out_path "pre-prepared") $ show $ ppTheory [] i       
-                        i' <- parseFile (out_path "pre-prepared")               
-                        let str = show . ppTheoryTFF . head . tff [SkolemiseConjecture] $ i
+                        --writeFile (out_path "pre-prepared") $ show $ ppTheory [] i       
+                        --i' <- parseFile (out_path "pre-prepared")
+                        let theory = head . tff [SkolemiseConjecture] $ i
+                        
+                        validate i theory 
+
+                        let str = show $ ppTheoryTFF theory
                         writeFile (out_path "prepared") str
                         jukebox_hs str,
              parseOut = pout,
              setTime = \i -> unwords ["--cpu-limit=" ++ show (i)]}
     where
         pout :: [String] -> IO (Bool,[String])
-        pout [prob, ep] = do
+        pout [_, ep] = do
+
+            if "Cannot determine problem status within resource limit" `isInfixOf` ep
+                then return (False,[])
+                else if "unsatisfiable" `isInfixOf` ep  
+                    then return (True,output ep) 
+                    else return (False,[])
+
+
             -- parse into Problem Form
-            prob' <- parseString prob
+            {-prob' <- parseString prob
             -- parse the answer
             case Ep.extractAnswer prob' ep of
                     -- a problem occured
@@ -78,7 +92,7 @@ eprover = P {name = "eproof",
                         case ans of
                             Satisfiable     -> return (False,[])
                             Unsatisfiable   -> return (True,output ep)
-                            NoAnswer reason -> return (False,[show reason])
+                            NoAnswer reason -> return (False,[show reason])-}
 
 
 -- A prover instance for Z3
@@ -87,7 +101,12 @@ z3 = P {name = "z3",
         flags = ["-smt2","proof=true","unsat-core=true","pp.pretty-proof=true"],
         prepare = \i ->
             do
-                let str = show . SMT.ppTheory [] . head . freshPass (z3PrePasses) $ i
+                let cleanGoals = i{thy_asserts=(removeGoalName $ thy_asserts i)}
+                let theory =  head . freshPass (z3PrePasses) $ cleanGoals
+        
+                validate i theory 
+
+                let str = show $ SMT.ppTheory [] theory
                 writeFile (out_path "prepared") str
                 return str,
         parseOut = pout,
@@ -104,6 +123,29 @@ z3 = P {name = "z3",
             if "unsat" `isInfixOf` out 
                 then return (True, output out) 
                 else return (False, [])
+
+removeGoalName :: Name a => [Formula a] -> [Formula a]
+removeGoalName []                               = []
+removeGoalName (f@(Formula Prove a b c):xs)     = 
+                        Formula Prove (newAttr a) b c : removeGoalName xs
+    where 
+        newAttr [] = []
+        newAttr (("name",_):xs) = xs
+        newAttr (x:xs) = x : newAttr xs 
+removeGoalName (x:xs)                           = x : removeGoalName xs 
+    
+
+-- check if lemmas or hypotheses disappears
+validate :: Name a => Theory a -> Theory a -> IO ()
+validate t1 t2 = do                        
+    let hyp1 = find (elem ("Assert", Nothing) . fm_attrs) $ thy_asserts t1
+    let hyp2 = find (elem ("Assert", Nothing) . fm_attrs) $ thy_asserts t2
+    when (not (isNothing hyp1) && isNothing hyp2) $ putStrLn "Mono ate our hyp!!!"
+
+    let ls1 = filter (isJust . lookup ("name") . fm_attrs) $ thy_asserts t1
+    let ls2 = filter (isJust . lookup ("name") . fm_attrs) $ thy_asserts t1
+    when (length ls2 < length ls1) $ putStrLn "Mono ate our lemmas!!!"
+
 
 -- split input by lines and then search for lemmas
 output :: String -> [String]

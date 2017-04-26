@@ -88,7 +88,9 @@ runMain params preQS = do
         -- parsing tip qith quickspec to theory
         theory_qs <- readTheory prop_file
 
-        let theory' = if (backend params) == E then freshPass (replacePrelude) theory_qs else theory_qs
+        let theory' = if (backend params) == E then freshPass (replacePrelude) theory_qs else theory_qs --head $ freshPass (runPasses [IntToNat]) theory_qs
+--freshPass (replacePrelude) theory_qs 
+        --putStrLn $ show $ ppTheory [] theory'
 
        
         -- TODO better error handling

@@ -18,15 +18,15 @@ import           Tip.Pretty          (ppVar)
 import           Induction.Types     (Induction (..), Lemma (..), TP (..), getInduction,
                                       axioms, getLemmas, getProver, ind, lemmas,
                                       params)
-import           Parser.Params       (IndType (..), Params (..))
+import           Parser.Params       (IndType (..), Params (..), TheoremProver(..))
 import           IO.Process             (run_process1)
 import           Prover              (Prover (..))
 import           Utils               (mwhen)
 
 
-applicativeInd :: Name a => Bool -> Induction a
-applicativeInd b =  Ind (\th0 -> length $ findApps (thy_funcs th0) (fm_body $ head . fst $ theoryGoals th0)) 
-                        (applicativeInduction b)
+applicativeInd :: Name a => Bool -> Bool -> Induction a
+applicativeInd m b =  Ind (\th0 -> length $ findApps (thy_funcs th0) (fm_body $ head . fst $ theoryGoals th0)) 
+                        (applicativeInduction m b)
                         withIndex
     where
           withIndex th i formula = "--- Proved with application " 
@@ -137,7 +137,7 @@ printStr i s = mwhen ((i <=) <$> (outputLevel . params <$> get))
 getIndType :: Name a => Params -> Induction a
 getIndType p = case indType p of
     Structural  -> structuralInd
-    Applicative -> applicativeInd (splitCases p)
+    Applicative -> applicativeInd (backend p == Z) (splitCases p)
 
 nextTimeout :: Name a => TP a Bool
 nextTimeout = do

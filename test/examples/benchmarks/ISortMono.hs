@@ -1,12 +1,12 @@
 module ISort where
-import Prelude hiding ((++))
+--import Prelude hiding ((++))
 import Tip
 
 data IntList = Nil | Cons Int IntList 
 
-(++) :: IntList -> IntList -> IntList
-Nil      ++ bs = bs
-(Cons a as)  ++ bs = Cons a $ as ++ bs
+(++*) :: IntList -> IntList -> IntList
+Nil      ++* bs = bs
+(Cons a as)  ++* bs = Cons a $ as ++* bs
 
 sort :: IntList -> IntList
 sort = isort
@@ -23,6 +23,7 @@ insert x (Cons y xs) | x <= y    = Cons x $ Cons y xs
 --------------------------------------------------------------------------------
 
 -- Insertion sort
+prop_countCount x ys zs = count x (ys ++* zs) === count x ys + count x zs 
 prop_ISortSorts xs = ordered (isort xs) === True
 prop_ISortCount x xs = count x (isort xs) === count x xs
 
@@ -38,4 +39,3 @@ count x Nil = 0
 count x (Cons y ys)
   | x == y = 1 + count x ys
   | otherwise = count x ys
-
