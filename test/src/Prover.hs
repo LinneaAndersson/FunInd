@@ -13,8 +13,9 @@ import           Text.Regex.Applicative.Common (digit)
 
 import           Tip.Mod            (ppTheoryTFF, tff)
 import           Tip.Passes         (StandardPass (..),runPasses, freshPass)
-import           Tip.Types          (Theory)
+import           Tip.Types          
 import           Tip.Fresh          (Name)
+import           Tip.Core           (theoryGoals)
 
 import           Constants          (out_path)
 import           IO.Process            (jukebox_hs)
@@ -76,6 +77,12 @@ eprover = P {name = "eproof",
                             Unsatisfiable   -> return (True,output ep)
                             NoAnswer reason -> return (False,[show reason])
 
+removeNameFromGoal :: Name a => Theory a -> Theory a
+removeNameFromGoal t = t{thy_asserts=gs++axioms}
+    where
+        (goals,axioms) = theoryGoals t
+        f g = g{fm_attrs = filter (not . ("name" ==) . fst) (fm_attrs g)}
+        gs = map f goals   
 
 -- A prover instance for Z3
 z3 :: Name a => Prover a
@@ -83,7 +90,8 @@ z3 = P {name = "z3",
         flags = ["-smt2","proof=true","unsat-core=true","pp.pretty-proof=true"],
         prepare = \i ->
             do
-                let str = show . SMT.ppTheory [] . head . freshPass (z3PrePasses) $ i
+                let th = removeNameFromGoal i
+                let str = show . SMT.ppTheory [] . head . freshPass (z3PrePasses) $ th
                 writeFile (out_path "prepared") str
                 return str,
         parseOut = pout,

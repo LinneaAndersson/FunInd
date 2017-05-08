@@ -17,6 +17,8 @@ import           Tip.Types             (Expr (..), Formula (..), Quant (..),
                                         Role (..), Signature (..), Theory (..))
 import Utils (group)
 
+import qualified Tip.Passes.FunnyNew as FunnyNew
+
 import Tip.Pretty.SMT
 
 
@@ -66,6 +68,7 @@ createSignatures prop = map (\g -> Signature (gbl_name g) [] (gbl_type g)) (prop
 applicativeInduction :: Name a => Bool -> [Int] -> Theory a -> Fresh [Theory a]
 applicativeInduction _      []      _ = fail "No induction indices"
 applicativeInduction split  (l:ls)  theory' = do
+    FunnyNew.applicativeInduction split [l] theory'{-
     theory <- head <$> runPasses [TypeSkolemConjecture,Monomorphise False,LetLift] theory'    
 
     -- Get the goal expression from the theory
@@ -84,7 +87,7 @@ applicativeInduction split  (l:ls)  theory' = do
     -- Create new theories
     if split 
         then applicativeSplit   (snd $ propExpr !! l) prop newTheory         
-        else applicativeNoSplit (snd $ propExpr !! l) prop newTheory 
+        else applicativeNoSplit (snd $ propExpr !! l) prop newTheory -}
    
 
 applicativeNoSplit :: Name a => [(Expr a, Expr a)] -> Property a -> Theory a -> Fresh [Theory a]

@@ -1,6 +1,7 @@
 module Tip.Funny.Utils where
 
-import           Data.Maybe (fromMaybe)
+import           Data.Maybe (fromMaybe, fromJust)
+import           Data.List  (find)
 
 import           Tip.Core   (exprType,free,mkQuant, Quant(..))
 import           Tip.Fresh  (Fresh, Name, fresh)
@@ -70,6 +71,14 @@ findApps :: Name a => [Function a] -> Expr a -> [(Expr a, a)]
 findApps fs e = funId $ filter (\(Gbl g :@: _ ) -> isFunc (gbl_name g) fs) (globals' e)
     where
         funId = map (\gbl@(Gbl g :@: ls) -> (gbl, gbl_name g))
+
+findFuncApps :: Name a => [Function a] -> Expr a -> [(Expr a,Function a)]
+findFuncApps fs e = funId $ filter (\(Gbl g :@: _ ) -> isFunc (gbl_name g) fs) (globals' e)
+    where
+        funId = map (\gbl@(Gbl g :@: ls) -> (gbl, fromJust $ getFunc (gbl_name g) fs))
+
+getFunc :: Name a => a -> [Function a] -> Maybe (Function a)
+getFunc g fs = find ((g ==) . func_name) fs
 
 isFunc :: Name a => a -> [Function a] -> Bool
 isFunc i = any ((i ==) . func_name)
