@@ -8,7 +8,7 @@ import Control.Exception (Exception, SomeException, catch, throw)
 import Control.Monad.State (modify, put, get, when, liftIO, join, runStateT)
 
 import Induction.Induction (printStr, runProver, addLemma, nextTimeout)
-import Induction.Types (TP(..), IndState(..), Lemma(..), Induction(..), getLemmas, getProver, getInduction)
+import Induction.Types (TP(..), IndState(..), Lemma(..), Induction(..), getLemmas, getProver, getInductions)
 
 import Parser.Params (Params(..))
 
@@ -63,33 +63,30 @@ loop_conj theory curr num continue
                 -- clean output directory
                 liftIO $ removeContentInFolder (out_path "")
 
-                nbrVar  <- inductionSize <$> getInduction
-
                 -- clean temporary state
                 modify (\s -> s{axioms = [], ind=Nothing})
+
                 mcase (prove th) -- Test if solvable without induction
                     (do -- Proved without induction
                         printStr 3 $ "| " ++ f_s  ++  "  -- P | " ++ formulaPrint
-                        addLemma f_name formulaPrint f_source-- add formula to proved lemmas
-                        checkInteractive $ th
-                        -- go to next conjecture
+                        addLemma f_name formulaPrint f_source Nothing -- add formula to proved lemmas
+                         -- -- go to next conjecture
+                        checkInteractive th
                         loop_conj (provedConjecture curr theory) curr (num-1) True)
+
                     (do
-                        let indVars = subsets (nbrInduct params) (nbrVar th)
-                        printStr 4 $ unlines ["", "= Indices to induct on =", " " ++ show indVars,""]
-                        mcase ( loop_ind th indVars ) -- Attempt induction
-                            (do -- Proved using induction
-                                printStr 3 $ "| " ++ f_s  ++  "  -- I | " ++ formulaPrint
-                                addLemma f_name formulaPrint f_source-- add formula to proved lemmas
-                                -- -- go to next conjecture
-                                checkInteractive $ th
-                                loop_conj (provedConjecture curr theory) curr (num-1) True)
-                            (do
-                                -- Unable to prove with current theory
-                                -- try next conjecture
-                                printStr 3 $ "| " ++ f_s  ++  "  -- U | " ++ formulaPrint
-                                checkInteractive $ th
-                                loop_conj theory (curr + 1) num continue))
+                        inds <- getInductions
+                        res <- loop_induction 0 f_s formulaPrint th inds
+                        case res of
+                            Nothing -> do 
+                                 checkInteractive $ th
+                                 loop_conj theory (curr + 1) num continue
+                            Just i ->  do
+                                 addLemma f_name formulaPrint f_source (Just i)-- add formula to proved lemmas
+                                 -- -- go to next conjecture
+                                 checkInteractive $ th
+                                 loop_conj (provedConjecture curr theory) curr (num-1) True)
+                    
                 ) state 
             ) (\e -> do 
                     -- check for user interrupt, write interrupted state
@@ -101,15 +98,38 @@ loop_conj theory curr num continue
         return theory'
     where runTP (TP a) = a
 
+
+loop_induction :: Name a => Int -> String -> String -> Theory a -> [Induction a] -> TP a (Maybe Int) 
+loop_induction _ _ _ _ [] = return Nothing
+loop_induction i f_s formulaPrint th (ind:inds) = do
+    
+    let nbrVar = inductionSize ind
+    params <- params <$> get 
+
+    -- clean temporary state
+    modify (\s -> s{axioms = [], ind=Nothing})
+
+    let indVars = subsets (nbrInduct params) (nbrVar th)
+    printStr 4 $ unlines ["", "= Indices to induct on =", " " ++ show indVars,""]
+    mcase ( loop_ind ind th indVars ) -- Attempt induction
+        (do -- Proved using induction
+            printStr 3 $ "| " ++ f_s  ++  "  -- I | " ++ formulaPrint
+            return (Just i))
+        (do
+            -- Unable to prove with current theory
+            -- try next conjecture
+            printStr 3 $ "| " ++ f_s  ++  "  -- U | " ++ formulaPrint
+            loop_induction (i+1) f_s formulaPrint th inds)
+
 -- Trying to prove a conjecture, looping over all variables in the conjecture
-loop_ind :: Name a => Theory a -> [[Int]] -> TP a Bool
-loop_ind theory []      = return False -- tested all variables, unable to prove
-loop_ind theory (x:xs)  = do
+loop_ind :: Name a => Induction a -> Theory a -> [[Int]] -> TP a Bool
+loop_ind ind theory []      = return False -- tested all variables, unable to prove
+loop_ind ind theory (x:xs)  = do
 
         printStr 4 $ unwords [" Induction on indices", show x ]
 
         --prepare theory for induction on variables/application in x 
-        indPass <- inductionPass <$> getInduction
+        let indPass = inductionPass ind
         let ind_theory = freshPass (indPass x) theory
 
         prep <- prepare <$> getProver
@@ -120,7 +140,7 @@ loop_ind theory (x:xs)  = do
             (do -- proves using induction on x
                 modify (\s -> s{ind = Just x}) -- store variables used
                 return True)
-            (loop_ind theory xs) -- unable to prove, try next variable
+            (loop_ind ind theory xs) -- unable to prove, try next variable
 
 
 checkInteractive :: Name a => Theory a -> TP a ()

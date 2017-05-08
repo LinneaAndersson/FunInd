@@ -15,7 +15,7 @@ import           Tip.Types           (Formula (..), Theory (..), Head(..), Expr(
 import           Tip.Pretty.SMT      (ppExpr)
 import           Tip.Pretty          (ppVar)
 
-import           Induction.Types     (Induction (..), Lemma (..), TP (..), getInduction,
+import           Induction.Types     (Induction (..), Lemma (..), TP (..), getInductions,
                                       axioms, getLemmas, getProver, ind, lemmas,
                                       params)
 import           Parser.Params       (IndType (..), Params (..))
@@ -24,26 +24,26 @@ import           Prover              (Prover (..))
 import           Utils               (mwhen)
 
 
-applicativeInd :: Name a => Bool -> Induction a
-applicativeInd b =  Ind (\th0 -> length $ findApps (thy_funcs th0) (fm_body $ head . fst $ theoryGoals th0)) 
+applicativeInd :: Name a => Bool -> [Induction a]
+applicativeInd b =  [Ind (\th0 -> length $ findApps (thy_funcs th0) (fm_body $ head . fst $ theoryGoals th0)) 
                         (applicativeInduction b)
-                        withIndex
+                        withIndex]
     where
           withIndex th i formula = "--- Proved with application " 
                                     ++ (show i) ++ ": " 
                                     ++ (withArgs $ findApps (thy_funcs th) (fm_body formula) !! (head i))
           withArgs ((Gbl a :@: ls), gbln) = "'" ++ (show $ ppVar gbln) ++ "' with args " ++ (show $ map (ppExpr) ls) 
 
-structuralInd :: Name a => Induction a
-structuralInd = Ind (length . fst . forallView . fm_body . head . fst . theoryGoals) 
+structuralInd :: Name a => [Induction a]
+structuralInd = [Ind (length . fst . forallView . fm_body . head . fst . theoryGoals) 
                     induction
-                    withIndex
+                    withIndex]
     where
           withIndex _ i formula = "--- Proved with variables" ++ ": " ++ (show $ map (vars formula !!) i)
           vars = map (ppVar . lcl_name) . fst . forallView . fm_body
 
-addLemma :: Name a => String -> String -> Maybe String -> TP a ()
-addLemma name formula source = modify (\s ->  s{lemmas = Lemma name source (axioms s) (ind s) formula:lemmas s})
+addLemma :: Name a => String -> String -> Maybe String -> Maybe Int -> TP a ()
+addLemma name formula source i = modify (\s ->  s{lemmas = Lemma name source (axioms s) (ind s) formula i:lemmas s})
 
 -- run the choosen prover on the file given by the filepath
 runProver :: Name a => FilePath -> TP a String
@@ -110,7 +110,11 @@ printResult th =
                 case indVar l of
                     Nothing -> return ()
                     Just i  -> do
-                                strify <- printVar <$> getInduction
+                                index <- case index l of
+                                     Nothing -> fail "induction not set"
+                                     Just i -> return i 
+                                inds <- getInductions
+                                let strify = printVar (inds !! index)
                                 printStr outLevel 
                                             $ strify th i formula
                                        
@@ -134,10 +138,11 @@ printStr :: Name a => Int -> String -> TP a ()
 printStr i s = mwhen ((i <=) <$> (outputLevel . params <$> get))
                 (liftIO $ putStrLn s)
 
-getIndType :: Name a => Params -> Induction a
+getIndType :: Name a => Params -> [Induction a]
 getIndType p = case indType p of
     Structural  -> structuralInd
     Applicative -> applicativeInd (splitCases p)
+    Hybrid      -> structuralInd ++ applicativeInd (splitCases p)
 
 nextTimeout :: Name a => TP a Bool
 nextTimeout = do

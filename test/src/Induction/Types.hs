@@ -29,7 +29,7 @@ data Name a => Induction a = Ind
 data Name a => IndState a = IndState
   {  params :: Params
   ,  prover :: Prover a
-  ,  induct :: Induction a
+  ,  induct :: [Induction a]
   ,  lemmas :: [Lemma]
   ,  ind    :: Maybe [Int]
   ,  axioms :: [String]
@@ -45,10 +45,11 @@ data Lemma = Lemma
     , hLemmas     :: [String]
     , indVar      :: Maybe [Int]
     , formula     :: String
+    , index       :: Maybe Int
     } deriving (Show,Read)
 
-getInduction :: Name a => TP a (Induction a)
-getInduction = induct <$> get
+getInductions :: Name a => TP a ([Induction a])
+getInductions = induct <$> get
 
 getProver :: Name a => TP a (Prover a)
 getProver = prover <$> get
