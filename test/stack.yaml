@@ -6,7 +6,7 @@ packages:
 - ../../tools/tip-lib/
 
 extra-deps:
-- jukebox-0.2.10
+- jukebox-0.2.17
 - minisat-0.1.2
 - structural-induction-0.3
 - twee-0.1
