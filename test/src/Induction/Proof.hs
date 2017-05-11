@@ -6,8 +6,9 @@ import Data.Maybe (fromMaybe)
 
 import Control.Exception (Exception, SomeException, catch, throw)
 import Control.Monad.State (modify, put, get, when, liftIO, join, runStateT)
+import           Data.Time             (getCurrentTime,diffUTCTime)
 
-import Induction.Induction (printStr, runProver, addLemma, nextTimeout)
+import Induction.Induction (printStr, runProver, addLemma, addLemmaI, nextTimeout)
 import Induction.Types (TP(..), IndState(..), Lemma(..), Induction(..), getLemmas, getProver, getInduction)
 
 import Parser.Params (Params(..))
@@ -77,10 +78,13 @@ loop_conj theory curr num continue
                     (do
                         let indVars = subsets (nbrInduct params) (nbrVar th)
                         printStr 4 $ unlines ["", "= Indices to induct on =", " " ++ show indVars,""]
+                        start <- liftIO getCurrentTime
                         mcase ( loop_ind th indVars ) -- Attempt induction
                             (do -- Proved using induction
                                 printStr 3 $ "| " ++ f_s  ++  "  -- I | " ++ formulaPrint
-                                addLemma f_name formulaPrint f_source-- add formula to proved lemmas
+                                end <- liftIO getCurrentTime
+                                let diff = diffUTCTime end start
+                                addLemmaI f_name formulaPrint f_source (Just (show diff))-- add formula to proved lemmas
                                 -- -- go to next conjecture
                                 checkInteractive $ th
                                 loop_conj (provedConjecture curr theory) curr (num-1) True)

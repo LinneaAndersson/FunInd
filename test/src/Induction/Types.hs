@@ -45,6 +45,7 @@ data Lemma = Lemma
     , hLemmas     :: [String]
     , indVar      :: Maybe [Int]
     , formula     :: String
+    , time        :: Maybe String
     } deriving (Show,Read)
 
 getInduction :: Name a => TP a (Induction a)

@@ -43,7 +43,10 @@ structuralInd = Ind (length . fst . forallView . fm_body . head . fst . theoryGo
           vars = map (ppVar . lcl_name) . fst . forallView . fm_body
 
 addLemma :: Name a => String -> String -> Maybe String -> TP a ()
-addLemma name formula source = modify (\s ->  s{lemmas = Lemma name source (axioms s) (ind s) formula:lemmas s})
+addLemma name formula source = addLemmaI name formula source Nothing
+
+addLemmaI :: Name a => String -> String -> Maybe String -> Maybe String -> TP a ()
+addLemmaI name formula source time = modify (\s ->  s{lemmas = Lemma name source (axioms s) (ind s) formula time:lemmas s})
 
 -- run the choosen prover on the file given by the filepath
 runProver :: Name a => FilePath -> TP a String
