@@ -1,0 +1,37 @@
+(declare-sort sk  0)
+(declare-sort sk2  0)
+(declare-sort sk3  0)
+(declare-sort sk4  0)
+(declare-datatypes () ((Nat  (Zero ) (Succ  (proj1-Succ Nat)))))
+(declare-datatypes ()
+  ((NatList  (NNil )
+     (NCons  (proj1-NCons Nat) (proj2-NCons NatList)))))
+(declare-const x  NatList)
+(declare-const y  NatList)
+(declare-const z  Nat)
+(declare-const x2  NatList)
+(declare-fun interleave  (NatList NatList) NatList)
+(declare-fun evens  (NatList) NatList)
+(declare-fun odds  (NatList) NatList)
+(declare-fun pil (NatList NatList) Bool)
+(declare-fun po (NatList) Bool)
+(declare-fun pe (NatList) Bool)
+
+
+(assert (not (= (evens y) x)))
+(assert (= (interleave x x) y))
+(assert (= (interleave x x) (NCons z x2)))
+
+(assert (forall ((y2 NatList)) (= (interleave NNil y2) y2)))
+(assert
+  (forall ((y2 NatList) (z2 Nat) (xs NatList))
+    (= (interleave (NCons z2 xs) y2) (NCons z2 (interleave y2 xs)))))
+(assert (= (evens NNil) NNil))
+(assert
+  (forall ((y2 Nat) (xs NatList))
+    (= (evens (NCons y2 xs)) (NCons y2 (odds xs)))))
+(assert (= (odds NNil) NNil))
+(assert
+  (forall ((y2 Nat) (xs NatList))
+    (= (odds (NCons y2 xs)) (evens xs))))
+(check-sat)
