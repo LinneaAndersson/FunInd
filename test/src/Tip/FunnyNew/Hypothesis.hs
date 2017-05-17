@@ -1,5 +1,7 @@
 module Tip.FunnyNew.Hypothesis where
 
+import           Debug.Trace
+
 import           Control.Monad   (when)
 import           Data.List       (partition,nub)
 
@@ -9,6 +11,7 @@ import           Tip.Funny.Utils (findFuncApps, createLocal, isLocal, removeQuan
 import           Tip.Mod         (freshGlobal, locals')
 import           Tip.Types       
 import           Tip.FunnyNew.Property
+import           Tip.Pretty.SMT  (ppExpr)
 
 type Req a = Expr a 
 
@@ -17,12 +20,23 @@ data Hypothesis a = Hyp
     , assert :: Expr a
     }
 
+instance Name a => Show (Hypothesis a) where
+    show a = unlines ["req: " ++ (show $ ppExpr (req a))
+                        , "assert: " ++ (show $ ppExpr (assert a)) ]     
+
 createHypotheses :: Name a => Property a -> Fresh [Hypothesis a]
 createHypotheses prop = do
     let func = propFunc prop
     let repVars = zip ( map Lcl $ func_args func) $ map fst (propArgs prop)
+    --traceM . show . ppExpr $ func_body func 
     funcBody <- updateRef' repVars $ func_body func
-    getAppReqs prop [] funcBody 
+    --traceM . show . ppExpr $ funcBody
+    hyps <- getAppReqs prop [] (func_body func)
+    --mapM (traceM . show ) hyps
+    mapM (\(Hyp a b) -> do
+             a' <- updateRef' repVars a
+             b' <- updateRef' repVars b
+             return (Hyp a' b')) hyps
 
 -- Get all the hypothesis (depending on function f)
 getAppReqs :: Name a => Property a -> [Req a] -> Expr a -> Fresh [Hypothesis a]
