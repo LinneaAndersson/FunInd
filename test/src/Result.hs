@@ -36,7 +36,7 @@ type Date = String
 printLatex :: Result -> String
 printLatex r = (unlines [start,startTab]) ++ rows ++ (unlines [endTab,end])
     where
-        start = "\\begin{table}[]"
+        start = "\\begin{table}[H]"
         startTab = "\\begin{tabular}{" ++ replicate (1+length (fileNames r)) 'l' ++ "}"
         names = unwords $ intersperse "&" ("":fileNames r) 
         res = map (\(n,ls) -> unwords $ intersperse "&" (n : map show ls)) (results r)

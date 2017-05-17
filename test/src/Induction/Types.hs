@@ -15,6 +15,7 @@ import           Tip.Types           (Theory (..), Formula(..))
 
 import           Parser.Params       (Params (..))
 import           Prover              (Prover (..))
+import           Data.Time           (UTCTime)
 
 -- Monad-transformer for induction
 --type TheoremProverT s m a = StateT s m a
@@ -33,6 +34,7 @@ data Name a => IndState a = IndState
   ,  lemmas :: [Lemma]
   ,  ind    :: Maybe [Int]
   ,  axioms :: [String]
+  ,  start  :: Maybe UTCTime
   }
 
 -- Prover/IO instance

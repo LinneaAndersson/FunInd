@@ -2,7 +2,7 @@
 module Induction.Proof where
 
 import Data.List (find)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe,fromJust)
 
 import Control.Exception (Exception, SomeException, catch, throw)
 import Control.Monad.State (modify, put, get, when, liftIO, join, runStateT)
@@ -68,7 +68,7 @@ loop_conj theory curr num continue
 
                 -- clean temporary state
                 modify (\s -> s{axioms = [], ind=Nothing})
-                mcase (prove th) -- Test if solvable without induction
+                mcase (return False) -- Test if solvable without induction
                     (do -- Proved without induction
                         printStr 3 $ "| " ++ f_s  ++  "  -- P | " ++ formulaPrint
                         addLemma f_name formulaPrint f_source-- add formula to proved lemmas
@@ -78,12 +78,11 @@ loop_conj theory curr num continue
                     (do
                         let indVars = subsets (nbrInduct params) (nbrVar th)
                         printStr 4 $ unlines ["", "= Indices to induct on =", " " ++ show indVars,""]
-                        start <- liftIO getCurrentTime
                         mcase ( loop_ind th indVars ) -- Attempt induction
                             (do -- Proved using induction
                                 printStr 3 $ "| " ++ f_s  ++  "  -- I | " ++ formulaPrint
                                 end <- liftIO getCurrentTime
-                                let diff = diffUTCTime end start
+                                diff <- diffUTCTime end . fromJust . start <$> get
                                 addLemmaI f_name formulaPrint f_source (Just (show diff))-- add formula to proved lemmas
                                 -- -- go to next conjecture
                                 checkInteractive $ th
@@ -120,6 +119,8 @@ loop_ind theory (x:xs)  = do
         liftIO $ printTheories prep ind_theory 0 (out_path ("Theory" ++ show x))
 
         printStr 3 "-----------------------------------------"
+        start <- liftIO getCurrentTime
+        modify (\s -> s{start=Just start})
         mcase (proveAll ind_theory)     -- try induction 
             (do -- proves using induction on x
                 modify (\s -> s{ind = Just x}) -- store variables used
